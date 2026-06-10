@@ -6,12 +6,15 @@ The task is to build a system that takes a handwritten English essay page as inp
 
 The current production pipeline uses Google Document AI for OCR followed by Gemini for error analysis, with end-to-end latency of 40-60 seconds per page and cloud-only architecture. The research goal is to match or exceed this accuracy at lower latency, ideally with a fully local deployment option.
 
+A critical sub-problem is **sentence segmentation** on unruled paper: determining whether a given word belongs to the line above or the line below when spacing is ambiguous. The current production system uses a custom sequence-model algorithm that tracks relationships between previous, current, and next sentences to disambiguate word-line assignments. Any replacement pipeline must match or exceed this capability.
+
 ## Architecture: Why Two Stages
 
 No single open-source model handles the full pipeline. OCR models excel at transcription and layout but lack essay-grading reasoning. Vision-language models can reason about content but are inconsistent at fine-grained text localization. The two-stage design separates these concerns:
 
 ```
 Stage 1 (Perception): Image -> { text, bounding boxes, reading order }
+                                     Includes sentence segmentation on unruled paper
 Stage 2 (Reasoning):  { text + bboxes + image } -> { error bboxes + feedback }
 ```
 
@@ -191,7 +194,7 @@ The methodology follows an eight-phase empirical approach:
 2. **Tier 1 Evaluation**: Test the five most promising candidates. Measure latency, accuracy, VRAM, and qualitative scores.
 3. **Tier 2 Evaluation**: Test baselines and larger models for comparison context.
 4. **Pipeline Architecture**: Test Stage 1 + Stage 2 combinations. Answer the key question: one VLM or two specialized models?
-5. **Reading Order Deep-Dive**: The hardest sub-problem. Compare Nemotron's relational model, heuristic post-processing, and VLM-based ordering.
+5. **Reading Order Deep-Dive**: The hardest sub-problem. Compare Nemotron's relational model, heuristic post-processing, and VLM-based ordering. Includes sentence segmentation: disambiguating word-line assignments on unruled paper. The current production system uses a custom sequence-model algorithm tracking previous/current/next sentence relationships — any replacement must match or exceed this.
 6. **Error Detection Accuracy**: Per-error-type evaluation (capitalization, spelling, grammar, punctuation, structural).
 7. **Auditability Strategy**: Evaluate three approaches to make the system's outputs verifiable by humans.
 8. **Final Assembly & Benchmark**: Combine the best components and run the full end-to-end benchmark against the baseline.

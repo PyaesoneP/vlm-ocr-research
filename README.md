@@ -83,6 +83,7 @@ No single model handles everything. A **two-stage pipeline** is needed:
 ┌──────────────────────────────────────────────────────┐
 │ Stage 1: Transcription + Localization (OCR/VLM)      │
 │  Image → { text, bounding boxes, reading order }     │
+│  Includes sentence segmentation on unruled paper     │
 └──────────────────────────┬───────────────────────────┘
                            │
 ┌──────────────────────────▼───────────────────────────┐
@@ -92,7 +93,9 @@ No single model handles everything. A **two-stage pipeline** is needed:
 
 ```
 
-**Stage 2 candidates:** Qwen3-VL-4B, Qwen3-VL-8B (INT4), SmolVLM-Instruct (2 B), granite-docling-258M, Gemini 3.5 Flash (cloud comparison).
+**Sentence segmentation:** On unruled paper, determining whether a word belongs to the line above or below is non-trivial when spacing is ambiguous. The current production system uses a custom sequence-model algorithm that tracks previous, current, and next sentence relationships to disambiguate word-line assignments. This capability must be replicated or exceeded by any replacement pipeline.
+
+**Stage 2 candidates:** Qwen3-VL-4B, Qwen3-VL-8B (INT4), SmolVLM-Instruct (2 B), granite-docling-258M, Hunyuan VL, Gemini 3.5 Flash (cloud comparison).
 
 Key research question: can a single VLM (e.g., Qwen3-VL) handle both stages end-to-end?
 
