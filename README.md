@@ -59,17 +59,19 @@ vlm-ocr-research/
 | 3 | **NVIDIA Nemotron OCR v2** | 54 M EN / 84 M Multi | **Built-in reading order** (relational model), bounding boxes, production-grade | ~1–2 GB |
 | 4 | **Florence-2-large** | 0.77 B | Microsoft foundation model, prompt-based OCR + boxes, multi-task | ~1.5 GB |
 | 5 | **granite-docling-258M** | 256 M | Ultra-compact document VLM, successor to SmolDocling, DocTags format | ~1 GB |
+| 6 | **MonkeyOCR** | ~3 B | Document-specialized VLM, strong on OCRBench, native bbox + reading order output | ~6 GB |
 
 ### Tier 2: Baselines & Comparison
 
 | # | Candidate | Params | Purpose |
 | --- | --- | --- | --- |
-| 6 | **TrOCR (base + large, handwritten)** | 0.3 B / 0.6 B | IAM-finetuned HTR baseline: line-level only, needs text detector |
-| 7 | **Qwen3-VL-4B-Instruct** | 4 B | Latest Qwen VLM, expanded OCR (32 languages), robust in low light/blur/tilt, strong document parsing. BF16 fits 12 GB (~8 GB). |
-| 8 | **Qwen3-VL-8B-Instruct (INT4)** | 8 B (quantized) | Flagship Qwen VLM: 256K context, advanced spatial perception, 2D/3D grounding. INT4 needed for 12 GB (~6–8 GB). For deployment, BF16 on larger GPU or cloud API. |
-| 9 | **EasyOCR** | ~50 M | Popular easy-to-use OCR; handwriting support on roadmap |
-| 10 | **docTR** | varies | Modular PyTorch detection + recognition, good for documents |
-| 11 | **Tesseract 5** | N/A | Traditional baseline for comparison |
+| 7 | **TrOCR (base + large, handwritten)** | 0.3 B / 0.6 B | IAM-finetuned HTR baseline: line-level only, needs text detector |
+| 8 | **Qwen3-VL-4B-Instruct** | 4 B | Latest Qwen VLM, expanded OCR (32 languages), robust in low light/blur/tilt, strong document parsing. BF16 fits 12 GB (~8 GB). |
+| 9 | **Qwen3-VL-8B-Instruct (INT4)** | 8 B (quantized) | Flagship Qwen VLM: 256K context, advanced spatial perception, 2D/3D grounding. INT4 needed for 12 GB (~6–8 GB). For deployment, BF16 on larger GPU or cloud API. |
+| 10 | **Hunyuan VL** | ~4 B | Tencent VLM with multi-resolution architecture, strong on document benchmarks, potential single-model Stage 1+2 candidate | ~8 GB |
+| 11 | **EasyOCR** | ~50 M | Popular easy-to-use OCR; handwriting support on roadmap |
+| 12 | **docTR** | varies | Modular PyTorch detection + recognition, good for documents |
+| 13 | **Tesseract 5** | N/A | Traditional baseline for comparison |
 
 ---
 
@@ -249,9 +251,11 @@ Compare storage overhead, visual verifiability, and implementation complexity.
 | — | Nemotron OCR v2 | — | — | — | — | — | — | — | — |
 | — | Florence-2-large | — | — | — | — | — | — | — | — |
 | — | granite-docling-258M | — | — | — | — | — | — | — | — |
+| — | MonkeyOCR | — | — | — | — | — | — | — | — |
 | — | TrOCR (handwritten) | — | — | — | — | — | — | — | — |
 | — | Qwen3-VL-4B | — | — | — | — | — | — | — | — |
 | — | Qwen3-VL-8B (INT4) | — | — | — | — | — | — | — | — |
+| — | Hunyuan VL | — | — | — | — | — | — | — | — |
 | — | EasyOCR | — | — | — | — | — | — | — | — |
 | — | docTR | — | — | — | — | — | — | — | — |
 | — | Tesseract 5 | — | — | — | — | — | — | — | — |

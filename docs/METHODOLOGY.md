@@ -79,6 +79,14 @@ Secondary criteria: setup complexity, inference speed, license, and community su
 
 **Risk**: Smallest model means potential accuracy ceiling. DocTags format requires post-processing for standard bbox/text extraction. Handwriting performance on non-printed text is untested.
 
+### 6. MonkeyOCR (~3B params)
+
+**Why**: Document-specialized VLM with strong performance on OCRBench, a comprehensive benchmark covering text recognition, scene text, document parsing, and handwriting. Native support for bounding box output and reading order prediction. At ~3B parameters, fits comfortably in 12 GB at BF16 (~6 GB VRAM).
+
+**Key capability**: Purpose-built for OCR tasks rather than general visual understanding. Stronger document-specific inductive biases compared to general VLMs of similar size. Competitive with larger models on structured OCR benchmarks.
+
+**Risk**: Newer model with smaller community than established options. Handwriting-specific performance on IAM-style data is not yet independently verified in published benchmarks. May require custom inference code outside the HuggingFace ecosystem.
+
 ## Tier 2 Candidates (Baselines & Comparison)
 
 ### 6. TrOCR (0.3B base / 0.6B large, handwritten)
@@ -105,7 +113,15 @@ Secondary criteria: setup complexity, inference speed, license, and community su
 
 **Risk**: Requires bitsandbytes INT4 quantization, which is currently incompatible with Blackwell (sm_120) GPUs. This candidate is blocked until bitsandbytes adds Blackwell support. For deployment (larger GPU or cloud), BF16 is preferred.
 
-### 9-11. Traditional Baselines
+### 10. Hunyuan VL (~4B params)
+
+**Why**: Tencent's vision-language model with strong performance on document understanding benchmarks. Multi-resolution architecture handles varied image sizes well -- particularly relevant for handwritten essays with inconsistent text scaling. Available in multiple sizes with the ~4B variant fitting within 12 GB.
+
+**Key capability**: Multi-resolution processing adapts to varied text sizes without lossy resizing. Strong benchmark scores on document parsing tasks. Potential single-model candidate for both Stage 1 (OCR + bboxes) and Stage 2 (error detection).
+
+**Risk**: Newer ecosystem with less community tooling for structured OCR output extraction compared to HuggingFace-native models. Document-specific benchmarks show promise but handwriting use case is untested in published work. May require vLLM or custom inference pipeline.
+
+### 11-13. Traditional Baselines
 
 **EasyOCR** (~50M params): Popular easy-to-use OCR with 80+ language support. CRNN-based architecture. Provides a "minimum viable" baseline — if VLMs can't beat EasyOCR on handwriting, they're not viable.
 
@@ -127,14 +143,6 @@ Google's latest open VLM family. Strong multimodal reasoning with competitive be
 
 **When to add**: If Qwen3-VL performs well as a single-model solution in Phase 4, Gemma 4 becomes a strong comparison point for the "general VLM vs. specialized pipeline" question. It would also be a natural Stage 2 candidate given its reasoning capabilities.
 
-### Hunyuan VL (Tencent)
-
-Tencent's vision-language model with strong performance on document understanding benchmarks. Multi-resolution architecture handles varied image sizes well.
-
-**Why not in Tier 1**: Relatively newer ecosystem with less community tooling for structured OCR output extraction. The model card emphasizes general visual understanding; document-specific benchmarks are available but the handwriting use case is untested in published work.
-
-**When to add**: If the OCR-specialized models (PaddleOCR-VL, GOT-OCR2.0) underperform on handwriting, Hunyuan VL is worth testing as an alternative document-capable VLM. Its multi-resolution design may help with the varied text sizes in handwritten essays.
-
 ### Other Notable Exclusions
 
 | Model | Reason for exclusion | When to reconsider |
@@ -149,9 +157,9 @@ Tencent's vision-language model with strong performance on document understandin
 
 ### Selection Bias Acknowledgment
 
-The initial candidate list over-represents models from the HuggingFace `transformers` ecosystem (Florence-2, TrOCR, granite-docling, Qwen3-VL, GOT-OCR2.0) and under-represents models requiring custom inference pipelines (Gemma via JAX/Flax, Hunyuan VL via vLLM). This is a pragmatic bias: the shared harness expects a `transformers`-compatible `inference_fn`, and adding non-HuggingFace backends increases per-candidate setup time.
+The initial candidate list over-represents models from the HuggingFace `transformers` ecosystem (Florence-2, TrOCR, granite-docling, Qwen3-VL, GOT-OCR2.0) and under-represents models requiring custom inference pipelines (Gemma via JAX/Flax, MonkeyOCR via its native toolkit). This is a pragmatic bias: the shared harness expects a `transformers`-compatible `inference_fn`, and adding non-HuggingFace backends increases per-candidate setup time.
 
-This bias will be corrected as the research progresses. Models that show strong benchmark performance will be added even if they require custom inference code — the harness is designed to accept any callable, not just HuggingFace pipelines.
+This bias is actively being corrected. Hunyuan VL and MonkeyOCR have been promoted from the exclusion list to Tier 2 and Tier 1 respectively. Models that show strong benchmark performance will be added even if they require custom inference code -- the harness is designed to accept any callable, not just HuggingFace pipelines.
 
 ## Evaluation Metrics
 
