@@ -1,0 +1,54 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+*.egg
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# Environment secrets
+.env
+
+# IDE
+.vscode/settings.json
+.idea/
+
+# Benchmark results (generated)
+benchmark/results/*.json
+
+# Model cache (downloaded from HuggingFace / external sources)
+models/
+.cache/
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Jupyter
+.ipynb_checkpoints/
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+
+# Dataset (requires IAM registration — not redistributable)
+benchmark/test_dataset/*.jpg
+benchmark/test_dataset/*.png
+benchmark/test_dataset/curated/
+benchmark/test_dataset/iam_xml/
+benchmark/test_dataset/dataset_manifest.json
+
+# Dataset archives
+benchmark/test_dataset/*.tgz
+benchmark/test_dataset/*.tar.gz
+benchmark/test_dataset/*.zip
+
+# Keep AGENTS.md tracked (copilot config)
+!AGENTS.md

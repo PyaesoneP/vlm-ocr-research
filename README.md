@@ -59,17 +59,19 @@ vlm-ocr-research/
 | 3 | **NVIDIA Nemotron OCR v2** | 54 M EN / 84 M Multi | **Built-in reading order** (relational model), bounding boxes, production-grade | ~1–2 GB |
 | 4 | **Florence-2-large** | 0.77 B | Microsoft foundation model, prompt-based OCR + boxes, multi-task | ~1.5 GB |
 | 5 | **granite-docling-258M** | 256 M | Ultra-compact document VLM, successor to SmolDocling, DocTags format | ~1 GB |
+| 6 | **MonkeyOCR** | ~3 B | Document-specialized VLM, strong on OCRBench, native bbox + reading order output | ~6 GB |
 
 ### Tier 2: Baselines & Comparison
 
 | # | Candidate | Params | Purpose |
 | --- | --- | --- | --- |
-| 6 | **TrOCR (base + large, handwritten)** | 0.3 B / 0.6 B | IAM-finetuned HTR baseline: line-level only, needs text detector |
-| 7 | **Qwen3-VL-4B-Instruct** | 4 B | Latest Qwen VLM, expanded OCR (32 languages), robust in low light/blur/tilt, strong document parsing. BF16 fits 12 GB (~8 GB). |
-| 8 | **Qwen3-VL-8B-Instruct (INT4)** | 8 B (quantized) | Flagship Qwen VLM: 256K context, advanced spatial perception, 2D/3D grounding. INT4 needed for 12 GB (~6–8 GB). For deployment, BF16 on larger GPU or cloud API. |
-| 9 | **EasyOCR** | ~50 M | Popular easy-to-use OCR; handwriting support on roadmap |
-| 10 | **docTR** | varies | Modular PyTorch detection + recognition, good for documents |
-| 11 | **Tesseract 5** | N/A | Traditional baseline for comparison |
+| 7 | **TrOCR (base + large, handwritten)** | 0.3 B / 0.6 B | IAM-finetuned HTR baseline: line-level only, needs text detector |
+| 8 | **Qwen3-VL-4B-Instruct** | 4 B | Latest Qwen VLM, expanded OCR (32 languages), robust in low light/blur/tilt, strong document parsing. BF16 fits 12 GB (~8 GB). |
+| 9 | **Qwen3-VL-8B-Instruct (INT4)** | 8 B (quantized) | Flagship Qwen VLM: 256K context, advanced spatial perception, 2D/3D grounding. INT4 needed for 12 GB (~6–8 GB). For deployment, BF16 on larger GPU or cloud API. |
+| 10 | **Hunyuan VL** | ~4 B | Tencent VLM with multi-resolution architecture, strong on document benchmarks, potential single-model Stage 1+2 candidate | ~8 GB |
+| 11 | **EasyOCR** | ~50 M | Popular easy-to-use OCR; handwriting support on roadmap |
+| 12 | **docTR** | varies | Modular PyTorch detection + recognition, good for documents |
+| 13 | **Tesseract 5** | N/A | Traditional baseline for comparison |
 
 ---
 
@@ -81,6 +83,7 @@ No single model handles everything. A **two-stage pipeline** is needed:
 ┌──────────────────────────────────────────────────────┐
 │ Stage 1: Transcription + Localization (OCR/VLM)      │
 │  Image → { text, bounding boxes, reading order }     │
+│  Includes sentence segmentation on unruled paper     │
 └──────────────────────────┬───────────────────────────┘
                            │
 ┌──────────────────────────▼───────────────────────────┐
@@ -90,7 +93,9 @@ No single model handles everything. A **two-stage pipeline** is needed:
 
 ```
 
-**Stage 2 candidates:** Qwen3-VL-4B, Qwen3-VL-8B (INT4), SmolVLM-Instruct (2 B), granite-docling-258M, Gemini 2.5 Flash (cloud comparison).
+**Sentence segmentation:** On unruled paper, determining whether a word belongs to the line above or below is non-trivial when spacing is ambiguous. The current production system uses a custom sequence-model algorithm that tracks previous, current, and next sentence relationships to disambiguate word-line assignments. This capability must be replicated or exceeded by any replacement pipeline.
+
+**Stage 2 candidates:** Qwen3-VL-4B, Qwen3-VL-8B (INT4), SmolVLM-Instruct (2 B), granite-docling-258M, Hunyuan VL, Gemini 3.5 Flash (cloud comparison).
 
 Key research question: can a single VLM (e.g., Qwen3-VL) handle both stages end-to-end?
 
@@ -100,11 +105,53 @@ Key research question: can a single VLM (e.g., Qwen3-VL) handle both stages end-
 
 ### Phase 1: Environment Setup & Baseline
 
-1. Set up Python environment (CUDA 12.x, PyTorch, model dependencies).
-2. Collect 10–20 diverse handwritten English essay samples (varying handwriting quality, layouts, error types).
-3. Measure precise Google Document AI + Gemini baseline latency.
-4. Build shared evaluation harness.
-5. Define metric collection JSON schema.
+1. Set up Python environment (CUDA 12.8, PyTorch 2.12 nightly, RTX 5070 Ti 12 GB). -> `scripts/setup.sh`
+2. Collect 10-20 diverse handwritten English essay samples. -> `benchmark/test_dataset/` (100 IAM pages, 20 curated).
+3. Measure precise Google Document AI + Gemini baseline latency. -> `benchmark/baseline.py` -- **29.0s total (Doc AI 6.0s + Gemini 3.5 Flash via Vertex AI 21.3s)**.
+4. Build shared evaluation harness. -> `benchmark/harness.py` + `benchmark/metrics.py`
+5. Define metric collection JSON schema. -> `benchmark/test_dataset/ground_truth_template.json` + `ground_truth.json`
+
+**Validation:** `bash scripts/phase1_validate.sh` -- 27/27 checks pass, 0 failures.
+
+#### Phase 1 Findings
+
+| Finding | Detail |
+|---|---|
+| **Baseline is 29.0s** | 33-52% faster than the 40-60s target. Significant headroom for local models. |
+| **Stage 2 dominates latency** | Gemini error detection is 21.3s (74% of total). Replacing it with a local model is the highest-impact optimization. |
+| **Document AI is fast** | OCR alone is 6.0s. The cloud OCR stage is not the bottleneck. |
+| **Blackwell needs nightly PyTorch** | RTX 5070 Ti (sm_120) unsupported by stable PyTorch 2.6. Requires 2.12 nightly + CUDA 12.8. |
+| **bitsandbytes blocked** | INT4 quantization unavailable for Blackwell -- blocks Qwen3-VL-8B evaluation. |
+| **Free tier API keys inadequate** | 20 req/day + 5 RPM limits make API keys unusable for benchmarking. Vertex AI via ADC resolved this. |
+
+#### Challenges Encountered
+
+1. **PyTorch on Blackwell.** The RTX 5070 Ti has compute capability sm_120. PyTorch 2.6 stable only supports up to sm_90. Installing the stable wheel produced CUDA compatibility warnings and `total_mem` -> `total_memory` attribute errors. Fixed by switching to PyTorch 2.12 nightly with CUDA 12.8.
+
+2. **Gemini API key quota.** Free tier limits (20 req/day, 5 RPM) caused 429 errors across all Flash models and 503 errors during demand spikes. Added retry logic with exponential backoff and rate limiting, but the daily quota was fundamentally too low for 12 sequential calls. Resolved by switching to Vertex AI via ADC (`gcloud auth application-default login`), which has production-tier quota.
+
+3. **Document AI regional endpoint.** The processor is deployed in `asia-southeast1`. The default client connects to the global endpoint and rejected the regional processor. Fixed by configuring a regional API endpoint (`asia-southeast1-documentai.googleapis.com`) via `ClientOptions`.
+
+4. **Ground truth without IAM XML.** The IAM metadata download requires authentication. Without XML annotations, the ground truth generator produced skeleton entries. CER/WER scoring requires IAM registration or manual annotation.
+
+5. **harness.py API change.** `torch.cuda.get_device_properties(0).total_mem` was renamed to `.total_memory` in PyTorch 2.12. Fixed with a one-line change.
+
+#### Phase 1 Artifacts
+
+```
+scripts/setup.sh                     # Environment bootstrap
+scripts/validate_env.py              # Standalone GPU validation
+scripts/download_essay_samples.py    # IAM manifest builder
+scripts/curate_test_subset.py        # Diversity-based subset selector
+scripts/generate_ground_truth.py     # IAM XML parser + skeleton fallback
+scripts/phase1_validate.sh           # 27-check integration suite
+benchmark/test_dataset/DATASET.md    # Dataset provenance doc
+benchmark/test_dataset/ground_truth.json  # 20-entry skeleton
+benchmark/test_dataset/curated_manifest.json  # Subset metadata
+benchmark/results/baseline_google_docai_gemini.json  # 29.0s baseline
+docs/METHODOLOGY.md                  # Full research design doc
+.env.example                         # GCP credential template
+```
 
 ### Phase 2: Tier-1 Candidate Evaluation
 
@@ -201,15 +248,17 @@ Compare storage overhead, visual verifiability, and implementation complexity.
 
 | Rank | Candidate | Latency (s) | CER (%) | WER (%) | Read Order τ | Error F1 | VRAM (GB) | Setup | Flex |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| — | *(baseline)* Google Doc AI + Gemini | ~50 | TBD | TBD | TBD | TBD | N/A (cloud) | N/A | N/A |
+| — | *(baseline)* Google Doc AI + Gemini | 29.0 | — | — | — | — | N/A (cloud) | N/A | N/A |
 | — | PaddleOCR-VL-1.6 | — | — | — | — | — | — | — | — |
 | — | GOT-OCR2.0 | — | — | — | — | — | — | — | — |
 | — | Nemotron OCR v2 | — | — | — | — | — | — | — | — |
 | — | Florence-2-large | — | — | — | — | — | — | — | — |
 | — | granite-docling-258M | — | — | — | — | — | — | — | — |
+| — | MonkeyOCR | — | — | — | — | — | — | — | — |
 | — | TrOCR (handwritten) | — | — | — | — | — | — | — | — |
 | — | Qwen3-VL-4B | — | — | — | — | — | — | — | — |
 | — | Qwen3-VL-8B (INT4) | — | — | — | — | — | — | — | — |
+| — | Hunyuan VL | — | — | — | — | — | — | — | — |
 | — | EasyOCR | — | — | — | — | — | — | — | — |
 | — | docTR | — | — | — | — | — | — | — | — |
 | — | Tesseract 5 | — | — | — | — | — | — | — | — |
