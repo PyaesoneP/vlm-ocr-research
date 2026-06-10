@@ -92,7 +92,7 @@ No single model handles everything. A **two-stage pipeline** is needed:
 
 ```
 
-**Stage 2 candidates:** Qwen3-VL-4B, Qwen3-VL-8B (INT4), SmolVLM-Instruct (2 B), granite-docling-258M, Gemini 2.5 Flash (cloud comparison).
+**Stage 2 candidates:** Qwen3-VL-4B, Qwen3-VL-8B (INT4), SmolVLM-Instruct (2 B), granite-docling-258M, Gemini 3.5 Flash (cloud comparison).
 
 Key research question: can a single VLM (e.g., Qwen3-VL) handle both stages end-to-end?
 
