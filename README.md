@@ -100,11 +100,53 @@ Key research question: can a single VLM (e.g., Qwen3-VL) handle both stages end-
 
 ### Phase 1: Environment Setup & Baseline
 
-1. Set up Python environment (CUDA 12.x, PyTorch, model dependencies).
-2. Collect 10–20 diverse handwritten English essay samples (varying handwriting quality, layouts, error types).
-3. Measure precise Google Document AI + Gemini baseline latency.
-4. Build shared evaluation harness.
-5. Define metric collection JSON schema.
+1. Set up Python environment (CUDA 12.8, PyTorch 2.12 nightly, RTX 5070 Ti 12 GB). -> `scripts/setup.sh`
+2. Collect 10-20 diverse handwritten English essay samples. -> `benchmark/test_dataset/` (100 IAM pages, 20 curated).
+3. Measure precise Google Document AI + Gemini baseline latency. -> `benchmark/baseline.py` -- **29.0s total (Doc AI 6.0s + Gemini 3.5 Flash via Vertex AI 21.3s)**.
+4. Build shared evaluation harness. -> `benchmark/harness.py` + `benchmark/metrics.py`
+5. Define metric collection JSON schema. -> `benchmark/test_dataset/ground_truth_template.json` + `ground_truth.json`
+
+**Validation:** `bash scripts/phase1_validate.sh` -- 27/27 checks pass, 0 failures.
+
+#### Phase 1 Findings
+
+| Finding | Detail |
+|---|---|
+| **Baseline is 29.0s** | 33-52% faster than the 40-60s target. Significant headroom for local models. |
+| **Stage 2 dominates latency** | Gemini error detection is 21.3s (74% of total). Replacing it with a local model is the highest-impact optimization. |
+| **Document AI is fast** | OCR alone is 6.0s. The cloud OCR stage is not the bottleneck. |
+| **Blackwell needs nightly PyTorch** | RTX 5070 Ti (sm_120) unsupported by stable PyTorch 2.6. Requires 2.12 nightly + CUDA 12.8. |
+| **bitsandbytes blocked** | INT4 quantization unavailable for Blackwell -- blocks Qwen3-VL-8B evaluation. |
+| **Free tier API keys inadequate** | 20 req/day + 5 RPM limits make API keys unusable for benchmarking. Vertex AI via ADC resolved this. |
+
+#### Challenges Encountered
+
+1. **PyTorch on Blackwell.** The RTX 5070 Ti has compute capability sm_120. PyTorch 2.6 stable only supports up to sm_90. Installing the stable wheel produced CUDA compatibility warnings and `total_mem` -> `total_memory` attribute errors. Fixed by switching to PyTorch 2.12 nightly with CUDA 12.8.
+
+2. **Gemini API key quota.** Free tier limits (20 req/day, 5 RPM) caused 429 errors across all Flash models and 503 errors during demand spikes. Added retry logic with exponential backoff and rate limiting, but the daily quota was fundamentally too low for 12 sequential calls. Resolved by switching to Vertex AI via ADC (`gcloud auth application-default login`), which has production-tier quota.
+
+3. **Document AI regional endpoint.** The processor is deployed in `asia-southeast1`. The default client connects to the global endpoint and rejected the regional processor. Fixed by configuring a regional API endpoint (`asia-southeast1-documentai.googleapis.com`) via `ClientOptions`.
+
+4. **Ground truth without IAM XML.** The IAM metadata download requires authentication. Without XML annotations, the ground truth generator produced skeleton entries. CER/WER scoring requires IAM registration or manual annotation.
+
+5. **harness.py API change.** `torch.cuda.get_device_properties(0).total_mem` was renamed to `.total_memory` in PyTorch 2.12. Fixed with a one-line change.
+
+#### Phase 1 Artifacts
+
+```
+scripts/setup.sh                     # Environment bootstrap
+scripts/validate_env.py              # Standalone GPU validation
+scripts/download_essay_samples.py    # IAM manifest builder
+scripts/curate_test_subset.py        # Diversity-based subset selector
+scripts/generate_ground_truth.py     # IAM XML parser + skeleton fallback
+scripts/phase1_validate.sh           # 27-check integration suite
+benchmark/test_dataset/DATASET.md    # Dataset provenance doc
+benchmark/test_dataset/ground_truth.json  # 20-entry skeleton
+benchmark/test_dataset/curated_manifest.json  # Subset metadata
+benchmark/results/baseline_google_docai_gemini.json  # 29.0s baseline
+docs/METHODOLOGY.md                  # Full research design doc
+.env.example                         # GCP credential template
+```
 
 ### Phase 2: Tier-1 Candidate Evaluation
 
@@ -201,7 +243,7 @@ Compare storage overhead, visual verifiability, and implementation complexity.
 
 | Rank | Candidate | Latency (s) | CER (%) | WER (%) | Read Order τ | Error F1 | VRAM (GB) | Setup | Flex |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| — | *(baseline)* Google Doc AI + Gemini | ~50 | TBD | TBD | TBD | TBD | N/A (cloud) | N/A | N/A |
+| — | *(baseline)* Google Doc AI + Gemini | 29.0 | — | — | — | — | N/A (cloud) | N/A | N/A |
 | — | PaddleOCR-VL-1.6 | — | — | — | — | — | — | — | — |
 | — | GOT-OCR2.0 | — | — | — | — | — | — | — | — |
 | — | Nemotron OCR v2 | — | — | — | — | — | — | — | — |

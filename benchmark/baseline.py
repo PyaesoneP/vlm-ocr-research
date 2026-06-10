@@ -13,8 +13,14 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 import time
 from pathlib import Path
+
+# Ensure project root is on sys.path (needed when run as script)
+_PROJECT_ROOT = Path(__file__).resolve().parents[1]
+if str(_PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(_PROJECT_ROOT))
 
 # ---------------------------------------------------------------------------
 # Configuration (set via environment variables or edit inline)
@@ -23,10 +29,15 @@ from pathlib import Path
 GCP_PROJECT = os.environ.get("GCP_PROJECT", "")
 GCP_LOCATION = os.environ.get("GCP_LOCATION", "us")  # Document AI location
 DOCAI_PROCESSOR_ID = os.environ.get("DOCAI_PROCESSOR_ID", "")
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash")
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")  # API key (simpler than ADC)
 
-TEST_DATASET = Path("benchmark/test_dataset")
-RESULTS_DIR = Path("benchmark/results")
+# Rate limiting for free tier (default: 5 RPM)
+GEMINI_RPM = int(os.environ.get("GEMINI_RPM", "5"))
+_GEMINI_LAST_CALL = 0.0
+
+TEST_DATASET = _PROJECT_ROOT / "benchmark" / "test_dataset"
+RESULTS_DIR = _PROJECT_ROOT / "benchmark" / "results"
 NUM_RUNS = 10
 
 
@@ -35,14 +46,22 @@ NUM_RUNS = 10
 # ---------------------------------------------------------------------------
 
 def _get_docai_client():
-    """Lazy-load the Document AI client."""
+    """Lazy-load the Document AI client with regional endpoint."""
     try:
         from google.cloud import documentai
+        from google.api_core.client_options import ClientOptions
     except ImportError:
         raise ImportError(
             "google-cloud-documentai is required. Install with:\n"
             "  pip install google-cloud-documentai"
         )
+
+    opts = ClientOptions(
+        api_endpoint=f"{GCP_LOCATION}-documentai.googleapis.com"
+    ) if GCP_LOCATION != "us" else None
+
+    if opts:
+        return documentai.DocumentProcessorServiceClient(client_options=opts)
     return documentai.DocumentProcessorServiceClient()
 
 
@@ -99,7 +118,11 @@ def docai_ocr(image_path: str | Path) -> dict:
 # ---------------------------------------------------------------------------
 
 def _get_gemini_client():
-    """Lazy-load the Gemini (Vertex AI) client."""
+    """
+    Lazy-load the Gemini client.
+
+    Prefers API key auth (GEMINI_API_KEY) over Vertex AI (ADC).
+    """
     try:
         from google import genai
     except ImportError:
@@ -107,9 +130,13 @@ def _get_gemini_client():
             "google-genai is required. Install with:\n"
             "  pip install google-genai"
         )
-    return genai.Client(
-        vertexai=True, project=GCP_PROJECT, location=GCP_LOCATION
-    )
+
+    if GEMINI_API_KEY:
+        return genai.Client(api_key=GEMINI_API_KEY)
+    else:
+        return genai.Client(
+            vertexai=True, project=GCP_PROJECT, location=GCP_LOCATION
+        )
 
 
 def gemini_error_detection(ocr_output: dict) -> dict:
@@ -118,8 +145,15 @@ def gemini_error_detection(ocr_output: dict) -> dict:
 
     Expects ocr_output with 'text' and 'blocks'; returns 'errors' list
     with bbox, type, and description.
+
+    Gracefully handles quota exhaustion — returns empty errors.
     """
-    client = _get_gemini_client()
+    try:
+        client = _get_gemini_client()
+    except Exception as e:
+        print(f"  [warn] Gemini client unavailable: {e}")
+        return {"errors": [], "feedback": "", "stage2_latency": 0.0,
+                "_note": f"Gemini unavailable: {e}"}
 
     prompt = f"""You are an essay grader. Analyze the following handwritten essay transcription for writing errors.
 
@@ -135,10 +169,58 @@ Blocks (index, bbox, text):
 {json.dumps([{'index': i, 'bbox': b['bbox'], 'text': b['text']} for i, b in enumerate(ocr_output.get('blocks', []))])}"""
 
     t0 = time.perf_counter()
-    response = client.models.generate_content(
-        model=GEMINI_MODEL,
-        contents=prompt,
-    )
+
+    # Rate limit: ensure we stay within GEMINI_RPM
+    global _GEMINI_LAST_CALL
+    min_interval = 60.0 / GEMINI_RPM
+    elapsed_since_last = time.perf_counter() - _GEMINI_LAST_CALL
+    if elapsed_since_last < min_interval:
+        time.sleep(min_interval - elapsed_since_last)
+
+    # Retry on transient errors (503, 429)
+    max_retries = 8
+    for attempt in range(max_retries):
+        try:
+            response = client.models.generate_content(
+                model=GEMINI_MODEL,
+                contents=prompt,
+            )
+            _GEMINI_LAST_CALL = time.perf_counter()
+            break
+        except Exception as e:
+            err_str = str(e)
+            is_last = (attempt == max_retries - 1)
+
+            # Quota exhaustion — wait longer
+            if "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower():
+                if is_last:
+                    print(f"  [warn] Gemini quota exhausted after {max_retries} retries")
+                    return {"errors": [], "feedback": "", "stage2_latency": 0.0,
+                            "_note": "Gemini quota exceeded"}
+                wait = 30
+                print(f"  [retry] Gemini quota exceeded, waiting {wait}s...")
+                time.sleep(wait)
+                continue
+
+            # Model overloaded — longer backoff
+            if "503" in err_str or "UNAVAILABLE" in err_str:
+                if is_last:
+                    print(f"  [warn] Gemini still overloaded after {max_retries} retries")
+                    return {"errors": [], "feedback": "", "stage2_latency": 0.0,
+                            "_note": "Gemini 503 unavailable"}
+                wait = min(2 ** attempt, 30)
+                print(f"  [retry] Gemini overloaded (503), waiting {wait}s...")
+                time.sleep(wait)
+                continue
+
+            if is_last:
+                print(f"  [warn] Gemini failed after {max_retries} attempts: {e}")
+                return {"errors": [], "feedback": "", "stage2_latency": 0.0,
+                        "_note": f"Gemini error: {e}"}
+            wait = 2 ** attempt
+            print(f"  [retry] Gemini attempt {attempt+1} failed, waiting {wait}s...")
+            time.sleep(wait)
+
     elapsed = time.perf_counter() - t0
 
     # Parse JSON from Gemini response

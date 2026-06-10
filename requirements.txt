@@ -17,6 +17,10 @@ opencv-python>=4.10.0
 editdistance>=0.8.2
 scipy>=1.14.0
 
+# Utilities (dataset management, IAM XML parsing)
+lxml>=5.0.0
+requests>=2.31.0
+
 # Optional — optimized inference engines
 # vllm>=0.6.0
 # sglang>=0.3.0
