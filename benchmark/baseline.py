@@ -29,8 +29,12 @@ if str(_PROJECT_ROOT) not in sys.path:
 GCP_PROJECT = os.environ.get("GCP_PROJECT", "")
 GCP_LOCATION = os.environ.get("GCP_LOCATION", "us")  # Document AI location
 DOCAI_PROCESSOR_ID = os.environ.get("DOCAI_PROCESSOR_ID", "")
-GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.5-flash")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-3.5-flash")
 GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")  # API key (simpler than ADC)
+
+# Rate limiting for free tier (default: 5 RPM)
+GEMINI_RPM = int(os.environ.get("GEMINI_RPM", "5"))
+_GEMINI_LAST_CALL = 0.0
 
 TEST_DATASET = _PROJECT_ROOT / "benchmark" / "test_dataset"
 RESULTS_DIR = _PROJECT_ROOT / "benchmark" / "results"
@@ -166,25 +170,50 @@ Blocks (index, bbox, text):
 
     t0 = time.perf_counter()
 
+    # Rate limit: ensure we stay within GEMINI_RPM
+    global _GEMINI_LAST_CALL
+    min_interval = 60.0 / GEMINI_RPM
+    elapsed_since_last = time.perf_counter() - _GEMINI_LAST_CALL
+    if elapsed_since_last < min_interval:
+        time.sleep(min_interval - elapsed_since_last)
+
     # Retry on transient errors (503, 429)
-    max_retries = 3
-    last_error = None
+    max_retries = 8
     for attempt in range(max_retries):
         try:
             response = client.models.generate_content(
                 model=GEMINI_MODEL,
                 contents=prompt,
             )
+            _GEMINI_LAST_CALL = time.perf_counter()
             break
         except Exception as e:
-            last_error = e
             err_str = str(e)
-            # Quota exhaustion — don't retry
+            is_last = (attempt == max_retries - 1)
+
+            # Quota exhaustion — wait longer
             if "RESOURCE_EXHAUSTED" in err_str or "quota" in err_str.lower():
-                print(f"  [warn] Gemini quota exhausted: {e}")
-                return {"errors": [], "feedback": "", "stage2_latency": 0.0,
-                        "_note": f"Gemini quota exceeded"}
-            if attempt == max_retries - 1:
+                if is_last:
+                    print(f"  [warn] Gemini quota exhausted after {max_retries} retries")
+                    return {"errors": [], "feedback": "", "stage2_latency": 0.0,
+                            "_note": "Gemini quota exceeded"}
+                wait = 30
+                print(f"  [retry] Gemini quota exceeded, waiting {wait}s...")
+                time.sleep(wait)
+                continue
+
+            # Model overloaded — longer backoff
+            if "503" in err_str or "UNAVAILABLE" in err_str:
+                if is_last:
+                    print(f"  [warn] Gemini still overloaded after {max_retries} retries")
+                    return {"errors": [], "feedback": "", "stage2_latency": 0.0,
+                            "_note": "Gemini 503 unavailable"}
+                wait = min(2 ** attempt, 30)
+                print(f"  [retry] Gemini overloaded (503), waiting {wait}s...")
+                time.sleep(wait)
+                continue
+
+            if is_last:
                 print(f"  [warn] Gemini failed after {max_retries} attempts: {e}")
                 return {"errors": [], "feedback": "", "stage2_latency": 0.0,
                         "_note": f"Gemini error: {e}"}

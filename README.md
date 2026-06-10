@@ -102,7 +102,7 @@ Key research question: can a single VLM (e.g., Qwen3-VL) handle both stages end-
 
 1. Set up Python environment (CUDA 12.8, PyTorch 2.12 nightly, RTX 5070 Ti 12 GB). -> `scripts/setup.sh`
 2. Collect 10-20 diverse handwritten English essay samples. -> `benchmark/test_dataset/` (100 IAM pages, 20 curated).
-3. Measure precise Google Document AI + Gemini baseline latency. -> `benchmark/baseline.py` -- **15.1s avg (Document AI OCR only; Gemini Stage 2 pending quota)**.
+3. Measure precise Google Document AI + Gemini baseline latency. -> `benchmark/baseline.py` -- **26.7s total (Doc AI 4.9s + Gemini 2.5 Flash via Vertex AI 20.4s)**.
 4. Build shared evaluation harness. -> `benchmark/harness.py` + `benchmark/metrics.py`
 5. Define metric collection JSON schema. -> `benchmark/test_dataset/ground_truth_template.json` + `ground_truth.json`
 
@@ -203,7 +203,7 @@ Compare storage overhead, visual verifiability, and implementation complexity.
 
 | Rank | Candidate | Latency (s) | CER (%) | WER (%) | Read Order τ | Error F1 | VRAM (GB) | Setup | Flex |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| — | *(baseline)* Google Doc AI + Gemini | 15.1 | — | — | — | — | N/A (cloud) | N/A | N/A |
+| — | *(baseline)* Google Doc AI + Gemini | 26.7 | — | — | — | — | N/A (cloud) | N/A | N/A |
 | — | PaddleOCR-VL-1.6 | — | — | — | — | — | — | — | — |
 | — | GOT-OCR2.0 | — | — | — | — | — | — | — | — |
 | — | Nemotron OCR v2 | — | — | — | — | — | — | — | — |
