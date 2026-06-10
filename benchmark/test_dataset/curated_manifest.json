@@ -1,0 +1,142 @@
+[
+  {
+    "image": "iam_page_024.jpg",
+    "path": "benchmark/test_dataset/iam_page_024.jpg",
+    "text_density": 0.0387,
+    "estimated_lines": 10,
+    "contrast": 36.18
+  },
+  {
+    "image": "iam_page_031.jpg",
+    "path": "benchmark/test_dataset/iam_page_031.jpg",
+    "text_density": 0.0382,
+    "estimated_lines": 11,
+    "contrast": 35.39
+  },
+  {
+    "image": "iam_page_038.jpg",
+    "path": "benchmark/test_dataset/iam_page_038.jpg",
+    "text_density": 0.0381,
+    "estimated_lines": 9,
+    "contrast": 36.65
+  },
+  {
+    "image": "iam_page_088.jpg",
+    "path": "benchmark/test_dataset/iam_page_088.jpg",
+    "text_density": 0.0379,
+    "estimated_lines": 9,
+    "contrast": 34.41
+  },
+  {
+    "image": "iam_page_029.jpg",
+    "path": "benchmark/test_dataset/iam_page_029.jpg",
+    "text_density": 0.038,
+    "estimated_lines": 9,
+    "contrast": 35.37
+  },
+  {
+    "image": "iam_page_020.jpg",
+    "path": "benchmark/test_dataset/iam_page_020.jpg",
+    "text_density": 0.035,
+    "estimated_lines": 10,
+    "contrast": 33.48
+  },
+  {
+    "image": "iam_page_091.jpg",
+    "path": "benchmark/test_dataset/iam_page_091.jpg",
+    "text_density": 0.0357,
+    "estimated_lines": 10,
+    "contrast": 34.77
+  },
+  {
+    "image": "iam_page_036.jpg",
+    "path": "benchmark/test_dataset/iam_page_036.jpg",
+    "text_density": 0.0298,
+    "estimated_lines": 9,
+    "contrast": 31.38
+  },
+  {
+    "image": "iam_page_077.jpg",
+    "path": "benchmark/test_dataset/iam_page_077.jpg",
+    "text_density": 0.0349,
+    "estimated_lines": 9,
+    "contrast": 34.6
+  },
+  {
+    "image": "iam_page_018.jpg",
+    "path": "benchmark/test_dataset/iam_page_018.jpg",
+    "text_density": 0.0376,
+    "estimated_lines": 11,
+    "contrast": 35.85
+  },
+  {
+    "image": "iam_page_025.jpg",
+    "path": "benchmark/test_dataset/iam_page_025.jpg",
+    "text_density": 0.0359,
+    "estimated_lines": 10,
+    "contrast": 33.62
+  },
+  {
+    "image": "iam_page_005.jpg",
+    "path": "benchmark/test_dataset/iam_page_005.jpg",
+    "text_density": 0.037,
+    "estimated_lines": 10,
+    "contrast": 34.92
+  },
+  {
+    "image": "iam_page_015.jpg",
+    "path": "benchmark/test_dataset/iam_page_015.jpg",
+    "text_density": 0.0358,
+    "estimated_lines": 9,
+    "contrast": 35.52
+  },
+  {
+    "image": "iam_page_028.jpg",
+    "path": "benchmark/test_dataset/iam_page_028.jpg",
+    "text_density": 0.036,
+    "estimated_lines": 9,
+    "contrast": 33.8
+  },
+  {
+    "image": "iam_page_030.jpg",
+    "path": "benchmark/test_dataset/iam_page_030.jpg",
+    "text_density": 0.0358,
+    "estimated_lines": 9,
+    "contrast": 34.76
+  },
+  {
+    "image": "iam_page_078.jpg",
+    "path": "benchmark/test_dataset/iam_page_078.jpg",
+    "text_density": 0.0411,
+    "estimated_lines": 10,
+    "contrast": 37.59
+  },
+  {
+    "image": "iam_page_054.jpg",
+    "path": "benchmark/test_dataset/iam_page_054.jpg",
+    "text_density": 0.0324,
+    "estimated_lines": 10,
+    "contrast": 32.91
+  },
+  {
+    "image": "iam_page_017.jpg",
+    "path": "benchmark/test_dataset/iam_page_017.jpg",
+    "text_density": 0.0374,
+    "estimated_lines": 8,
+    "contrast": 35.15
+  },
+  {
+    "image": "iam_page_010.jpg",
+    "path": "benchmark/test_dataset/iam_page_010.jpg",
+    "text_density": 0.0404,
+    "estimated_lines": 9,
+    "contrast": 36.18
+  },
+  {
+    "image": "iam_page_043.jpg",
+    "path": "benchmark/test_dataset/iam_page_043.jpg",
+    "text_density": 0.0361,
+    "estimated_lines": 10,
+    "contrast": 34.6
+  }
+]
