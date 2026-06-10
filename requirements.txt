@@ -1,0 +1,33 @@
+# Python dependencies for VLM-OCR research
+# Install: pip install -r requirements.txt
+
+# Core
+torch>=2.4.0
+transformers>=4.51.0
+accelerate>=0.34.0
+
+# Quantization (for models that need to fit in 12 GB)
+bitsandbytes>=0.44.0
+
+# Image handling
+Pillow>=10.0.0
+opencv-python>=4.10.0
+
+# Evaluation utilities
+editdistance>=0.8.2
+scipy>=1.14.0
+
+# Optional — optimized inference engines
+# vllm>=0.6.0
+# sglang>=0.3.0
+
+# Optional — cloud baseline
+# google-cloud-documentai>=2.30.0
+# google-genai>=1.0.0
+
+# Optional — candidate-specific
+# easyocr>=1.7.0
+# paddleocr>=3.0.0
+# paddlepaddle>=3.0.0
+# python-doctr>=1.0.0
+# pytesseract>=0.3.0
