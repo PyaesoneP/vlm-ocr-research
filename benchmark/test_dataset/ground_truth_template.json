@@ -1,0 +1,45 @@
+# ground_truth.json — Template for handwritten essay test dataset annotations
+#
+# Place in benchmark/test_dataset/ alongside your sample images.
+# Fill in the actual values for each test image.
+#
+# Schema (one entry per test image):
+#   image          — filename of the test image
+#   text           — ground-truth full transcription
+#   reading_order  — rank of each block (0 = first to read, 1 = second, …)
+#   blocks         — per-text-block bounding boxes and text
+#   errors         — known writing errors with location and type
+#
+# Error types: capitalization | spelling | grammar | punctuation | structural
+
+[
+  {
+    "image": "sample_01.jpg",
+    "text": "EXAMPLE: The full ground-truth transcription of the page goes here.",
+    "reading_order": [0, 1, 2],
+    "blocks": [
+      {
+        "bbox": [50, 30, 500, 80],
+        "text": "First line of text",
+        "reading_order_rank": 0
+      },
+      {
+        "bbox": [50, 100, 500, 150],
+        "text": "Second line of text",
+        "reading_order_rank": 1
+      }
+    ],
+    "errors": [
+      {
+        "type": "capitalization",
+        "bbox": [50, 30, 80, 50],
+        "description": "First letter should be capitalized"
+      },
+      {
+        "type": "spelling",
+        "bbox": [200, 100, 350, 130],
+        "description": "'recieve' should be 'receive'"
+      }
+    ]
+  }
+]
