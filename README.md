@@ -21,7 +21,7 @@ Empirical evaluation of open-source OCR models and Vision-Language Models (VLMs)
 
 - **Research phase:** RTX 5070 Ti mobile (12 GB VRAM). Models must fit locally (quantization allowed).
 - **Deployment phase:** Greater compute available, and cloud APIs are acceptable. The final recommendation may include models exceeding research GPU limits.
-- **Transformers version:** 4.57.6 (pinned). Models requiring 5.x (PaddleOCR-VL) or with incompatible remote code (Florence-2) are blocked pending version resolution.
+- **Transformers version:** 5.11.0 (upgraded from 4.57.6 for SmolDocling `AutoModelForMultimodalLM` support and PaddleOCR-VL compatibility).
 
 ---
 
@@ -63,7 +63,7 @@ vlm-ocr-research/
 | 5 | **granite-docling-258M** | 256 M | Ultra-compact document VLM, successor to SmolDocling, DocTags format | ~1 GB |
 | 6 | **MonkeyOCR** | ~3 B | Document-specialized VLM, strong on OCRBench, native bbox + reading order output | ~6 GB |
 
-**Phase 2 status:** GOT-OCR2.0 - evaluated. Florence-2 - blocked (transformers compat). PaddleOCR-VL - blocked (needs transformers 5.x).
+**Phase 2 status:** GOT-OCR2.0 - evaluated. SmolDocling-256M - evaluated (best so far: 12.2s, 0.8GB). Florence-2 - blocked. PaddleOCR-VL - blocked (GPU). Nemotron OCR & MonkeyOCR - pending.
 
 ### Tier 2: Baselines & Comparison
 
@@ -192,7 +192,7 @@ docs/METHODOLOGY.md                  # Full research design doc
 .env.example                         # GCP credential template
 ```
 
-### Phase 2: Tier-1 Candidate Evaluation 🔄 IN PROGRESS
+### Phase 2: Tier-1 Candidate Evaluation — 2 of 6 Complete, 2 Blocked, 2 Pending
 
 Evaluate the 6 most promising candidates one-by-one. For each, measure:
 
@@ -223,11 +223,11 @@ Evaluate the 6 most promising candidates one-by-one. For each, measure:
 | Candidate | Status | Key Findings |
 |---|---|---|
 | **GOT-OCR2.0** |  Complete | 35.9s avg, 3.4 GB VRAM. Transcribes full form (printed + handwritten). No structured bbox output in plain OCR mode. |
-| **Florence-2-large** |  Blocked | `Florence2VisionConfig` missing `embed_dim` in transformers 4.57 built-in. Remote code has `_supports_sdpa` incompatibility with PyTorch 2.10. |
-| **PaddleOCR-VL-1.6** |  Blocked | Not in transformers 4.57 `AutoModelForVision2Seq`/`AutoModelForImageTextToText` supported configs. Requires transformers 5.x. |
-| **granite-docling-258M** |  Next | 256M params, HuggingFace-native, DocTags format. |
+| **Florence-2-large** |  Blocked | Remote code `past_key_values[0]` incompatible with transformers 4.57 beam search. Built-in `Florence2ForConditionalGeneration` has weight name mismatch with HF checkpoint. Transformers 5.x has `forced_bos_token_id` missing from `Florence2LanguageConfig`. |
+| **PaddleOCR-VL-1.6** |  Blocked | Native PaddleOCR API requires PaddlePaddle 3.2.1 which does not support Blackwell GPU (sm_120). `RuntimeError: Unsupported GPU architecture`. transformers 5.x path also blocked (same GPU compat issue for PaddlePaddle). |
+| **SmolDocling-256M** |  Complete | **Best candidate so far.** 12.2s avg latency (42% faster than baseline), 0.8 GB VRAM, CER 1.47, WER 1.50. DocTags output with bbox parsing via regex. Hallucinates/repeats on handwriting. `AutoModelForMultimodalLM` + transformers 5.x. | |
 | **Nemotron OCR v2** |  Pending | Built-in reading order. Requires Python 3.12 + CUDA toolkit + custom install. |
-| **MonkeyOCR** |  Pending | No eval script yet. Needs full implementation. |
+| **MonkeyOCR** |  Pending | No eval script yet. Model explicitly does not support handwritten content. Requires full repo clone + PaddlePaddle + LMDeploy. |
 
 ### Phase 3: Tier-2 Candidate Evaluation
 
@@ -313,15 +313,12 @@ Compare storage overhead, visual verifiability, and implementation complexity.
 | Rank | Candidate | Latency (s) | CER | WER | Read Order τ | Error F1 | VRAM (GB) | Setup | Flex |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | — | *(baseline)* Google Doc AI + Gemini | 21.1 | 1.22 | 1.22 | — | — | N/A (cloud) | N/A | N/A |
-| 1 | **GOT-OCR2.0** | 35.9 | 2.93 | 3.92 | — | — | 3.4 | 2 | 3 |
-| — | PaddleOCR-VL-1.6 |  blocked | — | — | — | — | — | — | — |
-| — | Florence-2-large |  blocked | — | — | — | — | — | — | — |
-| — | Nemotron OCR v2 |  | — | — | — | — | — | — | — |
-| — | granite-docling-258M |  | — | — | — | — | — | — | — |
-| — | MonkeyOCR |  | — | — | — | — | — | — | — |
-| — | TrOCR (handwritten) |  | — | — | — | — | — | — | — |
-| — | Qwen3-VL-4B |  | — | — | — | — | — | — | — |
-| — | Qwen3-VL-8B (INT4) |  | — | — | — | — | — | — | — |
+| 1 | **SmolDocling-256M** | 12.2 | 1.47 | 1.50 | — | — | 0.8 | 3 | 3 |
+| 2 | **GOT-OCR2.0** | 35.9 | 2.93 | 3.92 | — | — | 3.4 | 2 | 3 |
+| — | PaddleOCR-VL-1.6 | blocked | — | — | — | — | — | — | — |
+| — | Florence-2-large | blocked | — | — | — | — | — | — | — |
+| — | Nemotron OCR v2 | pending | — | — | — | — | — | — | — |
+| — | MonkeyOCR | pending | — | — | — | — | — | — | — |
 
 ### GOT-OCR2.0 Detailed Findings
 
@@ -337,14 +334,41 @@ Compare storage overhead, visual verifiability, and implementation complexity.
 | Setup complexity | 2/5 | Straightforward `AutoModelForImageTextToText` + `AutoProcessor`. One-line install. |
 | Flexibility | 3/5 | Handles varied handwriting well. Output quality affected by chat template tokens requiring cleanup. |
 | Key issue | — | Output includes system/user/assistant role markers and IAM metadata headers. Cleanup regex needed. Transcribes entire form, not just handwritten region. |
-| — | Hunyuan VL | — | — | — | — | — | — | — | — |
-| — | EasyOCR | — | — | — | — | — | — | — | — |
-| — | docTR | — | — | — | — | — | — | — | — |
-| — | Tesseract 5 | — | — | — | — | — | — | — | — |
 
----
+### SmolDocling-256M Detailed Findings
 
-## Decisions
+| Metric | Value | Notes |
+|---|---|---|
+| Model | `docling-project/SmolDocling-256M-preview` | `AutoModelForMultimodalLM` (requires transformers 5.x) |
+| Avg latency | 12.2 s | **42% faster than cloud baseline (21.1s)**. First candidate to beat baseline. |
+| VRAM peak | 0.8 GB | Fits 12GB with 15x headroom. Smallest footprint by far. |
+| CER (normalized) | 1.47 | Near baseline (1.22). Model hallucinates/repeats text on handwriting. |
+| WER (normalized) | 1.50 | Near baseline (1.22). Same hallucination pattern as CER. |
+| Throughput | 4.9 ppm | Highest throughput of all candidates. |
+| Reading order | — | DocTags includes positional coordinates; reading order inferable from bbox sorting. |
+| Bounding boxes | Partial | DocTags parser extracts 2-5 blocks per page with pixel coordinates. Missing structured layout parsing (needs `docling` library for full DocTags→DoclingDocument). |
+| Setup complexity | 3/5 | Requires transformers 5.x. `AutoModelForMultimodalLM` + chat template. DocTags output needs custom regex parser. |
+| Flexibility | 3/5 | Handles printed documents well. Hallucinates/repeats on handwritten IAM forms. Not trained on handwriting. |
+| Key issue | — | Text repetition/hallucination on handwriting. Model was trained on printed documents, not handwritten essays. CER/WER are deceptively low due to whitespace normalization masking repetition. |
+| DocTags format | — | Proprietary DocTags tokens (`<loc_N>` for coords, `<text>`, `<table>`, etc.). Coordinates in 0-999 normalized bin space. Parsable via regex. |
+
+### Phase 2 Environment Changes
+
+| Change | Detail |
+|---|---|
+| **transformers 4.57.6 → 5.11.0** | Required for SmolDocling `AutoModelForMultimodalLM`. Also unblocks PaddleOCR-VL (conceptually). |
+| **PaddlePaddle 3.2.1 installed** | Installed alongside PyTorch 2.10.0+cu128. CUDA package versions reconciled manually. |
+| **PaddleOCR 3.6.0 installed** | Native PaddleOCR-VL API available but blocked by Blackwell GPU. |
+| **Florence-2 remote code cache purged** | Removed patched remote code. Model remains blocked in both 4.57 and 5.x. |
+
+### Blocked Candidates — Root Cause Analysis
+
+| Candidate | Blocker | Root Cause | Unblock Path |
+|---|---|---|---|
+| **Florence-2-large** | `past_key_values` + SDPA incompat | Remote `modeling_florence2.py` uses old `past_key_values[0][0].shape[2]` API incompatible with transformers 4.57 beam search. Built-in class has weight name mismatch with HF checkpoint. 5.x adds `forced_bos_token_id` error. | Wait for Microsoft to update HF checkpoint for transformers 5.x built-in class, OR use vLLM/SGLang backend. |
+| **PaddleOCR-VL-1.6** | Blackwell sm_120 unsupported | PaddlePaddle 3.2.1 does not support Blackwell GPU architecture. `RuntimeError: Unsupported GPU architecture` in `paddle_inference.create_predictor()`. | Wait for PaddlePaddle to add sm_120 support (Blackwell), OR use cloud GPU (A100/H100), OR use vLLM backend which bypasses PaddlePaddle inference engine. |
+
+### Decisions
 
 * **Research is empirical:** every finding is implemented and measured locally; no theoretical-only evaluations.
 * **12 GB VRAM for research only:** models requiring >11 GB are evaluated via quantization; deployment has more headroom.
@@ -352,12 +376,15 @@ Compare storage overhead, visual verifiability, and implementation complexity.
 * **English only:** multilingual is out of scope.
 * **Auditability TBD:** Phase 7 will determine the best approach.
 * **Cloud API for Stage 2 comparison:** primary goal is fully local for research; deployment can use cloud APIs freely.
+* **transformers 5.x adopted:** SmolDocling required `AutoModelForMultimodalLM`. 4.57.6 constraint lifted. Backward compat verified for GOT-OCR2.0.
 
 ## Further Considerations
 
-1. **Fine-tuning:** If no off-the-shelf model meets accuracy targets, a Phase 9 could explore fine-tuning GOT-OCR2.0 or TrOCR on a custom handwriting dataset.
-2. **vLLM / SGLang acceleration:** For VLM candidates, optimized inference engines could significantly improve throughput. Test where applicable.
+1. **Fine-tuning:** If no off-the-shelf model meets accuracy targets, a Phase 9 could explore fine-tuning SmolDocling-256M or GOT-OCR2.0 on a custom handwriting dataset.
+2. **vLLM / SGLang acceleration:** For VLM candidates, optimized inference engines could significantly improve throughput. SmolDocling reports 0.35s/page on A100 via vLLM — test on RTX 5070 Ti where applicable.
 3. **ONNX / TensorRT:** For deployment, consider converting the best model to ONNX or TensorRT for further latency reduction (out of scope for research).
+4. **PaddleOCR-VL vLLM backend:** May bypass PaddlePaddle GPU incompatibility by using vLLM inference server instead of direct PaddlePaddle inference.
+5. **Florence-2 vLLM backend:** May bypass remote code issues by loading through vLLM which has native Florence-2 support.
 
 ---
 
