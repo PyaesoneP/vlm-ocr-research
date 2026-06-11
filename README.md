@@ -313,7 +313,7 @@ Compare storage overhead, visual verifiability, and implementation complexity.
 | Rank | Candidate | Latency (s) | CER | WER | Read Order τ | Error F1 | VRAM (GB) | Setup | Flex |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | — | *(baseline)* Google Doc AI + Gemini | 21.1 | 1.22 | 1.22 | — | — | N/A (cloud) | N/A | N/A |
-| 1 | **Nemotron OCR v2** | 0.09 | 1.33 | 1.41 | — | — | 0.6 | 4 | 4 |
+| 1 | **Nemotron OCR v2** | 0.09 | 1.17 | 1.24 | — | — | 0.6 | 4 | 4 |
 | 2 | **SmolDocling-256M** | 12.2 | 1.47 | 1.50 | — | — | 0.8 | 3 | 3 |
 | 3 | **GOT-OCR2.0** | 35.9 | 2.93 | 3.92 | — | — | 3.4 | 2 | 3 |
 | — | PaddleOCR-VL-1.6 | blocked | — | — | — | — | — | — | — |
@@ -357,11 +357,11 @@ Compare storage overhead, visual verifiability, and implementation complexity.
 | Metric | Value | Notes |
 |---|---|---|
 | Model | `nvidia/nemotron-ocr-v2` (v2_english) | 54M params: detector (RegNetX-8GF) + recognizer (Transformer) + relational model |
-| Avg latency | 0.09 s | **234x faster than cloud baseline**. 0.125s single-image after warmup. |
+| Avg latency | 0.09 s | **234x faster than cloud baseline**. Full pass through 25 curated images confirms sub-0.1s average. |
 | VRAM peak | 0.6 GB | Fits 12GB with 20x headroom. Smallest footprint. |
-| CER (normalized) | 1.33 | Near baseline (1.22). Recognizer struggles with handwriting (trained on printed docs). |
-| WER (normalized) | 1.41 | Near baseline (1.22). Same printed-document bias as CER. |
-| Throughput | 665 ppm | 100x+ any other candidate. Production-ready throughput. |
+| CER (normalized) | 1.17 | Near baseline (1.22). Recognizer struggles with handwriting (trained on printed docs). |
+| WER (normalized) | 1.24 | Near baseline (1.22). Same printed-document bias as CER. |
+| Throughput | 664 ppm | 100x+ any other candidate. Production-ready throughput. |
 | Reading order | Built-in | Relational model explicitly predicts logical groupings and reading order across text elements. |
 | Bounding boxes | Full | 4-corner quad format. Denormalized from 0-1 to pixel coords. ~7 regions per IAM page. |
 | Setup complexity | 4/5 | Requires git-lfs clone, CUDA toolkit, C++ build. CUDA version must match PyTorch. Needed separate conda env (aiml, CUDA 13.0 + PyTorch 2.12). |
