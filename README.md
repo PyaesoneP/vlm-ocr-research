@@ -12,14 +12,16 @@ Empirical evaluation of open-source OCR models and Vision-Language Models (VLMs)
 
 | Metric | Current (Google Document AI + Gemini) |
 |--------|--------------------------------------|
-| End-to-end latency | ~40–60 seconds per handwritten page |
+| End-to-end latency | **21.1 s** (Doc AI 3.1s + Gemini 3.5 Flash 17.7s) |
 | Cost | Document AI: $1.50–$30/1K pages + Gemini API per-token |
 | Architecture | Cloud-only, proprietary |
+| Model | `gemini-3.5-flash` via Vertex AI (`location="global"`) |
 
 ## Constraints
 
 - **Research phase:** RTX 5070 Ti mobile (12 GB VRAM). Models must fit locally (quantization allowed).
 - **Deployment phase:** Greater compute available, and cloud APIs are acceptable. The final recommendation may include models exceeding research GPU limits.
+- **Transformers version:** 4.57.6 (pinned). Models requiring 5.x (PaddleOCR-VL) or with incompatible remote code (Florence-2) are blocked pending version resolution.
 
 ---
 
@@ -60,6 +62,8 @@ vlm-ocr-research/
 | 4 | **Florence-2-large** | 0.77 B | Microsoft foundation model, prompt-based OCR + boxes, multi-task | ~1.5 GB |
 | 5 | **granite-docling-258M** | 256 M | Ultra-compact document VLM, successor to SmolDocling, DocTags format | ~1 GB |
 | 6 | **MonkeyOCR** | ~3 B | Document-specialized VLM, strong on OCRBench, native bbox + reading order output | ~6 GB |
+
+**Phase 2 status:** GOT-OCR2.0 - evaluated. Florence-2 - blocked (transformers compat). PaddleOCR-VL - blocked (needs transformers 5.x).
 
 ### Tier 2: Baselines & Comparison
 
@@ -105,24 +109,46 @@ Key research question: can a single VLM (e.g., Qwen3-VL) handle both stages end-
 
 ### Phase 1: Environment Setup & Baseline
 
-1. Set up Python environment (CUDA 12.8, PyTorch 2.12 nightly, RTX 5070 Ti 12 GB). -> `scripts/setup.sh`
-2. Collect 10-20 diverse handwritten English essay samples. -> `benchmark/test_dataset/` (100 IAM pages, 20 curated).
-3. Measure precise Google Document AI + Gemini baseline latency. -> `benchmark/baseline.py` -- **29.0s total (Doc AI 6.0s + Gemini 3.5 Flash via Vertex AI 21.3s)**.
+1. Set up Python environment (CUDA 12.8, PyTorch 2.10, RTX 5070 Ti 12 GB). -> `scripts/setup.sh`
+2. Collect handwritten essay samples. -> `benchmark/test_dataset/` (1,539 IAM forms from Kaggle, 25 curated).
+3. Measure Google Document AI + Gemini baseline latency. -> `benchmark/baseline.py` — **21.1s total (Doc AI 3.1s + Gemini 3.5 Flash 17.7s)**.
 4. Build shared evaluation harness. -> `benchmark/harness.py` + `benchmark/metrics.py`
-5. Define metric collection JSON schema. -> `benchmark/test_dataset/ground_truth_template.json` + `ground_truth.json`
+5. Define metric collection JSON schema. -> `benchmark/test_dataset/ground_truth.json`
 
-**Validation:** `bash scripts/phase1_validate.sh` -- 27/27 checks pass, 0 failures.
+**Validation:** `bash scripts/phase1_validate.sh` — 27/27 checks pass, 0 failures.
 
 #### Phase 1 Findings
 
 | Finding | Detail |
 |---|---|
-| **Baseline is 29.0s** | 33-52% faster than the 40-60s target. Significant headroom for local models. |
-| **Stage 2 dominates latency** | Gemini error detection is 21.3s (74% of total). Replacing it with a local model is the highest-impact optimization. |
-| **Document AI is fast** | OCR alone is 6.0s. The cloud OCR stage is not the bottleneck. |
-| **Blackwell needs nightly PyTorch** | RTX 5070 Ti (sm_120) unsupported by stable PyTorch 2.6. Requires 2.12 nightly + CUDA 12.8. |
-| **bitsandbytes blocked** | INT4 quantization unavailable for Blackwell -- blocks Qwen3-VL-8B evaluation. |
+| **Baseline is 21.1s** | 48–65% faster than the original 40-60s target. Local models must beat 21.1s. |
+| **Stage 2 dominates latency** | Gemini error detection is 17.7s (84% of total). Replacing it with a local model is the highest-impact optimization. |
+| **Document AI is fast** | OCR alone is 3.1s. The cloud OCR stage is not the bottleneck. |
+| **Gemini needs `location="global"`** | `gemini-3.5-flash` is a preview model only available in the `global` region on Vertex AI. Using `asia-southeast1` returns 404. |
+| **Blackwell needs nightly PyTorch** | RTX 5070 Ti (sm_120) unsupported by stable PyTorch 2.6. Uses 2.10.0+cu128. |
+| **bitsandbytes blocked** | INT4 quantization unavailable for Blackwell — blocks Qwen3-VL-8B evaluation. |
 | **Free tier API keys inadequate** | 20 req/day + 5 RPM limits make API keys unusable for benchmarking. Vertex AI via ADC resolved this. |
+
+#### How to Run the Baseline
+
+```bash
+# 1. Authenticate with Google Cloud
+cd vlm-ocr-research
+gcloud auth application-default login
+
+# 2. Source the environment
+set -a && source .env && set +a
+# Required in .env:
+#   GCP_PROJECT=vlm-ocr-research
+#   GCP_LOCATION=asia-southeast1          # Document AI region
+#   DOCAI_PROCESSOR_ID=50e3c2a5ddb25e78
+#   GEMINI_MODEL=gemini-3.5-flash         # Must use location="global" in code
+
+# 3. Run the baseline (5 curated images)
+.venv/bin/python -u benchmark/baseline.py
+```
+
+**Critical:** `gemini-3.5-flash` requires `genai.Client(vertexai=True, location="global")` — NOT `asia-southeast1`. The model returns 404 NOT_FOUND in regional endpoints. This is hardcoded in `benchmark/baseline.py` `_get_gemini_client()`.
 
 #### Challenges Encountered
 
@@ -153,17 +179,42 @@ docs/METHODOLOGY.md                  # Full research design doc
 .env.example                         # GCP credential template
 ```
 
-### Phase 2: Tier-1 Candidate Evaluation
+### Phase 2: Tier-1 Candidate Evaluation 🔄 IN PROGRESS
 
-Evaluate the 5 most promising candidates. For each, measure:
+Evaluate the 6 most promising candidates one-by-one. For each, measure:
 
 * End-to-end latency (image → structured text with bounding boxes).
-* CER / WER on handwritten text.
-* Reading order accuracy (manual evaluation).
+* CER / WER on handwritten text (whitespace-normalized).
+* Reading order accuracy (Kendall's tau vs. ground truth).
 * Bounding box quality (visual inspection + IoU where ground truth exists).
 * VRAM peak usage.
 * Setup complexity (1–5 scale).
 * Flexibility (1–5 scale: varied handwriting, layouts, noise).
+
+**Dataset:** 1,539 IAM handwriting forms from Kaggle (`gwachatkozah/iam-forms-dataset`) with matching XML annotations providing line-level text, bounding boxes, and reading order. Curated subset of 25 forms used for evaluation. Ground truth populated via `parse_iam_xml()` extracting `<cmp>`-level coordinates.
+
+**CER/WER:** Computed with whitespace normalization (newlines → spaces, collapsed whitespace). This prevents line-break formatting differences from artificially inflating error rates.
+
+#### Phase 2A: Prerequisites 
+
+- Removed old renamed images (`iam_page_*.jpg`), replaced with Kaggle form images (original IAM filenames matching XML).
+- Fixed `parse_iam_xml()` to compute bboxes from `<cmp>` child elements (not `<line>` attributes).
+- Fixed `find_xml_for_image()` for direct stem matching (`a01-000u.png` ↔ `a01-000u.xml`).
+- Regenerated `ground_truth.json`: 1,539/1,539 entries with real text, bboxes, and reading order.
+- Created new 25-form curated subset spanning 21 writer prefixes.
+- Updated harness to match ground truth by image name (not index).
+- Added `normalize_ocr_text()` and `compute_cer_normalized()` / `compute_wer_normalized()` to metrics.
+
+#### Phase 2B–2G: Candidate Evaluations
+
+| Candidate | Status | Key Findings |
+|---|---|---|
+| **GOT-OCR2.0** |  Complete | 35.9s avg, 3.4 GB VRAM. Transcribes full form (printed + handwritten). No structured bbox output in plain OCR mode. |
+| **Florence-2-large** |  Blocked | `Florence2VisionConfig` missing `embed_dim` in transformers 4.57 built-in. Remote code has `_supports_sdpa` incompatibility with PyTorch 2.10. |
+| **PaddleOCR-VL-1.6** |  Blocked | Not in transformers 4.57 `AutoModelForVision2Seq`/`AutoModelForImageTextToText` supported configs. Requires transformers 5.x. |
+| **granite-docling-258M** |  Next | 256M params, HuggingFace-native, DocTags format. |
+| **Nemotron OCR v2** |  Pending | Built-in reading order. Requires Python 3.12 + CUDA toolkit + custom install. |
+| **MonkeyOCR** |  Pending | No eval script yet. Needs full implementation. |
 
 ### Phase 3: Tier-2 Candidate Evaluation
 
@@ -244,20 +295,35 @@ Compare storage overhead, visual verifiability, and implementation complexity.
 
 ## Results (Live)
 
-> Results will be populated as each candidate is evaluated.
+> Updated as each candidate is evaluated. CER/WER are whitespace-normalized. See `benchmark/results/` for full JSON.
 
-| Rank | Candidate | Latency (s) | CER (%) | WER (%) | Read Order τ | Error F1 | VRAM (GB) | Setup | Flex |
+| Rank | Candidate | Latency (s) | CER | WER | Read Order τ | Error F1 | VRAM (GB) | Setup | Flex |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| — | *(baseline)* Google Doc AI + Gemini | 29.0 | — | — | — | — | N/A (cloud) | N/A | N/A |
-| — | PaddleOCR-VL-1.6 | — | — | — | — | — | — | — | — |
-| — | GOT-OCR2.0 | — | — | — | — | — | — | — | — |
-| — | Nemotron OCR v2 | — | — | — | — | — | — | — | — |
-| — | Florence-2-large | — | — | — | — | — | — | — | — |
-| — | granite-docling-258M | — | — | — | — | — | — | — | — |
-| — | MonkeyOCR | — | — | — | — | — | — | — | — |
-| — | TrOCR (handwritten) | — | — | — | — | — | — | — | — |
-| — | Qwen3-VL-4B | — | — | — | — | — | — | — | — |
-| — | Qwen3-VL-8B (INT4) | — | — | — | — | — | — | — | — |
+| — | *(baseline)* Google Doc AI + Gemini | 21.1 | 1.22 | 1.22 | — | — | N/A (cloud) | N/A | N/A |
+| 1 | **GOT-OCR2.0** | 35.9 | 2.93 | 3.92 | — | — | 3.4 | 2 | 3 |
+| — | PaddleOCR-VL-1.6 |  blocked | — | — | — | — | — | — | — |
+| — | Florence-2-large |  blocked | — | — | — | — | — | — | — |
+| — | Nemotron OCR v2 |  | — | — | — | — | — | — | — |
+| — | granite-docling-258M |  | — | — | — | — | — | — | — |
+| — | MonkeyOCR |  | — | — | — | — | — | — | — |
+| — | TrOCR (handwritten) |  | — | — | — | — | — | — | — |
+| — | Qwen3-VL-4B |  | — | — | — | — | — | — | — |
+| — | Qwen3-VL-8B (INT4) |  | — | — | — | — | — | — | — |
+
+### GOT-OCR2.0 Detailed Findings
+
+| Metric | Value | Notes |
+|---|---|---|
+| Model | `stepfun-ai/GOT-OCR-2.0-hf` | HuggingFace transformers, BF16 |
+| Avg latency | 35.9 s | 24% slower than cloud baseline (29.0s) |
+| VRAM peak | 3.4 GB | Fits 12GB comfortably |
+| CER (normalized) | 2.93 | High — model transcribes full IAM form (printed instructions + handwritten) while GT covers handwritten only |
+| WER (normalized) | 3.92 | Same scope mismatch as CER |
+| Reading order | — | Not evaluated (plain OCR mode, no structured output) |
+| Bounding boxes | — | Plain OCR mode does not output bboxes. Structured mode requires chat template fix. |
+| Setup complexity | 2/5 | Straightforward `AutoModelForImageTextToText` + `AutoProcessor`. One-line install. |
+| Flexibility | 3/5 | Handles varied handwriting well. Output quality affected by chat template tokens requiring cleanup. |
+| Key issue | — | Output includes system/user/assistant role markers and IAM metadata headers. Cleanup regex needed. Transcribes entire form, not just handwritten region. |
 | — | Hunyuan VL | — | — | — | — | — | — | — | — |
 | — | EasyOCR | — | — | — | — | — | — | — | — |
 | — | docTR | — | — | — | — | — | — | — | — |
