@@ -1,37 +1,71 @@
-# Python dependencies for VLM-OCR research
-# Install: pip install -r requirements.txt
+# ============================================================================
+# VLM-OCR Research — Dependency Manifest
+# ============================================================================
+# This project uses THREE separate Python environments because:
+#   - Nemotron OCR v2 compiles a C++ CUDA extension (needs conda `aiml` env)
+#   - Florence-2 requires transformers 4.40.0 (needs conda `florencetf` env)
+#   - All other models run in the main `.venv` with transformers 5.x
+#
+# Per-environment install files:
+#   pip install -r requirements.txt          # .venv (main)
+#   pip install -r requirements-aiml.txt      # conda activate aiml first
+#   pip install -r requirements-florencetf.txt # conda activate florencetf first
+# ============================================================================
 
-# Core
-torch>=2.4.0
-transformers>=5.0.0
-accelerate>=0.34.0
+# ---------------------------------------------------------------------------
+# .venv (main) — SmolDocling, GOT-OCR2.0, PaddleOCR-VL, Qwen3-VL, TrOCR,
+#                MonkeyOCR, DocLayoutYOLO, EasyOCR, Tesseract, baselines
+#                PyTorch 2.11.0+cu130, transformers 5.8.1, CUDA 13.0
+# ---------------------------------------------------------------------------
 
-# Quantization (for models that need to fit in 12 GB)
-bitsandbytes>=0.44.0
+# Core ML
+torch>=2.11.0                       # Blackwell sm_120 needs nightly; pin to 2.11+
+transformers>=5.8.0                  # SmolDocling AutoModelForMultimodalLM needs 5.x
+accelerate>=1.0.0
+huggingface_hub>=1.0.0
+tokenizers>=0.22.0
+safetensors>=0.8.0
 
 # Image handling
 Pillow>=10.0.0
 opencv-python>=4.10.0
+numpy>=2.0.0
 
-# Evaluation utilities
-editdistance>=0.8.2
+# Evaluation
 scipy>=1.14.0
 
-# Utilities (dataset management, IAM XML parsing)
+# Dataset & IAM XML parsing
 lxml>=5.0.0
 requests>=2.31.0
 
-# Optional — optimized inference engines
-# vllm>=0.6.0
-# sglang>=0.3.0
+# Model-specific (required by at least one candidate)
+sentencepiece>=0.2.0                 # Tokenizer for Qwen3-VL and others
 
-# Optional — cloud baseline
-# google-cloud-documentai>=2.30.0
-# google-genai>=1.0.0
+# Quantization — bitsandbytes BLOCKED on Blackwell sm_120 (2026-06).
+# When NVIDIA ships sm_120 support, uncomment:
+# bitsandbytes>=0.44.0
 
-# Optional — candidate-specific
+# ---------------------------------------------------------------------------
+# Optional — cloud baseline (installed in .venv)
+# ---------------------------------------------------------------------------
+# google-cloud-documentai>=3.0.0
+# google-genai>=2.0.0
+
+# ---------------------------------------------------------------------------
+# Optional — traditional OCR baselines (installed in .venv)
+# ---------------------------------------------------------------------------
 # easyocr>=1.7.0
-# paddleocr>=3.0.0
-# paddlepaddle>=3.0.0
-# python-doctr>=1.0.0
 # pytesseract>=0.3.0
+# python-doctr>=1.0.0
+
+# ---------------------------------------------------------------------------
+# Optional — PaddleOCR-VL (installed in .venv)
+# ---------------------------------------------------------------------------
+# paddleocr>=3.0.0
+# paddlepaddle-gpu>=3.0.0
+
+# ---------------------------------------------------------------------------
+# Optional — optimized inference engines (installed in .venv)
+# ---------------------------------------------------------------------------
+# vllm>=0.22.0
+# sglang>=0.5.0

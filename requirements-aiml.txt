@@ -1,0 +1,39 @@
+# ============================================================================
+# VLM-OCR Research — aiml conda environment dependencies
+# ============================================================================
+# Purpose: Nemotron OCR v2 (C++ CUDA extension build)
+# PyTorch 2.12.0+cu130, transformers 5.11.0, CUDA 13.0
+#
+# Usage:
+#   conda activate aiml
+#   pip install -r requirements-aiml.txt
+# ============================================================================
+
+# Core ML
+torch>=2.12.0                       # Must match CUDA toolkit for nvcc
+transformers>=5.8.0
+huggingface_hub>=1.0.0
+tokenizers>=0.22.0
+safetensors>=0.8.0
+
+# Image handling
+Pillow>=10.0.0
+opencv-python>=4.10.0
+numpy>=2.0.0
+
+# Evaluation
+scipy>=1.14.0
+
+# Dataset & IAM XML parsing
+lxml>=5.0.0
+requests>=2.31.0
+
+# ---------------------------------------------------------------------------
+# Nemotron OCR v2 — manual install from HuggingFace repo
+# ---------------------------------------------------------------------------
+# This package is NOT on PyPI. Install from source:
+#   git clone https://huggingface.co/nvidia/nemotron-ocr-v2 /tmp/nemotron-ocr-v2
+#   cd /tmp/nemotron-ocr-v2
+#   pip install --no-build-isolation -v .
+#
+# Requires: Python 3.12, CUDA toolkit (nvcc) matching torch.version.cuda (13.0)
