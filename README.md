@@ -148,18 +148,20 @@ set -a && source .env && set +a
 .venv/bin/python -u benchmark/baseline.py
 ```
 
-**Critical:** `gemini-3.5-flash` uses the official Gen AI SDK pattern:
+**Critical:** Two auth paths supported:
 ```python
-from google import genai
-from google.genai.types import HttpOptions
+# API Key (AI Studio) — simplest, requires GOOGLE_API_KEY or GEMINI_API_KEY env var
+client = genai.Client(api_key="...")
+response = client.models.generate_content(model="gemini-3.5-flash", contents="...")
 
-client = genai.Client(http_options=HttpOptions(api_version="v1"))
-response = client.models.generate_content(
-    model="gemini-3.5-flash",
-    contents="...",
+# ADC (Vertex AI) — requires gcloud auth, uses location="global" for preview models
+from google.genai.types import HttpOptions
+client = genai.Client(
+    vertexai=True, project="...", location="global",
+    http_options=HttpOptions(api_version="v1"),
 )
 ```
-When using Vertex AI fallback (no API key), `location="global"` is required — regional endpoints return 404. Handled in `baseline.py` `_get_gemini_client()`.
+Handled in `baseline.py` `_get_gemini_client()`. Prefers API key, falls back to Vertex AI.
 
 #### Challenges Encountered
 

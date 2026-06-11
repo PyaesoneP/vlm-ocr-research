@@ -136,10 +136,10 @@ def _get_gemini_client():
             "  pip install google-genai"
         )
 
-    # Preferred: API key auth (AI Studio)
+    # Preferred: API key auth (AI Studio) — simplest path
     api_key = GEMINI_API_KEY or os.environ.get("GOOGLE_API_KEY", "")
     if api_key:
-        return genai.Client(api_key=api_key, http_options=HttpOptions(api_version="v1"))
+        return genai.Client(api_key=api_key)
 
     # Fall back to Vertex AI via ADC (global location for preview models)
     return genai.Client(
