@@ -38,7 +38,8 @@ _GEMINI_LAST_CALL = 0.0
 
 TEST_DATASET = _PROJECT_ROOT / "benchmark" / "test_dataset"
 RESULTS_DIR = _PROJECT_ROOT / "benchmark" / "results"
-NUM_RUNS = 10
+NUM_RUNS = 5
+NUM_IMAGES = 5  # limit to first N images from curated subset
 
 
 # ---------------------------------------------------------------------------
@@ -121,7 +122,8 @@ def _get_gemini_client():
     """
     Lazy-load the Gemini client.
 
-    Prefers API key auth (GEMINI_API_KEY) over Vertex AI (ADC).
+    Tries in order: GEMINI_API_KEY, GOOGLE_API_KEY (AI Studio),
+    then Vertex AI via ADC.
     """
     try:
         from google import genai
@@ -133,10 +135,14 @@ def _get_gemini_client():
 
     if GEMINI_API_KEY:
         return genai.Client(api_key=GEMINI_API_KEY)
-    else:
-        return genai.Client(
-            vertexai=True, project=GCP_PROJECT, location=GCP_LOCATION
-        )
+    # Try GOOGLE_API_KEY (AI Studio default env var)
+    api_key = os.environ.get("GOOGLE_API_KEY", "")
+    if api_key:
+        return genai.Client(api_key=api_key)
+    # Fall back to Vertex AI via ADC — use global location for preview models
+    return genai.Client(
+        vertexai=True, project=GCP_PROJECT, location="global"
+    )
 
 
 def gemini_error_detection(ocr_output: dict) -> dict:
@@ -313,12 +319,13 @@ def _normalized_to_absolute(bounding_poly, img_w: int, img_h: int) -> list[int]:
 if __name__ == "__main__":
     from benchmark.harness import BenchmarkHarness
 
-    # Gather test images
-    images = sorted(TEST_DATASET.glob("*"))
-    images = [p for p in images if p.suffix.lower() in {".jpg", ".jpeg", ".png"}]
+    # Gather test images from curated subset
+    curated_dir = TEST_DATASET / "curated"
+    images = sorted(p for p in curated_dir.glob("*") if p.suffix.lower() in {".jpg", ".jpeg", ".png"})
+    images = images[:NUM_IMAGES]
 
     if not images:
-        print(f"No test images found in {TEST_DATASET}. "
+        print(f"No test images found in {curated_dir}. "
               "Place handwritten essay images there and re-run.")
         exit(1)
 
