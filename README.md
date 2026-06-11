@@ -285,8 +285,8 @@ After the methodological finding that Phase 2 metrics reflect printed-text OCR, 
 
 | Candidate | Printed CER (Phase 2) | **Handwriting CER** | Handwriting Latency | Verdict |
 |---|---|---|---|---|
-| **MonkeyOCR** 🥇 | 0.58 | **0.11** | 3.79s | Best accuracy. Removes "Sentence Database" header bias. No bboxes. |
-| **SmolDocling** 🥈 | 1.47 | **0.14** | 7.05s | Near-best accuracy + structured DocTags output with bboxes. Best overall for essay feedback pipeline. |
+| **MonkeyOCR**  | 0.58 | **0.11** | 3.79s | Best accuracy. Removes "Sentence Database" header bias. No bboxes. |
+| **SmolDocling**  | 1.47 | **0.14** | 7.05s | Near-best accuracy + structured DocTags output with bboxes. Best overall for essay feedback pipeline. |
 | **Nemotron OCR v2** | 1.17 | 0.74 | 0.06s | Fastest but recognizer genuinely struggles with handwriting. 6x worse CER than top two. |
 | **GOT-OCR2.0** | 2.93 | 4.32 | 38.95s | Degrades on cropped images — requires full-page context. Not suitable for handwriting. |
 
@@ -297,6 +297,67 @@ After the methodological finding that Phase 2 metrics reflect printed-text OCR, 
 - Cropping reduced latency for all models (smaller image = fewer tokens to process).
 
 See `scripts/crop_handwritten.py` and `scripts/eval_handwritten.py` for the methodology.
+
+#### Handwriting Output Comparison (a04-039.png)
+
+```
+GROUND TRUTH (handwritten lines, 470 chars)
+──────────────────────────────────────────────────────────────────────
+In VIENNA, before flying off to Moscow,
+Mr. Khrushchov said he hoped his weekend
+talks with President Kennedy would # help "to
+establish an enduring peace between nations."
+Replying to a farewell speech from Austrian President
+Schaerf, the Soviet Premier thanked Austria for
+the hospitality and welcome he had received.
+"The Soviet Union has always striven and is
+striving to safeguard an enduring peace for
+the peoples, to secure an early solution of the
+
+MONKEYOCR  (CER=0.11, 3.8s) 🥇
+──────────────────────────────────────────────────────────────────────
+In Vienna, before flying off to Moscow,
+
+Mr. Khrushchov said he hoped his weekend talks with President Kennedy
+would help "to establish an onduring peace between nations." Replacing
+to a farewell speech from Jussinck President
+
+Schoerd, the Soviet Premier thanks to Jussinck for the hospitality and
+welcome he had received.
+
+"The Soviet Union has always shown and is striving to safeguard an
+onduring peace for the people, to secure an early solution of the
+
+SMOLDOCLING  (CER=0.14, 7.1s) 🥈
+──────────────────────────────────────────────────────────────────────
+In Vienna, before flying off to Moscow, Mr. Khrushov said he hoped his
+weekend talkers with Presidet Kennedys would be help " to establish an
+onduring peace between nations. " Replying to a farewell speech from
+author Presidet Shaard, he Soulet Premier thanked ushisa for the
+hospitally and welcome he had received. 4 The Soulet Union has always
+Join a shon and is stiving to safeguard an onduring peace for the
+peoples, to secure an early soluion of the
+
+NEMOTRON  (CER=0.74, 0.06s)
+──────────────────────────────────────────────────────────────────────
+4 The Souiet unioh ha always strven and is striving to safeguard an ou
+ondaring peace for the peoples) , to Decure an early sole hor of the
+In Vienna, before juying off to Morcow, Mr. khrushchov said he hopect
+his weekend talks with Preideww Kennedy would & help 4 to eslaseish an
+onduring peaie Selweeh natiows " Replbis so a were speech from Aushiag
+Prestdoct Schoerd 1 the Sovret Preneirr thanked Ausiia for the
+hospilality and welcome he had roeived.
+
+GOT-OCR2.0  (CER=4.32, 38.9s)
+──────────────────────────────────────────────────────────────────────
+Mr. Kh ush cho u said he hop col his week eu o talks with President
+Kennedy would help" to es laS e is hah oh d ul in s peace S elwe eh
+hao w.  Rep lg is ho a f ar well pe ch from Hush ian Pre sid oct S
+doer d, he So u let Pre nii er th auk eod Hush i a for the hospital
+i ly and welcome he had received.  4 The So u iet Union ha alwa gp
+show an ol is shi u ing to safe guard an on d turing peace for he pe
+opes, ho secure an ari ly shi u on of the1111111111111111111111111111...
+```
 
 ### Phase 3: Tier-2 Candidate Evaluation
 
