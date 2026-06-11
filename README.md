@@ -285,12 +285,15 @@ After the methodological finding that Phase 2 metrics reflect printed-text OCR, 
 
 | Candidate | Printed CER (Phase 2) | **Handwriting CER** | Handwriting Latency | Verdict |
 |---|---|---|---|---|
-| **MonkeyOCR**  | 0.58 | **0.11** | 3.79s | Best accuracy. Removes "Sentence Database" header bias. No bboxes. |
+| **Google Doc AI**  | — | **0.08** | 3.7s | Cloud baseline. Best CER. $1.50/1K pages + Gemini per-token. |
+| **MonkeyOCR**  | 0.58 | **0.11** | 3.79s | Best local accuracy. No bboxes. CPU-only via llama.cpp. Free. |
 | **SmolDocling**  | 1.47 | **0.14** | 7.05s | Near-best accuracy + structured DocTags output with bboxes. Best overall for essay feedback pipeline. |
 | **Nemotron OCR v2** | 1.17 | 0.74 | 0.06s | Fastest but recognizer genuinely struggles with handwriting. 6x worse CER than top two. |
 | **GOT-OCR2.0** | 2.93 | 4.32 | 38.95s | Degrades on cropped images — requires full-page context. Not suitable for handwriting. |
 
 **Key findings:**
+- **Google Doc AI is still the accuracy leader** (CER 0.08) but is cloud-only with per-page costs and daily quotas.
+- **MonkeyOCR is within 0.03 CER of Doc AI** (0.11 vs 0.08) — running on local CPU, free, no API limits.
 - **SmolDocling and MonkeyOCR both handle handwriting well** — their poor Phase 2 CER was entirely due to the mixed printed/handwritten IAM layout, not handwriting recognition failure.
 - **Nemotron's speed advantage is negated by poor handwriting accuracy** (CER 0.74 vs 0.11-0.14 for top models).
 - **GOT-OCR2.0 is full-page dependent** — degrades severely without printed context.
@@ -313,8 +316,19 @@ the hospitality and welcome he had received.
 "The Soviet Union has always striven and is
 striving to safeguard an enduring peace for
 the peoples, to secure an early solution of the
+GOOGLE DOC AI ☁️  (CER=0.08, 3.7s + Gemini 13.7s = 17.4s total)
+──────────────────────────────────────────────────────────────────────
+In Vienna, before flying off to Moscow, во
+Mr. Khrushchou said he hoped his weekend talks with President Kennedy
+would help "to" establish an onduring peace between nations.
+Replying to a farewell speech from Austrian President Schaerf
+the Soviet Premier thanked Austria for the hospitality and welcome he
+had received. "The Soviet Union has always striven and is striving to
+safeguard an onduring peace for the peoples to secure an early solution
+of the
 
-MONKEYOCR  (CER=0.11, 3.8s) 🥇
+Gemini 3.5 Flash found: "Khrushchou"→"Khrushchev", "onduring"→"enduring"
+MONKEYOCR  (CER=0.11, 3.8s) 
 ──────────────────────────────────────────────────────────────────────
 In Vienna, before flying off to Moscow,
 
@@ -328,7 +342,7 @@ welcome he had received.
 "The Soviet Union has always shown and is striving to safeguard an
 onduring peace for the people, to secure an early solution of the
 
-SMOLDOCLING  (CER=0.14, 7.1s) 🥈
+SMOLDOCLING  (CER=0.14, 7.1s) 
 ──────────────────────────────────────────────────────────────────────
 In Vienna, before flying off to Moscow, Mr. Khrushov said he hoped his
 weekend talkers with Presidet Kennedys would be help " to establish an
