@@ -40,22 +40,23 @@ def inference_fn(image_path: str) -> dict:
     """
     Run GOT-OCR2.0 on a handwritten essay image.
 
-    Uses the HuggingFace transformers integration (supports batched inference).
+    Uses the HuggingFace transformers integration.
     For quantized inference, use the llama.cpp / GGUF version instead.
     """
+    import re
     import time
     import torch
     from PIL import Image
-    from transformers import AutoProcessor, AutoModelForVision2Seq
+    from transformers import AutoProcessor, AutoModelForImageTextToText
 
     if not hasattr(inference_fn, "_model"):
         print(f"[{CANDIDATE_NAME}] Loading {MODEL_ID} ...")
         inference_fn._processor = AutoProcessor.from_pretrained(
-            MODEL_ID, trust_remote_code=True
+            MODEL_ID, trust_remote_code=True, use_fast=True
         )
-        inference_fn._model = AutoModelForVision2Seq.from_pretrained(
+        inference_fn._model = AutoModelForImageTextToText.from_pretrained(
             MODEL_ID,
-            torch_dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float32,
+            dtype=torch.bfloat16 if torch.cuda.is_available() else torch.float32,
             device_map="auto",
             trust_remote_code=True,
         )
@@ -67,26 +68,15 @@ def inference_fn(image_path: str) -> dict:
 
     image = Image.open(image_path).convert("RGB")
 
-    # GOT-OCR2.0 uses a conversation template
-    messages = [
-        {
-            "role": "user",
-            "content": [
-                {"type": "image", "image": image},
-                {"type": "text", "text": "OCR with format and bounding boxes."},
-            ],
-        }
-    ]
-
     if torch.cuda.is_available():
         torch.cuda.synchronize()
     t0 = time.perf_counter()
 
-    text = processor.apply_chat_template(messages, tokenize=False, add_generation_prompt=True)
-    inputs = processor(images=image, text=text, return_tensors="pt").to(device)
+    # GOT-OCR2.0: pass image only (model auto-detects OCR task)
+    inputs = processor(images=image, return_tensors="pt").to(device)
 
     with torch.no_grad():
-        generated_ids = model.generate(**inputs, max_new_tokens=4096)
+        generated_ids = model.generate(**inputs, max_new_tokens=2048)
 
     generated_text = processor.batch_decode(
         generated_ids, skip_special_tokens=True
@@ -96,9 +86,41 @@ def inference_fn(image_path: str) -> dict:
         torch.cuda.synchronize()
     elapsed = time.perf_counter() - t0
 
+    # --- Clean up chat template tokens from output ---
+    # GOT-OCR2.0 emits system messages, role markers, and metadata before OCR text.
+    # The pattern is: "You should follow the instructions...\nuser\n\n OCR: assistant\n[metadata]\n[ACTUAL TEXT]"
+    clean_text = generated_text
+    # Strip everything up to and including "OCR:" or "OCR: assistant" line
+    clean_text = re.sub(r'^.*?OCR:\s*(assistant\s*)?\n', '', clean_text, count=1, flags=re.DOTALL)
+    # If the above didn't catch it, try simpler patterns
+    if clean_text == generated_text:
+        for prefix in ["OCR: assistant\n", "OCR:\n", "assistant\n"]:
+            if clean_text.startswith(prefix):
+                clean_text = clean_text[len(prefix):].strip()
+                break
+    # Remove "Sentence Database" header line
+    clean_text = re.sub(r'^Sentence Database\s*\n', '', clean_text)
+    # Remove IAM form ID line (e.g., "A04-039 \n")
+    clean_text = re.sub(r'^[A-Ka-k]\d{2}-\d{3}[a-z]?\s*\n', '', clean_text)
+    # Remove any trailing role markers
+    clean_text = re.sub(r'\n\s*(assistant|user|system)\s*$', '', clean_text, flags=re.IGNORECASE)
+    clean_text = clean_text.strip()
+
+    # --- Parse blocks from text (line-based heuristic) ---
+    blocks = []
+    lines = clean_text.split("\n")
+    for line in lines:
+        line = line.strip()
+        if line:
+            blocks.append({
+                "bbox": [0, 0, 0, 0],  # GOT plain OCR doesn't provide bboxes
+                "text": line,
+                "confidence": 1.0,
+            })
+
     return {
-        "text": generated_text,
-        "blocks": [],   # TODO: parse GOT structured output into blocks
+        "text": clean_text,
+        "blocks": blocks,
         "stage1_latency": elapsed,
     }
 
@@ -109,7 +131,7 @@ def inference_fn(image_path: str) -> dict:
 
 if __name__ == "__main__":
     images = sorted([
-        str(p) for p in TEST_DATASET.glob("*")
+        str(p) for p in (TEST_DATASET / "curated").glob("*")
         if p.suffix.lower() in {".jpg", ".jpeg", ".png"}
     ])
 

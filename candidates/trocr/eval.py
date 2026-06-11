@@ -160,7 +160,7 @@ def _detect_text_lines(
 
 if __name__ == "__main__":
     images = sorted([
-        str(p) for p in TEST_DATASET.glob("*")
+        str(p) for p in (TEST_DATASET / "curated").glob("*")
         if p.suffix.lower() in {".jpg", ".jpeg", ".png"}
     ])
 

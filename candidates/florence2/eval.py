@@ -39,17 +39,18 @@ def inference_fn(image_path: str) -> dict:
     import time
     import torch
     from PIL import Image
-    from transformers import AutoProcessor, AutoModelForCausalLM
+    from transformers import AutoProcessor, AutoModelForImageTextToText
 
     if not hasattr(inference_fn, "_model"):
         print(f"[{CANDIDATE_NAME}] Loading {MODEL_ID} ...")
-        inference_fn._model = AutoModelForCausalLM.from_pretrained(
+        inference_fn._model = AutoModelForImageTextToText.from_pretrained(
             MODEL_ID,
-            torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+            dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
             trust_remote_code=True,
+            attn_implementation="eager",
         ).to("cuda" if torch.cuda.is_available() else "cpu")
         inference_fn._processor = AutoProcessor.from_pretrained(
-            MODEL_ID, trust_remote_code=True
+            MODEL_ID, trust_remote_code=True, use_fast=True
         )
         print(f"[{CANDIDATE_NAME}] Model loaded.")
 
@@ -125,7 +126,7 @@ def inference_fn(image_path: str) -> dict:
 
 if __name__ == "__main__":
     images = sorted([
-        str(p) for p in TEST_DATASET.glob("*")
+        str(p) for p in (TEST_DATASET / "curated").glob("*")
         if p.suffix.lower() in {".jpg", ".jpeg", ".png"}
     ])
 

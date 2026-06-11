@@ -50,10 +50,10 @@ def inference_fn(image_path: str) -> dict:
     # --- Lazy-load model (cached at module level) ---
     if not hasattr(inference_fn, "_model"):
         print(f"[{CANDIDATE_NAME}] Loading model {MODEL_ID} ...")
-        inference_fn._processor = AutoProcessor.from_pretrained(MODEL_ID)
+        inference_fn._processor = AutoProcessor.from_pretrained(MODEL_ID, trust_remote_code=True, use_fast=True)
         inference_fn._model = AutoModelForVision2Seq.from_pretrained(
             MODEL_ID,
-            torch_dtype=torch.bfloat16,
+            dtype=torch.bfloat16,
             device_map="auto",
             trust_remote_code=True,
         )
@@ -99,7 +99,7 @@ def inference_fn(image_path: str) -> dict:
 
 if __name__ == "__main__":
     images = sorted([
-        str(p) for p in TEST_DATASET.glob("*")
+        str(p) for p in (TEST_DATASET / "curated").glob("*")
         if p.suffix.lower() in {".jpg", ".jpeg", ".png"}
     ])
 
