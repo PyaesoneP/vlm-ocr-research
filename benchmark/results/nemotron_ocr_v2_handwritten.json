@@ -1,0 +1,49 @@
+{
+  "candidate_name": "nemotron_ocr_v2_handwritten",
+  "model_version": "",
+  "timestamp": "2026-06-11T19:07:31",
+  "gpu_name": "NVIDIA GeForce RTX 5070 Ti Laptop GPU",
+  "vram_total_mb": 12226,
+  "latency_total_avg": 0.06434889500087593,
+  "latency_total_std": 0.0,
+  "latency_stage1_ocr": 0.0641729149974708,
+  "latency_stage2_errors": 0.0,
+  "cer": 0.7382978723404255,
+  "wer": 1.0675675675675675,
+  "reading_order_tau": 0.0,
+  "error_detection_f1": 0.0,
+  "bounding_box_iou": 0.0,
+  "vram_peak_mb": 592,
+  "throughput_ppm": 932.4169435882818,
+  "setup_complexity": 0,
+  "flexibility": 0,
+  "sample_outputs": [
+    {
+      "text": "4 The Souiet unioh ha always strven and is striving to safeguard an ou ondaring peace for the peoples) , to Decure an early sole hor of the In Vienna, before juying off to Morcow, Mr. khrushchov said he hopect his weekend talks with Preideww Kennedy would & help 4 to eslaseish an onduring peaie Selweeh natiows \"\nReplbis so a were speech from Aushiag Prestdoct Schoerd 1 the Sovret Preneirr thanked Ausiia for the hospilality and welcome he had roeived.",
+      "blocks": [
+        {
+          "bbox": [
+            19,
+            1738,
+            1704,
+            14
+          ],
+          "text": "4 The Souiet unioh ha always strven and is striving to safeguard an ou ondaring peace for the peoples) , to Decure an early sole hor of the In Vienna, before juying off to Morcow, Mr. khrushchov said he hopect his weekend talks with Preideww Kennedy would & help 4 to eslaseish an onduring peaie Selweeh natiows \"",
+          "confidence": 0.8890097576112577
+        },
+        {
+          "bbox": [
+            18,
+            1203,
+            1858,
+            743
+          ],
+          "text": "Replbis so a were speech from Aushiag Prestdoct Schoerd 1 the Sovret Preneirr thanked Ausiia for the hospilality and welcome he had roeived.",
+          "confidence": 0.8778987627149899
+        }
+      ],
+      "stage1_latency": 0.0641729149974708
+    }
+  ],
+  "notes": "Nemotron OCR v2 on cropped handwritten region. Requires `conda activate aiml`."
+}

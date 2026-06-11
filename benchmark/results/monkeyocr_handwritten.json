@@ -1,0 +1,31 @@
+{
+  "candidate_name": "monkeyocr_handwritten",
+  "model_version": "",
+  "timestamp": "2026-06-11T19:10:16",
+  "gpu_name": "NVIDIA GeForce RTX 5070 Ti Laptop GPU",
+  "vram_total_mb": 12226,
+  "latency_total_avg": 3.7897528339999553,
+  "latency_total_std": 0.0,
+  "latency_stage1_ocr": 3.780263284999819,
+  "latency_stage2_errors": 0.0,
+  "cer": 0.1127659574468085,
+  "wer": 0.20270270270270271,
+  "reading_order_tau": 0.0,
+  "error_detection_f1": 0.0,
+  "bounding_box_iou": 1.0,
+  "vram_peak_mb": 0,
+  "throughput_ppm": 15.832167064223036,
+  "setup_complexity": 0,
+  "flexibility": 0,
+  "sample_outputs": [
+    {
+      "text": "In Vienna, before flying off to Moscow,\n\nMr. Khrushchov said he hoped his weekend talks with President Kennedy would help \"to establish an onduring peace between nations.\" Replacing to a farewell speech from Jussinck President\n\nSchoerd, the Soviet Premier thanks to Jussinck for the hospitality and welcome he had received.\n\n\"The Soviet Union has always shown and is striving to safeguard an onduring peace for the people, to secure an early solution of the",
+      "blocks": [],
+      "stage1_latency": 3.780263284999819,
+      "reading_order": [],
+      "errors": [],
+      "stage2_latency": 0.0
+    }
+  ],
+  "notes": "MonkeyOCR on cropped handwritten region. Requires llama-server running on port 8080."
+}

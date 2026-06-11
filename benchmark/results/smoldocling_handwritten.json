@@ -1,0 +1,128 @@
+{
+  "candidate_name": "smoldocling_handwritten",
+  "model_version": "",
+  "timestamp": "2026-06-11T19:06:44",
+  "gpu_name": "NVIDIA GeForce RTX 5070 Ti Laptop GPU",
+  "vram_total_mb": 12226,
+  "latency_total_avg": 7.053258077001374,
+  "latency_total_std": 0.0,
+  "latency_stage1_ocr": 7.030038107001019,
+  "latency_stage2_errors": 0.0,
+  "cer": 0.14042553191489363,
+  "wer": 0.36486486486486486,
+  "reading_order_tau": 0.0,
+  "error_detection_f1": 0.0,
+  "bounding_box_iou": 0.0,
+  "vram_peak_mb": 918,
+  "throughput_ppm": 8.506707020354547,
+  "setup_complexity": 0,
+  "flexibility": 0,
+  "sample_outputs": [
+    {
+      "text": "In Vienna, before flying off to Moscow, Mr. Khrushov said he hoped his weekend\ntalkers with Presidet Kennedys would be help \" to\nestablish an onduring peace between nations. \"\nReplying to a farewell speech from author Presidet\nShaard, he Soulet Premier thanked ushisa for\nthe hospitally and welcome he had received.\n4 The Soulet Union has always Join a shon and is\nstiving to safeguard an onduring peace for\nthe peoples, to secure an early soluion of the",
+      "blocks": [
+        {
+          "bbox": [
+            18,
+            8,
+            847,
+            121
+          ],
+          "text": "In Vienna, before flying off to Moscow, Mr. Khrushov said he hoped his weekend",
+          "confidence": 1.0,
+          "type": "text"
+        },
+        {
+          "bbox": [
+            5,
+            190,
+            847,
+            229
+          ],
+          "text": "talkers with Presidet Kennedys would be help \" to",
+          "confidence": 1.0,
+          "type": "text"
+        },
+        {
+          "bbox": [
+            5,
+            278,
+            829,
+            317
+          ],
+          "text": "establish an onduring peace between nations. \"",
+          "confidence": 1.0,
+          "type": "text"
+        },
+        {
+          "bbox": [
+            5,
+            370,
+            938,
+            423
+          ],
+          "text": "Replying to a farewell speech from author Presidet",
+          "confidence": 1.0,
+          "type": "text"
+        },
+        {
+          "bbox": [
+            5,
+            472,
+            889,
+            509
+          ],
+          "text": "Shaard, he Soulet Premier thanked ushisa for",
+          "confidence": 1.0,
+          "type": "text"
+        },
+        {
+          "bbox": [
+            5,
+            559,
+            864,
+            596
+          ],
+          "text": "the hospitally and welcome he had received.",
+          "confidence": 1.0,
+          "type": "text"
+        },
+        {
+          "bbox": [
+            5,
+            645,
+            813,
+            684
+          ],
+          "text": "4 The Soulet Union has always Join a shon and is",
+          "confidence": 1.0,
+          "type": "text"
+        },
+        {
+          "bbox": [
+            5,
+            733,
+            829,
+            776
+          ],
+          "text": "stiving to safeguard an onduring peace for",
+          "confidence": 1.0,
+          "type": "text"
+        },
+        {
+          "bbox": [
+            5,
+            825,
+            862,
+            864
+          ],
+          "text": "the peoples, to secure an early soluion of the",
+          "confidence": 1.0,
+          "type": "text"
+        }
+      ],
+      "stage1_latency": 7.030038107001019
+    }
+  ],
+  "notes": "SmolDocling-256M on cropped handwritten region. DocTags output may be affected by partial-page input."
+}

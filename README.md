@@ -279,6 +279,25 @@ The Phase 2 rankings below should be interpreted as **printed-text OCR benchmark
 | **Nemotron OCR v2** |  Complete | **Printed text** (headers in output) | **Fastest candidate.** 0.09s avg (234x faster than baseline), 0.6 GB VRAM, CER 1.17, WER 1.24. Outputs form headers ("Sentence Database") + form IDs → confirmed reading printed text, not handwriting. 7 text regions per page with bboxes + reading order via relational model. Built in aiml conda env (CUDA 13.0 + PyTorch 2.12). CUDA extension compiled without issues. |
 | **MonkeyOCR** |  Complete (CPU) | **Printed text** (headers in output) | 5.96s avg, 0 MB VRAM (CPU-only). CER 0.58, WER 0.65 — poor due to generation repetition, not misrecognition. Outputs form headers ("Sentence Database") → confirmed reading printed text. Recognizes typed text accurately but loops/repeats. Backend: llama.cpp b9596 llama-server (ctx-size=8192). |
 
+### Handwriting-Only Re-Evaluation (XML-Guided Cropping)
+
+After the methodological finding that Phase 2 metrics reflect printed-text OCR, we cropped images to the handwritten region using IAM XML `<handwritten-part>` `<cmp>` bounding boxes. Each image was cropped to the union bounding box of all handwritten lines (excluding signature footer), with 20px padding. This physically removes the printed header/prompt, forcing models to read only handwriting.
+
+| Candidate | Printed CER (Phase 2) | **Handwriting CER** | Handwriting Latency | Verdict |
+|---|---|---|---|---|
+| **MonkeyOCR** 🥇 | 0.58 | **0.11** | 3.79s | Best accuracy. Removes "Sentence Database" header bias. No bboxes. |
+| **SmolDocling** 🥈 | 1.47 | **0.14** | 7.05s | Near-best accuracy + structured DocTags output with bboxes. Best overall for essay feedback pipeline. |
+| **Nemotron OCR v2** | 1.17 | 0.74 | 0.06s | Fastest but recognizer genuinely struggles with handwriting. 6x worse CER than top two. |
+| **GOT-OCR2.0** | 2.93 | 4.32 | 38.95s | Degrades on cropped images — requires full-page context. Not suitable for handwriting. |
+
+**Key findings:**
+- **SmolDocling and MonkeyOCR both handle handwriting well** — their poor Phase 2 CER was entirely due to the mixed printed/handwritten IAM layout, not handwriting recognition failure.
+- **Nemotron's speed advantage is negated by poor handwriting accuracy** (CER 0.74 vs 0.11-0.14 for top models).
+- **GOT-OCR2.0 is full-page dependent** — degrades severely without printed context.
+- Cropping reduced latency for all models (smaller image = fewer tokens to process).
+
+See `scripts/crop_handwritten.py` and `scripts/eval_handwritten.py` for the methodology.
+
 ### Phase 3: Tier-2 Candidate Evaluation
 
 Evaluate comparison baselines and larger models for reference.

@@ -1,0 +1,502 @@
+[
+  {
+    "image": "c03-016b.png",
+    "cropped": "benchmark/test_dataset/handwritten/c03-016b.png",
+    "crop_bbox": [
+      321,
+      928,
+      2322,
+      2675
+    ],
+    "original_size": [
+      2479,
+      3542
+    ],
+    "cropped_size": [
+      2041,
+      1787
+    ],
+    "num_lines": 10,
+    "filtered_signatures": true
+  },
+  {
+    "image": "a04-059.png",
+    "cropped": "benchmark/test_dataset/handwritten/a04-059.png",
+    "crop_bbox": [
+      296,
+      716,
+      2095,
+      2155
+    ],
+    "original_size": [
+      2479,
+      3542
+    ],
+    "cropped_size": [
+      1839,
+      1479
+    ],
+    "num_lines": 8,
+    "filtered_signatures": true
+  },
+  {
+    "image": "g05-098.png",
+    "cropped": "benchmark/test_dataset/handwritten/g05-098.png",
+    "crop_bbox": [
+      351,
+      911,
+      2219,
+      2092
+    ],
+    "original_size": [
+      2479,
+      3542
+    ],
+    "cropped_size": [
+      1908,
+      1221
+    ],
+    "num_lines": 7,
+    "filtered_signatures": true
+  },
+  {
+    "image": "f07-069.png",
+    "cropped": "benchmark/test_dataset/handwritten/f07-069.png",
+    "crop_bbox": [
+      351,
+      911,
+      2226,
+      2631
+    ],
+    "original_size": [
+      2479,
+      3542
+    ],
+    "cropped_size": [
+      1915,
+      1760
+    ],
+    "num_lines": 10,
+    "filtered_signatures": true
+  },
+  {
+    "image": "f02-076.png",
+    "cropped": "benchmark/test_dataset/handwritten/f02-076.png",
+    "crop_bbox": [
+      291,
+      740,
+      2347,
+      2455
+    ],
+    "original_size": [
+      2479,
+      3542
+    ],
+    "cropped_size": [
+      2096,
+      1755
+    ],
+    "num_lines": 10,
+    "filtered_signatures": true
+  },
+  {
+    "image": "d03-112.png",
+    "cropped": "benchmark/test_dataset/handwritten/d03-112.png",
+    "crop_bbox": [
+      372,
+      760,
+      2240,
+      2264
+    ],
+    "original_size": [
+      2479,
+      3542
+    ],
+    "cropped_size": [
+      1908,
+      1544
+    ],
+    "num_lines": 9,
+    "filtered_signatures": true
+  },
+  {
+    "image": "c02-017.png",
+    "cropped": "benchmark/test_dataset/handwritten/c02-017.png",
+    "crop_bbox": [
+      328,
+      927,
+      2131,
+      2653
+    ],
+    "original_size": [
+      2479,
+      3542
+    ],
+    "cropped_size": [
+      1843,
+      1766
+    ],
+    "num_lines": 10,
+    "filtered_signatures": true
+  },
+  {
+    "image": "b06-045.png",
+    "cropped": "benchmark/test_dataset/handwritten/b06-045.png",
+    "crop_bbox": [
+      317,
+      683,
+      2170,
+      2261
+    ],
+    "original_size": [
+      2479,
+      3542
+    ],
+    "cropped_size": [
+      1893,
+      1618
+    ],
+    "num_lines": 9,
+    "filtered_signatures": true
+  },
+  {
+    "image": "l07-135.png",
+    "cropped": "benchmark/test_dataset/handwritten/l07-135.png",
+    "crop_bbox": [
+      316,
+      919,
+      2193,
+      2455
+    ],
+    "original_size": [
+      2479,
+      3542
+    ],
+    "cropped_size": [
+      1917,
+      1576
+    ],
+    "num_lines": 9,
+    "filtered_signatures": true
+  },
+  {
+    "image": "a05-029.png",
+    "cropped": "benchmark/test_dataset/handwritten/a05-029.png",
+    "crop_bbox": [
+      310,
+      742,
+      2268,
+      2422
+    ],
+    "original_size": [
+      2479,
+      3542
+    ],
+    "cropped_size": [
+      1998,
+      1720
+    ],
+    "num_lines": 10,
+    "filtered_signatures": true
+  },
+  {
+    "image": "a04-039.png",
+    "cropped": "benchmark/test_dataset/handwritten/a04-039.png",
+    "crop_bbox": [
+      327,
+      912,
+      2165,
+      2634
+    ],
+    "original_size": [
+      2479,
+      3542
+    ],
+    "cropped_size": [
+      1878,
+      1762
+    ],
+    "num_lines": 10,
+    "filtered_signatures": true
+  },
+  {
+    "image": "b06-100.png",
+    "cropped": "benchmark/test_dataset/handwritten/b06-100.png",
+    "crop_bbox": [
+      325,
+      903,
+      2384,
+      2625
+    ],
+    "original_size": [
+      2479,
+      3542
+    ],
+    "cropped_size": [
+      2099,
+      1762
+    ],
+    "num_lines": 10,
+    "filtered_signatures": true
+  },
+  {
+    "image": "f01-058.png",
+    "cropped": "benchmark/test_dataset/handwritten/f01-058.png",
+    "crop_bbox": [
+      410,
+      680,
+      2198,
+      2485
+    ],
+    "original_size": [
+      2479,
+      3542
+    ],
+    "cropped_size": [
+      1828,
+      1845
+    ],
+    "num_lines": 10,
+    "filtered_signatures": true
+  },
+  {
+    "image": "f04-016.png",
+    "cropped": "benchmark/test_dataset/handwritten/f04-016.png",
+    "crop_bbox": [
+      325,
+      673,
+      2184,
+      2103
+    ],
+    "original_size": [
+      2479,
+      3542
+    ],
+    "cropped_size": [
+      1899,
+      1470
+    ],
+    "num_lines": 8,
+    "filtered_signatures": true
+  },
+  {
+    "image": "r06-103.png",
+    "cropped": "benchmark/test_dataset/handwritten/r06-103.png",
+    "crop_bbox": [
+      342,
+      715,
+      2247,
+      2085
+    ],
+    "original_size": [
+      2479,
+      3542
+    ],
+    "cropped_size": [
+      1945,
+      1410
+    ],
+    "num_lines": 8,
+    "filtered_signatures": true
+  },
+  {
+    "image": "g06-045p.png",
+    "cropped": "benchmark/test_dataset/handwritten/g06-045p.png",
+    "crop_bbox": [
+      352,
+      707,
+      2177,
+      1864
+    ],
+    "original_size": [
+      2479,
+      3542
+    ],
+    "cropped_size": [
+      1865,
+      1197
+    ],
+    "num_lines": 7,
+    "filtered_signatures": true
+  },
+  {
+    "image": "c02-026.png",
+    "cropped": "benchmark/test_dataset/handwritten/c02-026.png",
+    "crop_bbox": [
+      321,
+      745,
+      2082,
+      2339
+    ],
+    "original_size": [
+      2479,
+      3542
+    ],
+    "cropped_size": [
+      1801,
+      1634
+    ],
+    "num_lines": 9,
+    "filtered_signatures": true
+  },
+  {
+    "image": "j06-034.png",
+    "cropped": "benchmark/test_dataset/handwritten/j06-034.png",
+    "crop_bbox": [
+      286,
+      661,
+      2173,
+      2622
+    ],
+    "original_size": [
+      2479,
+      3542
+    ],
+    "cropped_size": [
+      1927,
+      2001
+    ],
+    "num_lines": 11,
+    "filtered_signatures": true
+  },
+  {
+    "image": "h06-082.png",
+    "cropped": "benchmark/test_dataset/handwritten/h06-082.png",
+    "crop_bbox": [
+      299,
+      739,
+      2277,
+      2722
+    ],
+    "original_size": [
+      2479,
+      3542
+    ],
+    "cropped_size": [
+      2018,
+      2023
+    ],
+    "num_lines": 11,
+    "filtered_signatures": true
+  },
+  {
+    "image": "j04-024.png",
+    "cropped": "benchmark/test_dataset/handwritten/j04-024.png",
+    "crop_bbox": [
+      307,
+      746,
+      2203,
+      2448
+    ],
+    "original_size": [
+      2479,
+      3542
+    ],
+    "cropped_size": [
+      1936,
+      1742
+    ],
+    "num_lines": 10,
+    "filtered_signatures": true
+  },
+  {
+    "image": "g04-043.png",
+    "cropped": "benchmark/test_dataset/handwritten/g04-043.png",
+    "crop_bbox": [
+      313,
+      768,
+      2236,
+      2294
+    ],
+    "original_size": [
+      2479,
+      3542
+    ],
+    "cropped_size": [
+      1963,
+      1566
+    ],
+    "num_lines": 9,
+    "filtered_signatures": true
+  },
+  {
+    "image": "e07-079.png",
+    "cropped": "benchmark/test_dataset/handwritten/e07-079.png",
+    "crop_bbox": [
+      344,
+      739,
+      2127,
+      2654
+    ],
+    "original_size": [
+      2479,
+      3542
+    ],
+    "cropped_size": [
+      1823,
+      1955
+    ],
+    "num_lines": 11,
+    "filtered_signatures": true
+  },
+  {
+    "image": "r06-106.png",
+    "cropped": "benchmark/test_dataset/handwritten/r06-106.png",
+    "crop_bbox": [
+      329,
+      731,
+      2183,
+      2448
+    ],
+    "original_size": [
+      2479,
+      3542
+    ],
+    "cropped_size": [
+      1894,
+      1757
+    ],
+    "num_lines": 10,
+    "filtered_signatures": true
+  },
+  {
+    "image": "r02-117.png",
+    "cropped": "benchmark/test_dataset/handwritten/r02-117.png",
+    "crop_bbox": [
+      352,
+      707,
+      2086,
+      2080
+    ],
+    "original_size": [
+      2479,
+      3542
+    ],
+    "cropped_size": [
+      1774,
+      1413
+    ],
+    "num_lines": 8,
+    "filtered_signatures": true
+  },
+  {
+    "image": "h01-014.png",
+    "cropped": "benchmark/test_dataset/handwritten/h01-014.png",
+    "crop_bbox": [
+      346,
+      752,
+      2245,
+      2271
+    ],
+    "original_size": [
+      2479,
+      3542
+    ],
+    "cropped_size": [
+      1939,
+      1559
+    ],
+    "num_lines": 9,
+    "filtered_signatures": true
+  }
+]

@@ -37,26 +37,40 @@ OUTPUT_PATH = TEST_DATASET / "ground_truth.json"
 # IAM XML parsing
 # ---------------------------------------------------------------------------
 
-def parse_iam_xml(xml_path: Path) -> dict[str, Any]:
+def parse_iam_xml(xml_path: Path, filter_signatures: bool = False) -> dict[str, Any]:
     """
     Parse an IAM form XML file.
 
-    Extracts line-level text and bounding boxes.
+    Extracts line-level text and bounding boxes from <handwritten-part> <line>
+    elements (NOT <machine-print-line> elements).
+
+    When filter_signatures=True, excludes the last line if it contains "Name:"
+    or is a short line in the bottom 15% of the form (signature region).
+
     Returns a dict with 'text', 'blocks', and 'reading_order'.
     """
     tree = ET.parse(xml_path)
     root = tree.getroot()
 
+    form_height = int(root.get("height", 3542))
+    handwritten = root.find("handwritten-part")
+
+    # Collect lines from handwritten-part only
+    if handwritten is not None:
+        lines = handwritten.findall("line")
+    else:
+        # Fallback: iter all <line> elements (should still be handwritten-part only)
+        lines = list(root.iter("line"))
+
     blocks: list[dict[str, Any]] = []
     all_text: list[str] = []
 
-    for line in root.iter("line"):
+    for i, line in enumerate(lines):
         text_attr = line.get("text", "")
         if not text_attr:
             continue
 
         # Compute bounding box from <cmp> children within <word> elements.
-        # IAM XML stores character-level coordinates: <cmp x="..." y="..." width="..." height="..."/>
         xs, ys, x2s, y2s = [], [], [], []
         for cmp_elem in line.iter("cmp"):
             cx = cmp_elem.get("x")
@@ -76,8 +90,15 @@ def parse_iam_xml(xml_path: Path) -> dict[str, Any]:
         if xs:
             bbox = [min(xs), min(ys), max(x2s), max(y2s)]
         else:
-            # Fallback: use line baseline attributes if no <cmp> found
             bbox = [0, 0, 0, 0]
+
+        # Signature filtering
+        if filter_signatures:
+            is_last = (i == len(lines) - 1)
+            is_short = len(text_attr.split()) <= 2
+            in_bottom = bbox[1] > form_height * 0.85
+            if (is_last and "Name:" in text_attr) or (is_short and in_bottom):
+                continue
 
         blocks.append({
             "bbox": bbox,
@@ -99,6 +120,7 @@ def parse_iam_xml(xml_path: Path) -> dict[str, Any]:
         "blocks": sorted_blocks,
         "reading_order": reading_order,
         "errors": [],  # IAM is clean copy-text, no intentional errors
+        "_source": "handwritten-part" if filter_signatures else "iam-xml",
     }
 
 
@@ -150,7 +172,13 @@ def main() -> None:
                         help="Which images to include (default: all)")
     parser.add_argument("--output", type=Path, default=OUTPUT_PATH,
                         help=f"Output path (default: {OUTPUT_PATH})")
+    parser.add_argument("--handwritten-only", action="store_true",
+                        help="Filter signature lines and output to ground_truth_handwritten.json")
     args = parser.parse_args()
+
+    # Auto-set output path for handwritten-only mode
+    if args.handwritten_only and args.output == OUTPUT_PATH:
+        args.output = TEST_DATASET / "ground_truth_handwritten.json"
 
     # Determine image list
     if args.subset == "curated":
@@ -195,7 +223,7 @@ def main() -> None:
             xml_file = find_xml_for_image(img_name)
             if xml_file:
                 try:
-                    entry = parse_iam_xml(xml_file)
+                    entry = parse_iam_xml(xml_file, filter_signatures=args.handwritten_only)
                     entry["image"] = img_name
                     entries.append(entry)
                     xml_hits += 1
