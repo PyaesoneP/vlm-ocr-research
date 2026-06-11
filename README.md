@@ -139,10 +139,10 @@ gcloud auth application-default login
 # 2. Source the environment
 set -a && source .env && set +a
 # Required in .env:
-#   GCP_PROJECT=vlm-ocr-research
-#   GCP_LOCATION=asia-southeast1          # Document AI region
-#   DOCAI_PROCESSOR_ID=50e3c2a5ddb25e78
-#   GEMINI_MODEL=gemini-3.5-flash         # Must use location="global" in code
+#   GCP_PROJECT=<your-gcp-project-id>
+#   GCP_LOCATION=<doc-ai-region>           # Document AI processor region
+#   DOCAI_PROCESSOR_ID=<your-processor-id>
+#   GEMINI_MODEL=gemini-3.5-flash           # Preview model, needs location="global" in code
 
 # 3. Run the baseline (5 curated images)
 .venv/bin/python -u benchmark/baseline.py
