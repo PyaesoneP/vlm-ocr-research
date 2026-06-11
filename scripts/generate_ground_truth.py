@@ -28,7 +28,7 @@ from typing import Any, Optional
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 TEST_DATASET = PROJECT_ROOT / "benchmark" / "test_dataset"
-IAM_XML_DIR = TEST_DATASET / "iam_xml"
+IAM_XML_DIR = TEST_DATASET / "iam_xml" / "archive" / "xml"
 CURATED_MANIFEST = TEST_DATASET / "curated_manifest.json"
 OUTPUT_PATH = TEST_DATASET / "ground_truth.json"
 
@@ -55,14 +55,32 @@ def parse_iam_xml(xml_path: Path) -> dict[str, Any]:
         if not text_attr:
             continue
 
-        # Parse bounding box: x, y, w, h
-        x = int(line.get("x", "0"))
-        y = int(line.get("y", "0"))
-        w = int(line.get("w", "0"))
-        h = int(line.get("h", "0"))
+        # Compute bounding box from <cmp> children within <word> elements.
+        # IAM XML stores character-level coordinates: <cmp x="..." y="..." width="..." height="..."/>
+        xs, ys, x2s, y2s = [], [], [], []
+        for cmp_elem in line.iter("cmp"):
+            cx = cmp_elem.get("x")
+            cy = cmp_elem.get("y")
+            cw = cmp_elem.get("width")
+            ch = cmp_elem.get("height")
+            if cx is not None and cy is not None and cw is not None and ch is not None:
+                x_val = int(cx)
+                y_val = int(cy)
+                w_val = int(cw)
+                h_val = int(ch)
+                xs.append(x_val)
+                ys.append(y_val)
+                x2s.append(x_val + w_val)
+                y2s.append(y_val + h_val)
+
+        if xs:
+            bbox = [min(xs), min(ys), max(x2s), max(y2s)]
+        else:
+            # Fallback: use line baseline attributes if no <cmp> found
+            bbox = [0, 0, 0, 0]
 
         blocks.append({
-            "bbox": [x, y, x + w, y + h],
+            "bbox": bbox,
             "text": text_attr,
             "confidence": 1.0,
         })
@@ -88,21 +106,19 @@ def find_xml_for_image(image_name: str) -> Optional[Path]:
     """
     Find the IAM XML file corresponding to an image.
 
-    IAM XML files are named by form ID (e.g., 'a01-000u.xml').
-    The image prefix (e.g., 'iam_page_000') needs to be mapped.
+    With Kaggle IAM form images, filenames match XML filenames directly:
+      a01-000u.png  <->  a01-000u.xml
     """
     if not IAM_XML_DIR.exists():
         return None
 
-    # Try direct prefix match
-    prefix = image_name.replace(".jpg", "").replace(".png", "")
+    # Strip extension to get the form ID stem
+    stem = Path(image_name).stem  # e.g., 'a01-000u'
+
     for xml_file in IAM_XML_DIR.rglob("*.xml"):
-        if xml_file.stem in prefix or prefix in xml_file.stem:
+        if xml_file.stem == stem:
             return xml_file
 
-    # Try numeric mapping: iam_page_000 -> a01-000u, etc.
-    # This requires knowledge of the IAM form ID mapping.
-    # Fallback: return None
     return None
 
 
