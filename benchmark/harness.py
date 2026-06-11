@@ -26,7 +26,12 @@ from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-import torch
+try:
+    import torch
+    _HAS_TORCH = True
+except ImportError:
+    torch = None  # type: ignore
+    _HAS_TORCH = False
 
 
 # ---------------------------------------------------------------------------
@@ -95,23 +100,30 @@ class BenchmarkHarness:
     @staticmethod
     def get_gpu_info() -> tuple[str, int]:
         """Return (gpu_name, vram_total_mb)."""
-        if not torch.cuda.is_available():
-            return "CPU", 0
-        name = torch.cuda.get_device_name(0)
-        total_mb = torch.cuda.get_device_properties(0).total_memory // (1024 * 1024)
-        return name, total_mb
+        if _HAS_TORCH and torch.cuda.is_available():
+            name = torch.cuda.get_device_name(0)
+            total_mb = torch.cuda.get_device_properties(0).total_memory // (1024 * 1024)
+            return name, total_mb
+        # Fallback: try PaddlePaddle GPU detection
+        try:
+            import paddle
+            if paddle.is_compiled_with_cuda():
+                return paddle.device.cuda.get_device_name(0), 0
+        except ImportError:
+            pass
+        return "Unknown GPU", 0
 
     @staticmethod
     def reset_gpu_memory() -> None:
         """Clear CUDA cache and reset peak memory stats."""
-        if torch.cuda.is_available():
+        if _HAS_TORCH and torch.cuda.is_available():
             torch.cuda.empty_cache()
             torch.cuda.reset_peak_memory_stats()
 
     @staticmethod
     def get_peak_vram_mb() -> int:
         """Return peak VRAM usage in MB since last reset."""
-        if not torch.cuda.is_available():
+        if not _HAS_TORCH or not torch.cuda.is_available():
             return 0
         return torch.cuda.max_memory_allocated(0) // (1024 * 1024)
 
@@ -122,11 +134,11 @@ class BenchmarkHarness:
     @staticmethod
     def timed_call(fn: Callable, *args: Any, **kwargs: Any) -> tuple[Any, float]:
         """Call fn and return (result, elapsed_seconds)."""
-        if torch.cuda.is_available():
+        if _HAS_TORCH and torch.cuda.is_available():
             torch.cuda.synchronize()
         t0 = time.perf_counter()
         result = fn(*args, **kwargs)
-        if torch.cuda.is_available():
+        if _HAS_TORCH and torch.cuda.is_available():
             torch.cuda.synchronize()
         elapsed = time.perf_counter() - t0
         return result, elapsed
