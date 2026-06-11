@@ -11,17 +11,31 @@ handwritten essays without ruled lines.
 
 Model: https://huggingface.co/nvidia/nemotron-ocr-v2
 
+Environment: Requires `conda activate aiml` (CUDA 13.0 + PyTorch 2.12).
+The package compiles a C++ CUDA extension that must match system nvcc.
+
 Usage:
+    conda activate aiml
     python candidates/nemotron_ocr/eval.py
 """
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
+
+# --- Environment guard ---
+if "CONDA_DEFAULT_ENV" not in os.environ or os.environ["CONDA_DEFAULT_ENV"] != "aiml":
+    print(
+        "[nemotron_ocr_v2] ERROR: This script requires the 'aiml' conda environment.\n"
+        "  conda activate aiml\n"
+        "  python candidates/nemotron_ocr/eval.py"
+    )
+    sys.exit(1)
 
 from candidates import run_candidate
 

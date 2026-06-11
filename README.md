@@ -23,6 +23,26 @@ Empirical evaluation of open-source OCR models and Vision-Language Models (VLMs)
 - **Deployment phase:** Greater compute available, and cloud APIs are acceptable. The final recommendation may include models exceeding research GPU limits.
 - **Transformers version:** 5.11.0 (upgraded from 4.57.6 for SmolDocling `AutoModelForMultimodalLM` support and PaddleOCR-VL compatibility).
 
+## Environments
+
+Two separate Python environments are required due to conflicting CUDA toolkit versions:
+
+| Environment | Type | PyTorch | CUDA | Purpose |
+|---|---|---|---|---|
+| `.venv/` | venv | 2.10.0+cu128 | 12.8 | SmolDocling, GOT-OCR2.0, Florence-2 (attempted) |
+| `aiml` | conda | 2.12.0+cu130 | 13.0 | Nemotron OCR v2 (requires matching CUDA toolkit for C++ extension build) |
+
+**Why two environments:** Nemotron OCR v2 compiles a C++ CUDA extension that requires `nvcc` version matching `torch.version.cuda`. System `nvcc` is CUDA 13.0; the main `.venv` uses PyTorch with CUDA 12.8. The `aiml` conda env was created with PyTorch 2.12.0+cu130 to match system CUDA 13.0.
+
+**Activation:**
+```bash
+# For SmolDocling, GOT-OCR2.0, Florence-2:
+source .venv/bin/activate
+
+# For Nemotron OCR v2:
+conda activate aiml
+```
+
 ---
 
 ## Project Structure
