@@ -192,7 +192,7 @@ docs/METHODOLOGY.md                  # Full research design doc
 .env.example                         # GCP credential template
 ```
 
-### Phase 2: Tier-1 Candidate Evaluation — 2 of 6 Complete, 2 Blocked, 2 Pending
+### Phase 2: Tier-1 Candidate Evaluation — 3 of 6 Complete, 2 Blocked, 1 Pending
 
 Evaluate the 6 most promising candidates one-by-one. For each, measure:
 
@@ -226,7 +226,7 @@ Evaluate the 6 most promising candidates one-by-one. For each, measure:
 | **Florence-2-large** |  Blocked | Remote code `past_key_values[0]` incompatible with transformers 4.57 beam search. Built-in `Florence2ForConditionalGeneration` has weight name mismatch with HF checkpoint. Transformers 5.x has `forced_bos_token_id` missing from `Florence2LanguageConfig`. |
 | **PaddleOCR-VL-1.6** |  Blocked | Native PaddleOCR API requires PaddlePaddle 3.2.1 which does not support Blackwell GPU (sm_120). `RuntimeError: Unsupported GPU architecture`. transformers 5.x path also blocked (same GPU compat issue for PaddlePaddle). |
 | **SmolDocling-256M** |  Complete | **Best candidate so far.** 12.2s avg latency (42% faster than baseline), 0.8 GB VRAM, CER 1.47, WER 1.50. DocTags output with bbox parsing via regex. Hallucinates/repeats on handwriting. `AutoModelForMultimodalLM` + transformers 5.x. | |
-| **Nemotron OCR v2** |  Pending | Built-in reading order. Requires Python 3.12 + CUDA toolkit + custom install. |
+| **Nemotron OCR v2** |  Complete | **Fastest candidate.** 0.09s avg (234x faster than baseline), 0.6 GB VRAM, CER 1.33, WER 1.41. 7 text regions per page with bboxes + reading order via relational model. Built in aiml conda env (CUDA 13.0 + PyTorch 2.12). CUDA extension compiled without issues. |
 | **MonkeyOCR** |  Pending | No eval script yet. Model explicitly does not support handwritten content. Requires full repo clone + PaddlePaddle + LMDeploy. |
 
 ### Phase 3: Tier-2 Candidate Evaluation
@@ -313,11 +313,11 @@ Compare storage overhead, visual verifiability, and implementation complexity.
 | Rank | Candidate | Latency (s) | CER | WER | Read Order τ | Error F1 | VRAM (GB) | Setup | Flex |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | — | *(baseline)* Google Doc AI + Gemini | 21.1 | 1.22 | 1.22 | — | — | N/A (cloud) | N/A | N/A |
-| 1 | **SmolDocling-256M** | 12.2 | 1.47 | 1.50 | — | — | 0.8 | 3 | 3 |
-| 2 | **GOT-OCR2.0** | 35.9 | 2.93 | 3.92 | — | — | 3.4 | 2 | 3 |
+| 1 | **Nemotron OCR v2** | 0.09 | 1.33 | 1.41 | — | — | 0.6 | 4 | 4 |
+| 2 | **SmolDocling-256M** | 12.2 | 1.47 | 1.50 | — | — | 0.8 | 3 | 3 |
+| 3 | **GOT-OCR2.0** | 35.9 | 2.93 | 3.92 | — | — | 3.4 | 2 | 3 |
 | — | PaddleOCR-VL-1.6 | blocked | — | — | — | — | — | — | — |
 | — | Florence-2-large | blocked | — | — | — | — | — | — | — |
-| — | Nemotron OCR v2 | pending | — | — | — | — | — | — | — |
 | — | MonkeyOCR | pending | — | — | — | — | — | — | — |
 
 ### GOT-OCR2.0 Detailed Findings
@@ -351,6 +351,23 @@ Compare storage overhead, visual verifiability, and implementation complexity.
 | Flexibility | 3/5 | Handles printed documents well. Hallucinates/repeats on handwritten IAM forms. Not trained on handwriting. |
 | Key issue | — | Text repetition/hallucination on handwriting. Model was trained on printed documents, not handwritten essays. CER/WER are deceptively low due to whitespace normalization masking repetition. |
 | DocTags format | — | Proprietary DocTags tokens (`<loc_N>` for coords, `<text>`, `<table>`, etc.). Coordinates in 0-999 normalized bin space. Parsable via regex. |
+
+### Nemotron OCR v2 Detailed Findings
+
+| Metric | Value | Notes |
+|---|---|---|
+| Model | `nvidia/nemotron-ocr-v2` (v2_english) | 54M params: detector (RegNetX-8GF) + recognizer (Transformer) + relational model |
+| Avg latency | 0.09 s | **234x faster than cloud baseline**. 0.125s single-image after warmup. |
+| VRAM peak | 0.6 GB | Fits 12GB with 20x headroom. Smallest footprint. |
+| CER (normalized) | 1.33 | Near baseline (1.22). Recognizer struggles with handwriting (trained on printed docs). |
+| WER (normalized) | 1.41 | Near baseline (1.22). Same printed-document bias as CER. |
+| Throughput | 665 ppm | 100x+ any other candidate. Production-ready throughput. |
+| Reading order | Built-in | Relational model explicitly predicts logical groupings and reading order across text elements. |
+| Bounding boxes | Full | 4-corner quad format. Denormalized from 0-1 to pixel coords. ~7 regions per IAM page. |
+| Setup complexity | 4/5 | Requires git-lfs clone, CUDA toolkit, C++ build. CUDA version must match PyTorch. Needed separate conda env (aiml, CUDA 13.0 + PyTorch 2.12). |
+| Flexibility | 4/5 | Detects printed text well. Handwriting recognition is garbled ("hohi happing Onke") but detection/localization works correctly. |
+| Key advantage | — | **Lowest latency by far** (0.09s vs 12.2s SmolDocling, 21.1s baseline). Production-grade with built-in reading order. Relational model is unique differentiator. |
+| Key limitation | — | Recognizer trained on printed documents — handwriting transcription is inaccurate. Detector works well (correctly localizes all text lines). |
 
 ### Phase 2 Environment Changes
 

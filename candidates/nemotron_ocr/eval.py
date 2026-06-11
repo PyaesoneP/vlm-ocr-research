@@ -64,7 +64,7 @@ def inference_fn(image_path: str) -> dict:
                 "  pip install --no-build-isolation -v .\n"
                 "Requires Python 3.12, CUDA toolkit, and PyTorch with matching CUDA version."
             )
-        inference_fn._ocr = NemotronOCRV2(lang="en")
+        inference_fn._ocr = NemotronOCRV2(lang="en", model_dir="/tmp/nemotron-ocr-v2/v2_english")
         print(f"[{CANDIDATE_NAME}] Model loaded.")
 
     ocr = inference_fn._ocr
@@ -84,12 +84,17 @@ def inference_fn(image_path: str) -> dict:
     blocks = []
     full_text_parts = []
 
+    # Get image dimensions for coordinate denormalization (Nemotron outputs 0-1)
+    from PIL import Image as PILImage
+    img = PILImage.open(image_path)
+    img_w, img_h = img.size
+
     for pred in predictions:
         bbox = [
-            int(pred["left"]),
-            int(pred["upper"]),
-            int(pred["right"]),
-            int(pred["lower"]),
+            int(pred["left"] * img_w),
+            int(pred["upper"] * img_h),
+            int(pred["right"] * img_w),
+            int(pred["lower"] * img_h),
         ]
         blocks.append({
             "bbox": bbox,
@@ -124,7 +129,8 @@ if __name__ == "__main__":
         inference_fn=inference_fn,
         test_images=images,
         ground_truth=GROUND_TRUTH if GROUND_TRUTH.exists() else None,
-        notes="NVIDIA Nemotron OCR v2 (EN) — detector + recognizer + relational model.",
+        num_runs=1,
+        notes="NVIDIA Nemotron OCR v2 (EN) — detector + recognizer + relational model. Built in aiml conda env (CUDA 13.0 + PyTorch 2.12).",
     )
 
     print(f"[{CANDIDATE_NAME}] Done. Avg latency: {result.latency_total_avg:.2f}s")

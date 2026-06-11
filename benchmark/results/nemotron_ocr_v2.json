@@ -1,0 +1,89 @@
+{
+  "candidate_name": "nemotron_ocr_v2",
+  "model_version": "",
+  "timestamp": "2026-06-11T17:43:53",
+  "gpu_name": "NVIDIA GeForce RTX 5070 Ti Laptop GPU",
+  "vram_total_mb": 12226,
+  "latency_total_avg": 0.09021279200169374,
+  "latency_total_std": 0.0,
+  "latency_stage1_ocr": 0.08996571200259496,
+  "latency_stage2_errors": 0.0,
+  "cer": 1.327659574468085,
+  "wer": 1.4054054054054055,
+  "reading_order_tau": 0.0,
+  "error_detection_f1": 0.0,
+  "bounding_box_iou": 0.0,
+  "vram_peak_mb": 593,
+  "throughput_ppm": 665.0941476112778,
+  "setup_complexity": 0,
+  "flexibility": 0,
+  "sample_outputs": [
+    {
+      "text": "Sentence Database\nA04-039\nIn VIENNA, before flying off to Moscow, Mr. Khrushchov said he hoped his weekend talks with President Kennedy would help \"to establish an enduring peace between nations.\" \" Replying to farewell speech from Austrian President Schaerf, the Soviet Premier thanked Austria for the hospitality and welcome he had received. \"The Soviet Union has always striven and is striving safeguard an enduring peace for the peoples, to secure an early solution of the disarmament problem, and to bring about peaceful settlement of international disputes through negotiations,\" \" he said.\nOn Vienna, Aefore juging off to Morcow, Mr. Khrushihiou said he hopeat wi weekend talks with Presidews Kenneda would to hdlp \" to eslaseish an onduring peace Selweeh natiow.\" \"\nReplziss to a fawecll sprech from Aushiaa Pesidet Schaord the Soviet Prencier thanked hustic for the hospilality and welcome he had kceived. The Soieet unioh ha always stoven and is stoluing to safeguard an on duriiy peace for the peoples to pecure an early solution of the\nName:",
+      "blocks": [
+        {
+          "bbox": [
+            346,
+            256,
+            892,
+            211
+          ],
+          "text": "Sentence Database",
+          "confidence": 0.9405028700406275
+        },
+        {
+          "bbox": [
+            1880,
+            259,
+            2113,
+            213
+          ],
+          "text": "A04-039",
+          "confidence": 0.9379572355479247
+        },
+        {
+          "bbox": [
+            346,
+            721,
+            2118,
+            371
+          ],
+          "text": "In VIENNA, before flying off to Moscow, Mr. Khrushchov said he hoped his weekend talks with President Kennedy would help \"to establish an enduring peace between nations.\" \" Replying to farewell speech from Austrian President Schaerf, the Soviet Premier thanked Austria for the hospitality and welcome he had received. \"The Soviet Union has always striven and is striving safeguard an enduring peace for the peoples, to secure an early solution of the disarmament problem, and to bring about peaceful settlement of international disputes through negotiations,\" \" he said.",
+          "confidence": 0.9384500255038527
+        },
+        {
+          "bbox": [
+            325,
+            1565,
+            1986,
+            912
+          ],
+          "text": "On Vienna, Aefore juging off to Morcow, Mr. Khrushihiou said he hopeat wi weekend talks with Presidews Kenneda would to hdlp \" to eslaseish an onduring peace Selweeh natiow.\" \"",
+          "confidence": 0.875016101504617
+        },
+        {
+          "bbox": [
+            323,
+            2632,
+            2168,
+            1631
+          ],
+          "text": "Replziss to a fawecll sprech from Aushiaa Pesidet Schaord the Soviet Prencier thanked hustic for the hospilality and welcome he had kceived. The Soieet unioh ha always stoven and is stoluing to safeguard an on duriiy peace for the peoples to pecure an early solution of the",
+          "confidence": 0.8844803788973801
+        },
+        {
+          "bbox": [
+            347,
+            2845,
+            481,
+            2813
+          ],
+          "text": "Name:",
+          "confidence": 0.9365500672831469
+        }
+      ],
+      "stage1_latency": 0.08996571200259496
+    }
+  ],
+  "notes": "NVIDIA Nemotron OCR v2 (EN) \u2014 detector + recognizer + relational model. Built in aiml conda env (CUDA 13.0 + PyTorch 2.12)."
+}
