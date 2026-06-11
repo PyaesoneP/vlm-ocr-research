@@ -214,6 +214,8 @@ docs/METHODOLOGY.md                  # Full research design doc
 
 ### Phase 2: Tier-1 Candidate Evaluation — 4 of 6 Complete, 2 Blocked
 
+> **CRITICAL METHODOLOGICAL FINDING (2025-06-11):** The IAM forms contain BOTH machine-printed text (the "prompt" for writers to copy) AND handwritten text (the writer's copy). Since the handwritten text is an exact copy of the printed prompt, the ground truth text is identical regardless of which section is transcribed. **CER/WER cannot distinguish whether a model read the printed text or the handwriting.** Nemotron OCR and MonkeyOCR output the printed form header ("Sentence Database"), confirming they read the machine-printed region. SmolDocling skips the header — it *may* be reading the handwriting. This means Phase 2 rankings reflect printed-text OCR accuracy, not handwriting recognition. See [IAM Dataset Structure](#iam-dataset-structure) below for details.
+
 Evaluate the 6 most promising candidates one-by-one. For each, measure:
 
 * End-to-end latency (image → structured text with bounding boxes).
@@ -228,6 +230,34 @@ Evaluate the 6 most promising candidates one-by-one. For each, measure:
 
 **CER/WER:** Computed with whitespace normalization (newlines → spaces, collapsed whitespace). This prevents line-break formatting differences from artificially inflating error rates.
 
+### IAM Dataset Structure
+
+Every IAM form image has FOUR sections stacked vertically, separated by horizontal lines:
+
+```
+┌──────────────────────────────────────┐
+│ 1. HEADER (printed)                  │  "Sentence Database" + form ID (e.g., "A04-039")
+├──────────────────────────────────────┤
+│ 2. PRINTED PROMPT (machine-printed)  │  Paragraph of serif text — the "answer key"
+├──────────────────────────────────────┤
+│ 3. HANDWRITTEN COPY (cursive/print)  │  Writer's handwritten copy of the printed prompt (~6 lines)
+├──────────────────────────────────────┤
+│ 4. FOOTER                            │  "Name:" label + handwritten signature
+└──────────────────────────────────────┘
+```
+
+**Implication for evaluation:** The IAM XML annotations contain identical text in both `<machine-printed-part>` and `<handwritten-part>`. Our ground truth (extracted from `<handwritten-part>` via `parse_iam_xml()`) is textually identical to the printed prompt. This means:
+
+- **CER/WER measures text correctness, NOT handwriting recognition ability.**
+- A model that reads the easy machine-printed text (section 2) scores identically to one that reads the hard handwriting (section 3).
+- Models that output "Sentence Database" or form IDs in their transcription are confirmed to be reading section 1-2 (printed), not section 3 (handwriting).
+- **Nemotron OCR** outputs headers → reading printed text.
+- **MonkeyOCR** outputs headers → reading printed text.
+- **SmolDocling** skips headers → source ambiguous (may be reading handwriting, or may filter headers).
+- **GOT-OCR2.0** skips headers → source ambiguous.
+
+The Phase 2 rankings below should be interpreted as **printed-text OCR benchmarks**, not handwriting recognition results. Handwriting-specific evaluation requires isolating the handwritten region (section 3) via bounding box filtering, or using a handwriting-only dataset.
+
 #### Phase 2A: Prerequisites 
 
 - Removed old renamed images (`iam_page_*.jpg`), replaced with Kaggle form images (original IAM filenames matching XML).
@@ -240,14 +270,14 @@ Evaluate the 6 most promising candidates one-by-one. For each, measure:
 
 #### Phase 2B–2G: Candidate Evaluations
 
-| Candidate | Status | Key Findings |
-|---|---|---|
-| **GOT-OCR2.0** |  Complete | 35.9s avg, 3.4 GB VRAM. Transcribes full form (printed + handwritten). No structured bbox output in plain OCR mode. |
-| **Florence-2-large** |  Blocked | Remote code `past_key_values[0]` incompatible with transformers 4.57 beam search. Built-in `Florence2ForConditionalGeneration` has weight name mismatch with HF checkpoint. Transformers 5.x has `forced_bos_token_id` missing from `Florence2LanguageConfig`. |
-| **PaddleOCR-VL-1.6** |  Blocked | Native PaddleOCR API requires PaddlePaddle 3.2.1 which does not support Blackwell GPU (sm_120). `RuntimeError: Unsupported GPU architecture`. transformers 5.x path also blocked (same GPU compat issue for PaddlePaddle). |
-| **SmolDocling-256M** |  Complete | **Best candidate so far.** 12.2s avg latency (42% faster than baseline), 0.8 GB VRAM, CER 1.47, WER 1.50. DocTags output with bbox parsing via regex. Hallucinates/repeats on handwriting. `AutoModelForMultimodalLM` + transformers 5.x. | |
-| **Nemotron OCR v2** |  Complete | **Fastest candidate.** 0.09s avg (234x faster than baseline), 0.6 GB VRAM, CER 1.33, WER 1.41. 7 text regions per page with bboxes + reading order via relational model. Built in aiml conda env (CUDA 13.0 + PyTorch 2.12). CUDA extension compiled without issues. |
-| **MonkeyOCR** |  Complete (CPU) | 5.96s avg, 0 MB VRAM (CPU-only). CER 0.58, WER 0.65 — poor due to generation repetition, not misrecognition. Recognizes typed text accurately but loops/repeats. IAM forms are mixed typed+handwritten; typed portion transcribed well. Backend: llama.cpp b9596 llama-server (ctx-size=8192). |
+| Candidate | Status | Text Source | Key Findings |
+|---|---|---|---|
+| **GOT-OCR2.0** |  Complete | Ambiguous (no header output) | 35.9s avg, 3.4 GB VRAM. Transcribes full form (printed + handwritten). No structured bbox output in plain OCR mode. |
+| **Florence-2-large** |  Blocked | — | Remote code `past_key_values[0]` incompatible with transformers 4.57 beam search. Built-in `Florence2ForConditionalGeneration` has weight name mismatch with HF checkpoint. Transformers 5.x has `forced_bos_token_id` missing from `Florence2LanguageConfig`. |
+| **PaddleOCR-VL-1.6** |  Blocked | — | Native PaddleOCR API requires PaddlePaddle 3.2.1 which does not support Blackwell GPU (sm_120). `RuntimeError: Unsupported GPU architecture`. transformers 5.x path also blocked (same GPU compat issue for PaddlePaddle). |
+| **SmolDocling-256M** |  Complete | Ambiguous (skips header) | **Best candidate for accuracy.** 12.2s avg latency (42% faster than baseline), 0.8 GB VRAM, CER 1.47, WER 1.50. DocTags output with bbox parsing via regex. Hallucinates/repeats on handwriting. `AutoModelForMultimodalLM` + transformers 5.x. Skips form header — may be reading handwriting or filtering non-content. |
+| **Nemotron OCR v2** |  Complete | **Printed text** (headers in output) | **Fastest candidate.** 0.09s avg (234x faster than baseline), 0.6 GB VRAM, CER 1.17, WER 1.24. Outputs form headers ("Sentence Database") + form IDs → confirmed reading printed text, not handwriting. 7 text regions per page with bboxes + reading order via relational model. Built in aiml conda env (CUDA 13.0 + PyTorch 2.12). CUDA extension compiled without issues. |
+| **MonkeyOCR** |  Complete (CPU) | **Printed text** (headers in output) | 5.96s avg, 0 MB VRAM (CPU-only). CER 0.58, WER 0.65 — poor due to generation repetition, not misrecognition. Outputs form headers ("Sentence Database") → confirmed reading printed text. Recognizes typed text accurately but loops/repeats. Backend: llama.cpp b9596 llama-server (ctx-size=8192). |
 
 ### Phase 3: Tier-2 Candidate Evaluation
 
@@ -388,6 +418,7 @@ Compare storage overhead, visual verifiability, and implementation complexity.
 | Flexibility | 4/5 | Detects printed text well. Handwriting recognition is garbled ("hohi happing Onke") but detection/localization works correctly. |
 | Key advantage | — | **Lowest latency by far** (0.09s vs 12.2s SmolDocling, 21.1s baseline). Production-grade with built-in reading order. Relational model is unique differentiator. |
 | Key limitation | — | Recognizer trained on printed documents — handwriting transcription is inaccurate. Detector works well (correctly localizes all text lines). |
+|  Text source | — | **Outputs printed form headers** ("Sentence Database", "A04-039"). Confirmed reading machine-printed region, not handwriting. CER 1.17 reflects printed-text OCR quality, not handwriting recognition. |
 
 ### MonkeyOCR Detailed Findings
 
@@ -405,6 +436,7 @@ Compare storage overhead, visual verifiability, and implementation complexity.
 | Flexibility | 2/5 | Accurate on typed text. Repeats itself on longer passages. Handwriting recognition untested (model loops before reaching it). IAM forms are mixed typed+handwritten — typed portion recognized well. |
 | Key issue | — | **Generation-control problem, not OCR problem.** Recognizes typed text correctly but cannot stop — repeats the same paragraph 2-3x with variations. Requires ctx-size=8192 for image tokens to fit (at 4096, output truncated to 87 chars). "Sentence Database" is NOT a hallucination — it's printed on the IAM form header. |
 | Root cause | — | Qwen2-VL is a generative LMM, not a dedicated OCR engine. The LLM component "completes" text beyond the visible image content. Repetition is a known issue with small VLMs used for transcription tasks. |
+|  Text source | — | **Outputs printed form headers** ("Sentence Database"). Confirmed reading machine-printed region, not handwriting. CER 0.58 reflects printed-text OCR + repetition artifacts, not handwriting recognition. |
 | Backend | — | llama.cpp b9596 llama-server with Vulkan build. Vulkan GPU backend not detected on RTX 5070 Ti — fell back to CPU. |
 
 ### Phase 2 Environment Changes
@@ -441,6 +473,7 @@ Compare storage overhead, visual verifiability, and implementation complexity.
 4. **PaddleOCR-VL vLLM backend:** May bypass PaddlePaddle GPU incompatibility by using vLLM inference server instead of direct PaddlePaddle inference.
 5. **Florence-2 vLLM backend:** May bypass remote code issues by loading through vLLM which has native Florence-2 support.
 6. **MonkeyOCR — llama.cpp path worked for serving, accuracy the blocker:** Pre-built llama.cpp binaries with Qwen2-VL native support made serving trivial (no Python deps needed beyond stdlib). This same approach could serve Florence-2 or other GGUF-converted VLMs without the transformers remote-code issues.
+7. ** Handwriting-specific evaluation needed:** All Phase 2 CER/WER results reflect printed-text OCR due to IAM dataset structure (see [IAM Dataset Structure](#iam-dataset-structure)). To properly evaluate handwriting recognition, we need to either: (a) isolate the handwritten region via bounding box filtering using the XML annotations, or (b) use a handwriting-only dataset without printed prompts (e.g., IAM lines subset, RIMES, or custom essay scans).
 
 ---
 
