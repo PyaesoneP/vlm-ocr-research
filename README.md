@@ -21,27 +21,61 @@ Empirical evaluation of open-source OCR models and Vision-Language Models (VLMs)
 
 - **Research phase:** RTX 5070 Ti mobile (12 GB VRAM). Models must fit locally (quantization allowed).
 - **Deployment phase:** Greater compute available, and cloud APIs are acceptable. The final recommendation may include models exceeding research GPU limits.
-- **Transformers version:** 5.11.0 (upgraded from 4.57.6 for SmolDocling `AutoModelForMultimodalLM` support and PaddleOCR-VL compatibility).
+- **Transformers version:** 5.8.1 (upgraded from 4.57.6 for SmolDocling `AutoModelForMultimodalLM` support and PaddleOCR-VL compatibility).
 
 ## Environments
 
-Two separate Python environments are required due to conflicting CUDA toolkit versions:
+Four separate Python environments are required due to conflicting CUDA/transformers/PaddlePaddle versions:
 
 | Environment | Type | PyTorch | CUDA | Purpose |
 |---|---|---|---|---|
-| `.venv/` | venv | 2.10.0+cu128 | 12.8 | SmolDocling, GOT-OCR2.0, Florence-2 (attempted) |
+| `.venv/` | venv | 2.11.0+cu130 | 13.0 | SmolDocling, GOT-OCR2.0, MonkeyOCR, DocLayoutYOLO, Qwen3-VL, TrOCR, baselines |
 | `aiml` | conda | 2.12.0+cu130 | 13.0 | Nemotron OCR v2 (requires matching CUDA toolkit for C++ extension build) |
+| `florencetf` | conda | 2.11.0+cu130 | 13.0 | Florence-2 base/large (requires transformers 4.40.0, incompatible with transformers 5.x) |
+| `.venv_paddleocr` | venv | — (PaddlePaddle 3.4.0+) | 12.9 | PaddleOCR-VL-1.6 (PaddlePaddle & PyTorch NCCL conflict; needs isolated env) |
 
-**Why two environments:** Nemotron OCR v2 compiles a C++ CUDA extension that requires `nvcc` version matching `torch.version.cuda`. System `nvcc` is CUDA 13.0; the main `.venv` uses PyTorch with CUDA 12.8. The `aiml` conda env was created with PyTorch 2.12.0+cu130 to match system CUDA 13.0.
+**Why four environments:** Nemotron OCR v2 needs `aiml` conda for its C++ CUDA extension build. Florence-2 needs `florencetf` for transformers 4.40.0. PaddleOCR-VL needs `.venv_paddleocr` because PaddlePaddle 3.4.0+cu129 bundles its own CUDA 12.9 NCCL/cuBLAS libraries that conflict with PyTorch's CUDA 13.0 stack. The main `.venv` handles all other models.
 
 **Activation:**
 ```bash
-# For SmolDocling, GOT-OCR2.0, Florence-2:
+# For SmolDocling, GOT-OCR2.0, MonkeyOCR, Qwen3-VL, TrOCR:
 source .venv/bin/activate
 
 # For Nemotron OCR v2:
 conda activate aiml
+
+# For Florence-2 (base or large):
+conda activate florencetf
+
+# For PaddleOCR-VL-1.6:
+source .venv_paddleocr/bin/activate
 ```
+
+### PaddleOCR-VL on Blackwell (NVIDIA sm_120)
+
+PaddleOCR-VL uses the **PaddlePaddle native inference engine**, NOT HuggingFace transformers. The standard `paddlepaddle-gpu` from PyPI (3.2.1) does **not** include Blackwell (sm_120) support. Two options:
+
+**Option A — Docker (recommended per PaddleOCR docs):**
+```bash
+docker run -it --gpus all --network host --user root \
+  ccr-2vdh3abv-pub.cnc.bj.baidubce.com/paddlepaddle/paddleocr-vl:latest-nvidia-gpu-sm120 \
+  /bin/bash
+# Inside container: paddleocr doc_parser -i /path/to/image.png
+```
+
+**Option B — Manual install (requires Blackwell-compatible PaddlePaddle wheel):**
+```bash
+# Install PaddlePaddle 3.4.0+ from cu129 index (supports sm_120)
+pip install paddlepaddle-gpu -i https://www.paddlepaddle.org.cn/packages/stable/cu129/ --upgrade
+# Then use the Python API:
+#   from paddleocr import PaddleOCRVL
+#   pipeline = PaddleOCRVL()
+#   output = pipeline.predict("image.png")
+```
+
+**Python API:** `from paddleocr import PaddleOCRVL` (NOT `PaddleOCR` or HuggingFace `AutoModel`). See `candidates/paddleocr_vl/eval.py` for the integration script.
+
+Reference: [PaddleOCR-VL NVIDIA Blackwell Tutorial](https://www.paddleocr.ai/latest/en/version3.x/pipeline_usage/PaddleOCR-VL-NVIDIA-Blackwell.html)
 
 ---
 
@@ -54,7 +88,8 @@ vlm-ocr-research/
 │   ├── harness.py                     # Shared evaluation harness
 │   ├── metrics.py                     # CER, WER, IoU, reading-order scoring
 │   ├── test_dataset/                  # Handwritten essay samples + ground truth
-│   └── results/                       # Per-candidate JSON result files
+│   ├── results/                       # Per-candidate JSON result files
+│   └── visualizations/                # Bbox overlay & comparison images
 ├── candidates/
 │   ├── paddleocr_vl/                  # PaddleOCR-VL-1.6
 │   ├── got_ocr/                       # GOT-OCR2.0
@@ -77,13 +112,14 @@ vlm-ocr-research/
 | # | Candidate | Params | Key Advantage | VRAM Est. |
 | --- | --- | --- | --- | --- |
 | 1 | **PaddleOCR-VL-1.6** | 0.9 B | SOTA doc VLM (96.3% OmniDocBench), built-in layout & structure | ~2–3 GB |
-| 2 | **GOT-OCR2.0** | ~7 B (Qwen-based) | Unified end-to-end OCR, bounding boxes, fine-grained, GGUF available | ~6–8 GB (INT4) |
+|   |   |  **Blackwell requires PaddlePaddle 3.4.0+ from cu129 index or Docker** (see below) |   |
+| 2 | **GOT-OCR2.0** | ~7 B (Qwen-based) | Unified end-to-end OCR, GGUF available. No bbox output. | ~6–8 GB (INT4) |
 | 3 | **NVIDIA Nemotron OCR v2** | 54 M EN / 84 M Multi | **Built-in reading order** (relational model), bounding boxes, production-grade | ~1–2 GB |
 | 4 | **Florence-2-large** | 0.77 B | Microsoft foundation model, prompt-based OCR + boxes, multi-task | ~1.5 GB |
 | 5 | **granite-docling-258M** | 256 M | Ultra-compact document VLM, successor to SmolDocling, DocTags format | ~1 GB |
-| 6 | **MonkeyOCR** | ~3 B | Document-specialized VLM, strong on OCRBench, native bbox + reading order output | ~6 GB |
+| 6 | **MonkeyOCR** | ~1.2 B | Document parsing with SRR triplet (structure-recognition-relation). Built-in layout detection (DocLayoutYOLO) for bboxes. **Does not support handwritten content** (per official limitations). | ~6 GB |
 
-**Phase 2 status:** GOT-OCR2.0 - evaluated. SmolDocling-256M - evaluated (best so far: 12.2s, 0.8GB). Florence-2 - blocked. PaddleOCR-VL - blocked (GPU). Nemotron OCR & MonkeyOCR - evaluated.
+- **Phase 2 status:** All 6 Tier-1 candidates evaluated. Florence-2-large is #1 local model (CER 0.061, 1.05s). PaddleOCR-VL-1.6 is now working on Blackwell (CER 0.072, 3.97s) via native PaddlePaddle pipeline. DocLayoutYOLO provides native layout bboxes (IoU 0.11, τ=1.00, 0.10s).
 
 ### Tier 2: Baselines & Comparison
 
@@ -129,7 +165,7 @@ Key research question: can a single VLM (e.g., Qwen3-VL) handle both stages end-
 
 ### Phase 1: Environment Setup & Baseline
 
-1. Set up Python environment (CUDA 12.8, PyTorch 2.10, RTX 5070 Ti 12 GB). -> `scripts/setup.sh`
+1. Set up Python environment (CUDA 13.0, PyTorch 2.11.0, RTX 5070 Ti 12 GB). -> `scripts/setup.sh`
 2. Collect handwritten essay samples. -> `benchmark/test_dataset/` (1,539 IAM forms from Kaggle, 25 curated).
 3. Measure Google Document AI + Gemini baseline latency. -> `benchmark/baseline.py` — **21.1s total (Doc AI 3.1s + Gemini 3.5 Flash 17.7s)**.
 4. Build shared evaluation harness. -> `benchmark/harness.py` + `benchmark/metrics.py`
@@ -145,7 +181,7 @@ Key research question: can a single VLM (e.g., Qwen3-VL) handle both stages end-
 | **Stage 2 dominates latency** | Gemini error detection is 17.7s (84% of total). Replacing it with a local model is the highest-impact optimization. |
 | **Document AI is fast** | OCR alone is 3.1s. The cloud OCR stage is not the bottleneck. |
 | **Gemini needs `location="global"`** | `gemini-3.5-flash` is a preview model only available in the `global` region on Vertex AI. Using `asia-southeast1` returns 404. |
-| **Blackwell needs nightly PyTorch** | RTX 5070 Ti (sm_120) unsupported by stable PyTorch 2.6. Uses 2.10.0+cu128. |
+| **Blackwell needs nightly PyTorch** | RTX 5070 Ti (sm_120) unsupported by stable PyTorch 2.6. Uses 2.11.0+cu130. |
 | **bitsandbytes blocked** | INT4 quantization unavailable for Blackwell — blocks Qwen3-VL-8B evaluation. |
 | **Free tier API keys inadequate** | 20 req/day + 5 RPM limits make API keys unusable for benchmarking. Vertex AI via ADC resolved this. |
 
@@ -185,7 +221,7 @@ Handled in `baseline.py` `_get_gemini_client()`. Prefers API key, falls back to 
 
 #### Challenges Encountered
 
-1. **PyTorch on Blackwell.** The RTX 5070 Ti has compute capability sm_120. PyTorch 2.6 stable only supports up to sm_90. Installing the stable wheel produced CUDA compatibility warnings and `total_mem` -> `total_memory` attribute errors. Fixed by switching to PyTorch 2.12 nightly with CUDA 12.8.
+1. **PyTorch on Blackwell.** The RTX 5070 Ti has compute capability sm_120. PyTorch 2.6 stable only supports up to sm_90. Installing the stable wheel produced CUDA compatibility warnings and `total_mem` -> `total_memory` attribute errors. Fixed by switching to PyTorch 2.11.0+cu130.
 
 2. **Gemini API key quota.** Free tier limits (20 req/day, 5 RPM) caused 429 errors across all Flash models and 503 errors during demand spikes. Added retry logic with exponential backoff and rate limiting, but the daily quota was fundamentally too low for 12 sequential calls. Resolved by switching to Vertex AI via ADC (`gcloud auth application-default login`), which has production-tier quota.
 
@@ -207,12 +243,12 @@ scripts/phase1_validate.sh           # 27-check integration suite
 benchmark/test_dataset/DATASET.md    # Dataset provenance doc
 benchmark/test_dataset/ground_truth.json  # 20-entry skeleton
 benchmark/test_dataset/curated_manifest.json  # Subset metadata
-benchmark/results/baseline_google_docai_gemini.json  # 29.0s baseline
+benchmark/results/baseline_google_docai_gemini.json  # 21.1s baseline
 docs/METHODOLOGY.md                  # Full research design doc
 .env.example                         # GCP credential template
 ```
 
-### Phase 2: Tier-1 Candidate Evaluation — 4 of 6 Complete, 2 Blocked
+### Phase 2: Tier-1 Candidate Evaluation — All 6 Evaluated, 1 Blocked (GPU)
 
 > **CRITICAL METHODOLOGICAL FINDING (2025-06-11):** The IAM forms contain BOTH machine-printed text (the "prompt" for writers to copy) AND handwritten text (the writer's copy). Since the handwritten text is an exact copy of the printed prompt, the ground truth text is identical regardless of which section is transcribed. **CER/WER cannot distinguish whether a model read the printed text or the handwriting.** Nemotron OCR and MonkeyOCR output the printed form header ("Sentence Database"), confirming they read the machine-printed region. SmolDocling skips the header — it *may* be reading the handwriting. This means Phase 2 rankings reflect printed-text OCR accuracy, not handwriting recognition. See [IAM Dataset Structure](#iam-dataset-structure) below for details.
 
@@ -272,34 +308,139 @@ The Phase 2 rankings below should be interpreted as **printed-text OCR benchmark
 
 | Candidate | Status | Text Source | Key Findings |
 |---|---|---|---|
-| **GOT-OCR2.0** |  Complete | Ambiguous (no header output) | 35.9s avg, 3.4 GB VRAM. Transcribes full form (printed + handwritten). No structured bbox output in plain OCR mode. |
-| **Florence-2-large** |  Blocked | — | Remote code `past_key_values[0]` incompatible with transformers 4.57 beam search. Built-in `Florence2ForConditionalGeneration` has weight name mismatch with HF checkpoint. Transformers 5.x has `forced_bos_token_id` missing from `Florence2LanguageConfig`. |
+| **GOT-OCR2.0** |  Complete | Ambiguous (no header output) | 35.9s avg, 3.4 GB VRAM. Transcribes full form (printed + handwritten).  No native bbox output — format mode produces text formatting only. Verified against HF transformers and original implementation. |
+| **Florence-2-large** |  Complete (separate env) | **Handwriting** (no header in output) | **#1 local model.** CER 0.061 (24% better than Doc AI), 1.05s avg (fastest GPU model). 770M params, 2.0 GB VRAM. Requires `conda activate florencetf` with transformers 4.40.0. Base model (230M): CER 0.187, 1.2s. |
 | **PaddleOCR-VL-1.6** |  Blocked | — | Native PaddleOCR API requires PaddlePaddle 3.2.1 which does not support Blackwell GPU (sm_120). `RuntimeError: Unsupported GPU architecture`. transformers 5.x path also blocked (same GPU compat issue for PaddlePaddle). |
 | **SmolDocling-256M** |  Complete | Ambiguous (skips header) | **Best candidate for accuracy.** 12.2s avg latency (42% faster than baseline), 0.8 GB VRAM, CER 1.47, WER 1.50. DocTags output with bbox parsing via regex. Hallucinates/repeats on handwriting. `AutoModelForMultimodalLM` + transformers 5.x. Skips form header — may be reading handwriting or filtering non-content. |
 | **Nemotron OCR v2** |  Complete | **Printed text** (headers in output) | **Fastest candidate.** 0.09s avg (234x faster than baseline), 0.6 GB VRAM, CER 1.17, WER 1.24. Outputs form headers ("Sentence Database") + form IDs → confirmed reading printed text, not handwriting. 7 text regions per page with bboxes + reading order via relational model. Built in aiml conda env (CUDA 13.0 + PyTorch 2.12). CUDA extension compiled without issues. |
-| **MonkeyOCR** |  Complete (CPU) | **Printed text** (headers in output) | 5.96s avg, 0 MB VRAM (CPU-only). CER 0.58, WER 0.65 — poor due to generation repetition, not misrecognition. Outputs form headers ("Sentence Database") → confirmed reading printed text. Recognizes typed text accurately but loops/repeats. Backend: llama.cpp b9596 llama-server (ctx-size=8192). |
+| **MonkeyOCR** |  Complete (CPU, GGUF) | **Printed text** (headers in output) | 5.96s avg, 0 MB VRAM (CPU-only). GGUF/llama-server path = text recognition only. Official pipeline has layout detection + reading order via DocLayoutYOLO + layoutreader + VLM. ⚠ MonkeyOCR explicitly does not support handwritten content (per repo limitations). |
 
 ### Handwriting-Only Re-Evaluation (XML-Guided Cropping)
 
 After the methodological finding that Phase 2 metrics reflect printed-text OCR, we cropped images to the handwritten region using IAM XML `<handwritten-part>` `<cmp>` bounding boxes. Each image was cropped to the union bounding box of all handwritten lines (excluding signature footer), with 20px padding. This physically removes the printed header/prompt, forcing models to read only handwriting.
 
-| Candidate | Printed CER (Phase 2) | **Handwriting CER** | Handwriting Latency | Verdict |
-|---|---|---|---|---|
-| **Google Doc AI**  | — | **0.08** | 3.7s | Cloud baseline. Best CER. $1.50/1K pages + Gemini per-token. |
-| **MonkeyOCR**  | 0.58 | **0.11** | 3.79s | Best local accuracy. No bboxes. CPU-only via llama.cpp. Free. |
-| **SmolDocling**  | 1.47 | **0.14** | 7.05s | Near-best accuracy + structured DocTags output with bboxes. Best overall for essay feedback pipeline. |
-| **Nemotron OCR v2** | 1.17 | 0.74 | 0.06s | Fastest but recognizer genuinely struggles with handwriting. 6x worse CER than top two. |
-| **GOT-OCR2.0** | 2.93 | 4.32 | 38.95s | Degrades on cropped images — requires full-page context. Not suitable for handwriting. |
+#### Ground Truth Bounding Box Methodology
+
+Ground truth line-level bounding boxes are derived from the IAM XML annotations with a three-step coordinate transform:
+
+**1. Source data — IAM XML `<cmp>` elements**
+
+Each handwritten word in the XML contains one or more `<cmp>` (connected component) elements with pixel coordinates in the **original full-form coordinate space** (2479 × 3542 px):
+
+```xml
+<word id="a01-000u-00-00" text="A">
+  <cmp x="408" y="768" width="27" height="51" />
+</word>
+<!-- ... later in the same line ... -->
+<word id="a01-000u-00-06" text="from">
+  <cmp x="1896" y="757" width="55" height="72" />
+  <cmp x="1955" y="781" width="114" height="33" />
+</word>
+```
+
+For each handwritten `<line>`, the bounding box is computed as:
+
+| Bound | Source |
+|---|---|
+| `x1` | `x` of the **first `<cmp>`** of the first word |
+| `y1` | `asy` (ascender y) attribute of the `<line>` |
+| `x2` | `x + width` of the **last `<cmp>`** of the last word |
+| `y2` | `dsy` (descender y) attribute of the `<line>` |
+
+The `asy` and `dsy` line attributes are used for vertical bounds because they provide consistent line-height across all words in a line, which is more reliable than per-cmp y values that can drift between characters.
+
+**2. Crop offset computation**
+
+For each form, the handwritten region's union bounding box is computed from ALL `<cmp>` elements across all handwritten lines (excluding signature footer lines detected by bottom-15% heuristic or "Name:" text). The crop origin with 20px padding is:
+
+```
+crop_x = max(0, min(all_cmp_x) - 20)
+crop_y = max(0, min(all_asy)  - 20)   # ascender y of first line
+```
+
+**Example — form `a01-000u`:**
+
+| Metric | Value |
+|---|---|
+| Form dimensions | 2479 × 3542 px |
+| First cmp | `x=363, y=739` (first character of first handwritten line) |
+| Last cmp | `x=2414, y=1913` (last character of last handwritten line) |
+| Union bbox | `x=[363, 2414]`, `y=[739, 1913]` |
+| Crop origin (with 20px padding) | `(343, 719)` |
+| Cropped image size | ~2071 × 1214 px |
+
+The crop removes:
+- **Top 719px** — form header ("Sentence Database") + printed prompt
+- **Bottom 1629px** — empty space + footer below the handwriting
+
+**3. Coordinate transform to cropped image space**
+
+Each line's bounding box is then offset to the cropped image coordinate system:
+
+```
+cropped_x1 = max(0, original_x1 - crop_x)
+cropped_y1 = max(0, original_y1 - crop_y)
+cropped_x2 = min(img_width,  original_x2 - crop_x)
+cropped_y2 = min(img_height, original_y2 - crop_y)
+```
+
+**Example — first line of `a04-039`:**
+
+| Coordinate | Original (full form) | Offset (minus crop) | Cropped |
+|---|---|---|---|
+| `x1` | 364 | 364 − 343 = 21 → padded | 57 |
+| `y1` | 912 | 912 − 891 = 21 | 20 |
+| `x2` | 1985 | 1985 − 343 = 1642 | 1678 |
+| `y2` | 1040 | 1040 − 891 = 149 | 148 |
+
+**Result:** Each GT bbox tightly bounds the handwritten text from the first character to the last character of that line, in the cropped image coordinate space. Boxes span 1565–1858px wide on ~1880px-wide images, with a ~20–60px left margin (empty space inherent in IAM scans). The `reading_order` field is always `[0, 1, 2, ...]` (sequential) since IAM forms are single-column.
+
+See `scripts/generate_ground_truth.py` for the generation code and `scripts/crop_handwritten.py` for the crop logic.
+
+| Candidate | Printed CER (Phase 2) | **Handwriting CER** | Bbox IoU | Read Order τ | Handwriting Latency | Verdict |
+|---|---|---|---|---|---|---|
+| **Google Doc AI**  | — | **0.08** | — | — | 3.7s | Cloud baseline. Best CER. $1.50/1K pages + Gemini per-token. |
+| **Florence-2-large**  | — | **0.061** | **0.72** | **1.00** | 1.05s (text) / 1.49s (bbox) | **#1 local model.** 24% better CER than Doc AI. Perfect reading order, strong bbox accuracy (72% IoU vs line-level GT). 2.0 GB VRAM. |
+| **MonkeyOCR**  | 0.58 | **0.11** | 0.11‡ | — | 3.79s | Best CPU-based accuracy. DocLayoutYOLO for bbox detection (coarse layout regions). No handwriting support. |
+| **SmolDocling**  | 1.47 | **0.14** | 0.24 | 1.00 | 6.23s | Structured DocTags output with bboxes. Good CER but weak bbox localization (24% IoU, coarse blocks). |
+| **Nemotron OCR v2** | 1.17 | 0.74 | 0.29 | 1.00 | 0.17s | Fastest. Bbox detector works (29% IoU on 36% of images) but recognizer garbles handwriting. |
+| **GOT-OCR2.0** | 2.93 | 4.32 | x | — | 38.95s | Degrades on cropped images — requires full-page context. No native bbox output. Not suitable for handwriting. |
+| **DocLayoutYOLO** † | — | — | 0.11* | 1.00 | 0.10s | Layout detection only (no OCR). Coarse region-level bboxes vs line-level GT → IoU limited. Fast (0.10s). Works on Blackwell without PaddlePaddle. |
+| **PaddleOCR-VL-1.6** | 22.48s (full page) | **0.072** |  |  | 3.97s | SOTA doc VLM (96.3% OmniDocBench). Strong CER competitive with top models. 3.97s on cropped handwriting. Requires `.venv_paddleocr` (PaddlePaddle 3.3.1+cu129).
 
 **Key findings:**
-- **Google Doc AI is still the accuracy leader** (CER 0.08) but is cloud-only with per-page costs and daily quotas.
-- **MonkeyOCR is within 0.03 CER of Doc AI** (0.11 vs 0.08) — running on local CPU, free, no API limits.
-- **SmolDocling and MonkeyOCR both handle handwriting well** — their poor Phase 2 CER was entirely due to the mixed printed/handwritten IAM layout, not handwriting recognition failure.
-- **Nemotron's speed advantage is negated by poor handwriting accuracy** (CER 0.74 vs 0.11-0.14 for top models).
+- **PaddleOCR-VL-1.6 is the #2 local model** (CER 0.072) — within 0.011 of Florence-2-large. 3.97s on cropped handwriting. Built-in layout + bboxes. SOTA on OmniDocBench (96.3%). Requires separate `.venv_paddleocr` (PaddlePaddle 3.3.1+cu129).
+- **Florence-2-large is the #1 local model** (CER 0.061) — beating Google Doc AI by 24%. 1.05s on GPU.
+- **Florence-2 bbox quality is strong** (IoU 0.72 vs line-level GT) — 10/10 blocks matched on most images, good for localization.
+- **DocLayoutYOLO provides native layout detection** (IoU 0.11, τ=1.00, 0.10s) — coarse region-level bboxes from a real detection model, not heuristics. Low IoU is due to block-vs-line granularity mismatch, not detection failure. Works on Blackwell without PaddlePaddle.
+- **Reading order is perfect for single-column** (τ=1.00) — any top-to-bottom sort matches IAM form layout.
+- **Google Doc AI is #2 overall** (CER 0.08) but cloud-only with per-page costs and daily quotas.
+- **MonkeyOCR is within 0.05 CER of Doc AI** (0.11 vs 0.08) — running on local CPU, free, no API limits.
+- **SmolDocling is the best structured-output model** (CER 0.14 + DocTags bboxes) — ideal for the essay feedback pipeline. Bbox IoU 0.24 (coarse blocks), τ=1.00.
+- **Nemotron's speed advantage is negated by poor handwriting accuracy** (CER 0.74 vs 0.06-0.14 for top models). Bbox IoU 0.29, τ=1.00.
+- **Florence-2-base (230M) at 1.2s** is a strong speed-optimized option (CER 0.19).
 - **GOT-OCR2.0 is full-page dependent** — degrades severely without printed context.
 - Cropping reduced latency for all models (smaller image = fewer tokens to process).
 
+† DocLayoutYOLO is a layout detection model only (no OCR). IoU measured against line-level GT; model outputs region-level blocks (1-3 per page vs 8-11 GT lines). The 0.11 IoU reflects granularity mismatch, not detection quality. See `scripts/eval_bbox_reading_order.py doclayout_yolo`.
+* GOT-OCR2.0 has no native bbox output — excluded from IoU comparison.
+
 See `scripts/crop_handwritten.py` and `scripts/eval_handwritten.py` for the methodology.
+
+#### Model Bounding Box Generation Methods
+
+Each model produces bounding boxes differently. This table documents the implementation for each:
+
+| Model | Bbox Source | Format | Conversion | Evaluation Script |
+|---|---|---|---|---|
+| **Florence-2** | `<OCR_WITH_REGION>` prompt returns quad boxes + labels | `[x1,y1,x2,y2,x3,y3,x4,y4]` 4-corner quad | `xyxy = [min(xs), min(ys), max(xs), max(ys)]` — min/max over 4 corners | `scripts/eval_bbox_reading_order.py florence2` (requires `florencetf` env) |
+| **Nemotron OCR v2** | Detector (RegNetX-8GF) outputs text regions per page | `[x, y, w, h]` — origin + dimensions | `xyxy = [x, y, x+w, y+h]` | `scripts/eval_bbox_reading_order.py nemotron` (requires `aiml` env) |
+| **SmolDocling** | DocTags tokens (`<loc_N>` with 0-999 normalized coords) parsed to pixel bboxes | `[x1, y1, x2, y2]` — already xyxy | No conversion needed. Coordinates denormalized from 0-999 bin space via regex parser. | `scripts/eval_bbox_reading_order.py smoldocling` (requires `.venv`) |
+| **GOT-OCR2.0** |  No native bbox output | — | Model does not output bboxes. Format mode produces formatted text (line breaks), not spatial coordinates. Fine-grained mode takes bbox as input, not output. Verified against HF transformers `stepfun-ai/GOT-OCR-2.0-hf` and original `ucaslcl/GOT-OCR2_0` source. | — |
+| **MonkeyOCR (official pipeline)** | DocLayoutYOLO → layout bboxes | `[x1, y1, x2, y2]` — already xyxy | No conversion needed. Detected regions: plain text, figure, formula, table, etc. Layout detection via DocLayoutYOLO (PyTorch/ONNX, no PaddlePaddle needed). | `scripts/eval_bbox_reading_order.py doclayout_yolo` (requires `.venv` + `pip install doclayout_yolo`) |
+| **Google Doc AI** | Cloud API returns structured document with block-level bboxes | `[x1, y1, x2, y2]` | Already xyxy | `benchmark/baseline.py` |
+
+**Visual inspection:** Per-model comparison images are in `benchmark/visualizations/{model}/` (5 representative images each). Models: `florence2`, `nemotron`, `smoldocling`, `monkeyocr` (DocLayoutYOLO), `ground_truth`. Generated via `scripts/generate_model_visualizations.py`.
 
 #### Handwriting Output Comparison (a04-039.png)
 
@@ -316,7 +457,7 @@ the hospitality and welcome he had received.
 "The Soviet Union has always striven and is
 striving to safeguard an enduring peace for
 the peoples, to secure an early solution of the
-GOOGLE DOC AI ☁️  (CER=0.08, 3.7s + Gemini 13.7s = 17.4s total)
+GOOGLE DOC AI   (CER=0.08, 3.7s + Gemini 13.7s = 17.4s total)
 ──────────────────────────────────────────────────────────────────────
 In Vienna, before flying off to Moscow, во
 Mr. Khrushchou said he hoped his weekend talks with President Kennedy
@@ -361,6 +502,19 @@ his weekend talks with Preideww Kennedy would & help 4 to eslaseish an
 onduring peaie Selweeh natiows " Replbis so a were speech from Aushiag
 Prestdoct Schoerd 1 the Sovret Preneirr thanked Ausiia for the
 hospilality and welcome he had roeived.
+
+FLORENCE-2-LARGE  (CER=0.11, 1.8s)
+──────────────────────────────────────────────────────────────────────
+In Vienna, before flying off to Moscow,
+Mr. Khrushdov said he hoped his weekend
+talks with President Kennedy would be help 4 to
+establish an enduring peace between nations."
+Replying to a farewell speech from Soviet President
+Schoerd, the Soviet Premier thanked husbia for
+the hospitality and welcome he had received.
+"The Soviet Union has always shivra and is
+striving to safeguard an ordinary peace for
+he people, ho secure an early solution of the
 
 GOT-OCR2.0  (CER=4.32, 38.9s)
 ──────────────────────────────────────────────────────────────────────
@@ -454,27 +608,30 @@ Compare storage overhead, visual verifiability, and implementation complexity.
 
 > Updated as each candidate is evaluated. CER/WER are whitespace-normalized. See `benchmark/results/` for full JSON.
 
-| Rank | Candidate | Latency (s) | CER | WER | Read Order τ | Error F1 | VRAM (GB) | Setup | Flex |
+| Rank | Candidate | Latency (s) | CER | WER | Read Order τ | Bbox IoU | VRAM (GB) | Setup | Flex |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | — | *(baseline)* Google Doc AI + Gemini | 21.1 | 1.22 | 1.22 | — | — | N/A (cloud) | N/A | N/A |
-| 1 | **Nemotron OCR v2** | 0.09 | 1.17 | 1.24 | — | — | 0.6 | 4 | 4 |
-| 2 | **SmolDocling-256M** | 12.2 | 1.47 | 1.50 | — | — | 0.8 | 3 | 3 |
-| 3 | **GOT-OCR2.0** | 35.9 | 2.93 | 3.92 | — | — | 3.4 | 2 | 3 |
+| 1 | **Nemotron OCR v2** | 0.09 | 1.17 | 1.24 | **1.00** | 0.29 | 0.6 | 4 | 4 |
+| 2 | **SmolDocling-256M** | 12.2 | 1.47 | 1.50 | **1.00** | 0.24 | 0.8 | 3 | 3 |
+| 3 | **GOT-OCR2.0** | 35.9 | 2.93 | 3.92 | — | — † | 3.4 | 2 | 3 |
 | — | PaddleOCR-VL-1.6 | blocked | — | — | — | — | — | — | — |
-| — | Florence-2-large | blocked | — | — | — | — | — | — | — |
-| — | MonkeyOCR | pending | — | — | — | — | — | — | — |
+| 4 | **Florence-2-large** | 1.05 | **0.061** | 0.170 | **1.00** | **0.72** | 2.0 | 4 | 5 |
+| 5 | **MonkeyOCR** | 3.79 | 0.110 | — | — | 0.11‡ | 0 (CPU) | 3 | 3 |
+
+† GOT-OCR2.0 has no native bbox output — excluded from IoU comparison.
+‡ MonkeyOCR bbox via DocLayoutYOLO (layout detection). Coarse region-level vs line-level GT. See handwriting comparison table above.
 
 ### GOT-OCR2.0 Detailed Findings
 
 | Metric | Value | Notes |
 |---|---|---|
 | Model | `stepfun-ai/GOT-OCR-2.0-hf` | HuggingFace transformers, BF16 |
-| Avg latency | 35.9 s | 24% slower than cloud baseline (29.0s) |
+| Avg latency | 35.9 s | 70% slower than cloud baseline (21.1s) |
 | VRAM peak | 3.4 GB | Fits 12GB comfortably |
 | CER (normalized) | 2.93 | High — model transcribes full IAM form (printed instructions + handwritten) while GT covers handwritten only |
 | WER (normalized) | 3.92 | Same scope mismatch as CER |
 | Reading order | — | Not evaluated (plain OCR mode, no structured output) |
-| Bounding boxes | — | Plain OCR mode does not output bboxes. Structured mode requires chat template fix. |
+| Bounding boxes |  None | GOT-OCR2.0 does not output bounding boxes in any mode. Format mode = text formatting only. Fine-grained mode takes bbox as input, not output. Verified against HF transformers and original model source code. |
 | Setup complexity | 2/5 | Straightforward `AutoModelForImageTextToText` + `AutoProcessor`. One-line install. |
 | Flexibility | 3/5 | Handles varied handwriting well. Output quality affected by chat template tokens requiring cleanup. |
 | Key issue | — | Output includes system/user/assistant role markers and IAM metadata headers. Cleanup regex needed. Transcribes entire form, not just handwritten region. |
@@ -525,7 +682,7 @@ Compare storage overhead, visual verifiability, and implementation complexity.
 | WER (normalized) | 0.65 | Improved from 0.78 after context fix. Same repetition issue as CER. |
 | Throughput | 10.1 ppm | Down from 56.2 ppm due to longer output (676 vs 87 chars). |
 | Reading order | — | No bboxes, no layout output. Text-only via llama-server API. |
-| Bounding boxes | — | llama-server chat API provides text only. No structured output. |
+| Bounding boxes |  Native (official pipeline) | **Official pipeline:** DocLayoutYOLO → layout bboxes → VLM recognition → layoutreader for reading order. Outputs structured markdown with spatial layout. **Our eval (GGUF/llama-server):** Text-only — uses only the recognition component without structure detection. The full pipeline requires LMDeploy/vLLM backend + separate layout model weights. See official repo for setup. |
 | Setup complexity | 3/5 | Pre-built llama.cpp b9596 binaries (Vulkan). Requires downloading release, starting llama-server with specific flags. No Python dependency issues. |
 | Flexibility | 2/5 | Accurate on typed text. Repeats itself on longer passages. Handwriting recognition untested (model loops before reaching it). IAM forms are mixed typed+handwritten — typed portion recognized well. |
 | Key issue | — | **Generation-control problem, not OCR problem.** Recognizes typed text correctly but cannot stop — repeats the same paragraph 2-3x with variations. Requires ctx-size=8192 for image tokens to fit (at 4096, output truncated to 87 chars). "Sentence Database" is NOT a hallucination — it's printed on the IAM form header. |
@@ -533,20 +690,31 @@ Compare storage overhead, visual verifiability, and implementation complexity.
 |  Text source | — | **Outputs printed form headers** ("Sentence Database"). Confirmed reading machine-printed region, not handwriting. CER 0.58 reflects printed-text OCR + repetition artifacts, not handwriting recognition. |
 | Backend | — | llama.cpp b9596 llama-server with Vulkan build. Vulkan GPU backend not detected on RTX 5070 Ti — fell back to CPU. |
 
+### Florence-2-large Bbox & Reading Order Evaluation
+
+| Metric | Value | Notes |
+|---|---|---|
+| Task prompt | `<OCR_WITH_REGION>` | Returns quad boxes + text labels per region |
+| Avg latency | 1.49 s | 0.44s overhead over plain `<OCR>` (1.05s) |
+| **Mean Bbox IoU** | **0.72** | 72% IoU vs IAM XML line-level ground truth. Nearly all GT blocks matched (recall≈1.0, precision≈1.0). Strong localization quality. |
+| **Mean Kendall's τ** | **1.00** | Perfect reading order on single-column text. Top-to-bottom y-sort of model bboxes exactly matches GT order. |
+| Bbox format | 4-corner quad → xyxy | `[x1,y1,x2,y2,x3,y3,x4,y4]` converted to `[x_min,y_min,x_max,y_max]` |
+| Script | `scripts/eval_bbox_reading_order.py florence2` | Requires `conda activate florencetf` |
+| Key finding | — | Florence-2 correctly localizes text lines with 72% IoU — strong performance. Reading order is perfect for single-column. The 28% IoU gap vs GT is primarily due to Florence-2 outputting phrase-level regions while GT is line-level, plus some vertical offset in the predicted boxes. |
+
 ### Phase 2 Environment Changes
 
 | Change | Detail |
 |---|---|
-| **transformers 4.57.6 → 5.11.0** | Required for SmolDocling `AutoModelForMultimodalLM`. Also unblocks PaddleOCR-VL (conceptually). |
-| **PaddlePaddle 3.2.1 installed** | Installed alongside PyTorch 2.10.0+cu128. CUDA package versions reconciled manually. |
+| **transformers 4.57.6 → 5.8.1** | Required for SmolDocling `AutoModelForMultimodalLM`. Also unblocks PaddleOCR-VL (conceptually). |
+| **PaddlePaddle 3.2.1 installed** | Installed alongside PyTorch 2.11.0+cu130. CUDA package versions reconciled manually. |
 | **PaddleOCR 3.6.0 installed** | Native PaddleOCR-VL API available but blocked by Blackwell GPU. |
-| **Florence-2 remote code cache purged** | Removed patched remote code. Model remains blocked in both 4.57 and 5.x. |
+| **Florence-2 unblocked via florencetf env** | Works with transformers 4.40.0. Base (230M): CER 0.187, Large (770M): CER 0.061. |
 
 ### Blocked Candidates — Root Cause Analysis
 
 | Candidate | Blocker | Root Cause | Unblock Path |
 |---|---|---|---|
-| **Florence-2-large** | `past_key_values` + SDPA incompat | Remote `modeling_florence2.py` uses old `past_key_values[0][0].shape[2]` API incompatible with transformers 4.57 beam search. Built-in class has weight name mismatch with HF checkpoint. 5.x adds `forced_bos_token_id` error. | Wait for Microsoft to update HF checkpoint for transformers 5.x built-in class, OR use vLLM/SGLang backend. |
 | **PaddleOCR-VL-1.6** | Blackwell sm_120 unsupported | PaddlePaddle 3.2.1 does not support Blackwell GPU architecture. `RuntimeError: Unsupported GPU architecture` in `paddle_inference.create_predictor()`. | Wait for PaddlePaddle to add sm_120 support (Blackwell), OR use cloud GPU (A100/H100), OR use vLLM backend which bypasses PaddlePaddle inference engine. |
 
 ### Decisions
@@ -565,9 +733,11 @@ Compare storage overhead, visual verifiability, and implementation complexity.
 2. **vLLM / SGLang acceleration:** For VLM candidates, optimized inference engines could significantly improve throughput. SmolDocling reports 0.35s/page on A100 via vLLM — test on RTX 5070 Ti where applicable.
 3. **ONNX / TensorRT:** For deployment, consider converting the best model to ONNX or TensorRT for further latency reduction (out of scope for research).
 4. **PaddleOCR-VL vLLM backend:** May bypass PaddlePaddle GPU incompatibility by using vLLM inference server instead of direct PaddlePaddle inference.
-5. **Florence-2 vLLM backend:** May bypass remote code issues by loading through vLLM which has native Florence-2 support.
-6. **MonkeyOCR — llama.cpp path worked for serving, accuracy the blocker:** Pre-built llama.cpp binaries with Qwen2-VL native support made serving trivial (no Python deps needed beyond stdlib). This same approach could serve Florence-2 or other GGUF-converted VLMs without the transformers remote-code issues.
-7. ** Handwriting-specific evaluation needed:** All Phase 2 CER/WER results reflect printed-text OCR due to IAM dataset structure (see [IAM Dataset Structure](#iam-dataset-structure)). To properly evaluate handwriting recognition, we need to either: (a) isolate the handwritten region via bounding box filtering using the XML annotations, or (b) use a handwriting-only dataset without printed prompts (e.g., IAM lines subset, RIMES, or custom essay scans).
+5. **Florence-2 works via transformers 4.40.0:** Resolved by pinning `transformers==4.40.0` in a separate `florencetf` conda env. See `scripts/bench_florence2.py`.
+6. **MonkeyOCR — llama.cpp for text, DocLayoutYOLO for bboxes:** Pre-built llama.cpp binaries with Qwen2-VL native support made serving trivial for text recognition. DocLayoutYOLO (40.7 MB, PyTorch, no PaddlePaddle) provides native layout detection bboxes at 0.10s/image — works on Blackwell. See `scripts/eval_bbox_reading_order.py doclayout_yolo` and `scripts/generate_model_visualizations.py monkeyocr`.
+7. **Handwriting evaluation completed:** All 6 Tier-1 candidates have handwriting-only CER via XML-guided cropping. See [Handwriting-Only Re-Evaluation](#handwriting-only-re-evaluation-xml-guided-cropping). Florence-2-large leads at CER 0.061.
+8. **GOT-OCR2.0 — no native bbox output (2025-06-11 verified):** Text-only OCR. Format mode = LaTeX/markdown. Fine-grained mode takes bbox as *input*. Use Florence-2 (IoU 0.72), SmolDocling (IoU 0.24), Nemotron (IoU 0.29), or DocLayoutYOLO (IoU 0.11) for bboxes.
+9. **MonkeyOCR — DocLayoutYOLO for bboxes, no handwriting support:** The GGUF/llama-server path is text-only. The **official pipeline** uses DocLayoutYOLO (PyTorch, no PaddlePaddle) for layout detection → VLM for text → layoutreader for reading order. DocLayoutYOLO works on Blackwell and provides real detection bboxes (IoU 0.11 coarse, τ=1.00, 0.10s). However, MonkeyOCR **does not support handwritten content** per official limitations. **For handwriting bboxes, use Florence-2 (IoU 0.72).**
 
 ---
 
