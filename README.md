@@ -150,7 +150,7 @@ set -a && source .env && set +a
 
 **Critical:** Two auth paths supported:
 ```python
-# API Key (AI Studio) — simplest, requires GOOGLE_API_KEY or GEMINI_API_KEY env var
+# API Key (Vertex AI) — simplest, requires GOOGLE_API_KEY or GEMINI_API_KEY env var
 client = genai.Client(api_key="...")
 response = client.models.generate_content(model="gemini-3.5-flash", contents="...")
 
