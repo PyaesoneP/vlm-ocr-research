@@ -71,7 +71,7 @@ def inference_fn(image_path: str) -> dict:
         inference_fn._model = Qwen3VLForConditionalGeneration.from_pretrained(
             MODEL_ID, **load_kwargs
         )
-        inference_fn._processor = AutoProcessor.from_pretrained(MODEL_ID)
+        inference_fn._processor = AutoProcessor.from_pretrained(MODEL_ID, use_fast=True)
         print(f"[{CANDIDATE_NAME}] Model loaded.")
 
     model = inference_fn._model
@@ -139,7 +139,7 @@ def inference_fn(image_path: str) -> dict:
 
 if __name__ == "__main__":
     images = sorted([
-        str(p) for p in TEST_DATASET.glob("*")
+        str(p) for p in (TEST_DATASET / "curated").glob("*")
         if p.suffix.lower() in {".jpg", ".jpeg", ".png"}
     ])
 

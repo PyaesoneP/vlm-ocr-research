@@ -11,17 +11,31 @@ handwritten essays without ruled lines.
 
 Model: https://huggingface.co/nvidia/nemotron-ocr-v2
 
+Environment: Requires `conda activate aiml` (CUDA 13.0 + PyTorch 2.12).
+The package compiles a C++ CUDA extension that must match system nvcc.
+
 Usage:
+    conda activate aiml
     python candidates/nemotron_ocr/eval.py
 """
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(PROJECT_ROOT))
+
+# --- Environment guard ---
+if "CONDA_DEFAULT_ENV" not in os.environ or os.environ["CONDA_DEFAULT_ENV"] != "aiml":
+    print(
+        "[nemotron_ocr_v2] ERROR: This script requires the 'aiml' conda environment.\n"
+        "  conda activate aiml\n"
+        "  python candidates/nemotron_ocr/eval.py"
+    )
+    sys.exit(1)
 
 from candidates import run_candidate
 
@@ -64,7 +78,7 @@ def inference_fn(image_path: str) -> dict:
                 "  pip install --no-build-isolation -v .\n"
                 "Requires Python 3.12, CUDA toolkit, and PyTorch with matching CUDA version."
             )
-        inference_fn._ocr = NemotronOCRV2(lang="en")
+        inference_fn._ocr = NemotronOCRV2(lang="en", model_dir="/tmp/nemotron-ocr-v2/v2_english")
         print(f"[{CANDIDATE_NAME}] Model loaded.")
 
     ocr = inference_fn._ocr
@@ -84,12 +98,17 @@ def inference_fn(image_path: str) -> dict:
     blocks = []
     full_text_parts = []
 
+    # Get image dimensions for coordinate denormalization (Nemotron outputs 0-1)
+    from PIL import Image as PILImage
+    img = PILImage.open(image_path)
+    img_w, img_h = img.size
+
     for pred in predictions:
         bbox = [
-            int(pred["left"]),
-            int(pred["upper"]),
-            int(pred["right"]),
-            int(pred["lower"]),
+            int(pred["left"] * img_w),
+            int(pred["upper"] * img_h),
+            int(pred["right"] * img_w),
+            int(pred["lower"] * img_h),
         ]
         blocks.append({
             "bbox": bbox,
@@ -111,7 +130,7 @@ def inference_fn(image_path: str) -> dict:
 
 if __name__ == "__main__":
     images = sorted([
-        str(p) for p in TEST_DATASET.glob("*")
+        str(p) for p in (TEST_DATASET / "curated").glob("*")
         if p.suffix.lower() in {".jpg", ".jpeg", ".png"}
     ])
 
@@ -124,7 +143,8 @@ if __name__ == "__main__":
         inference_fn=inference_fn,
         test_images=images,
         ground_truth=GROUND_TRUTH if GROUND_TRUTH.exists() else None,
-        notes="NVIDIA Nemotron OCR v2 (EN) — detector + recognizer + relational model.",
+        num_runs=1,
+        notes="NVIDIA Nemotron OCR v2 (EN) — detector + recognizer + relational model. Built in aiml conda env (CUDA 13.0 + PyTorch 2.12).",
     )
 
     print(f"[{CANDIDATE_NAME}] Done. Avg latency: {result.latency_total_avg:.2f}s")

@@ -7,7 +7,14 @@ in Markdown/JSON with bounding boxes.
 
 Model: https://huggingface.co/PaddlePaddle/PaddleOCR-VL-1.6
 
+On NVIDIA Blackwell GPUs (sm_120), PaddleOCR-VL uses the PaddlePaddle
+native inference engine (NOT HuggingFace transformers).  The PaddlePaddle
+framework has dedicated CUDA 12.9+ support for Blackwell.
+
+Reference: https://www.paddleocr.ai/latest/en/version3.x/pipeline_usage/PaddleOCR-VL-NVIDIA-Blackwell.html
+
 Usage:
+    source .venv/bin/activate
     python candidates/paddleocr_vl/eval.py
 """
 
@@ -25,7 +32,6 @@ from candidates import run_candidate
 # Configuration
 # ---------------------------------------------------------------------------
 
-MODEL_ID = "PaddlePaddle/PaddleOCR-VL-1.6"
 CANDIDATE_NAME = "paddleocr_vl"
 TEST_DATASET = PROJECT_ROOT / "benchmark" / "test_dataset"
 GROUND_TRUTH = TEST_DATASET / "ground_truth.json"
@@ -37,58 +43,87 @@ GROUND_TRUTH = TEST_DATASET / "ground_truth.json"
 
 def inference_fn(image_path: str) -> dict:
     """
-    Run PaddleOCR-VL-1.6 on a single handwritten essay image.
+    Run PaddleOCR-VL-1.6 via the native PaddleOCR pipeline API.
+
+    On Blackwell GPUs, PaddleOCR-VL uses PaddlePaddle's native inference engine
+    with dedicated sm_120 support.  This is the ONLY supported path for Blackwell;
+    the HuggingFace transformers path crashes with a rope_type KeyError.
 
     Returns a dict conforming to the harness output spec:
         {text, blocks, stage1_latency, ...}
     """
     import time
-    import torch
-    from PIL import Image
-    from transformers import AutoProcessor, AutoModelForVision2Seq
 
-    # --- Lazy-load model (cached at module level) ---
-    if not hasattr(inference_fn, "_model"):
-        print(f"[{CANDIDATE_NAME}] Loading model {MODEL_ID} ...")
-        inference_fn._processor = AutoProcessor.from_pretrained(MODEL_ID)
-        inference_fn._model = AutoModelForVision2Seq.from_pretrained(
-            MODEL_ID,
-            torch_dtype=torch.bfloat16,
-            device_map="auto",
-            trust_remote_code=True,
+    # --- Lazy-load the PaddleOCR-VL pipeline (cached at module level) ---
+    if not hasattr(inference_fn, "_pipeline"):
+        print(f"[{CANDIDATE_NAME}] Loading PaddleOCR-VL-1.6 (PaddlePaddle native) ...")
+        from paddleocr import PaddleOCRVL
+
+        inference_fn._pipeline = PaddleOCRVL(
+            use_doc_orientation_classify=False,
+            use_doc_unwarping=False,
         )
-        print(f"[{CANDIDATE_NAME}] Model loaded.")
+        print(f"[{CANDIDATE_NAME}] Pipeline loaded.")
 
-    processor = inference_fn._processor
-    model = inference_fn._model
-    device = model.device
+    pipeline = inference_fn._pipeline
 
     # --- Inference ---
-    image = Image.open(image_path).convert("RGB")
-
-    if torch.cuda.is_available():
-        torch.cuda.synchronize()
+    import paddle
+    paddle.device.synchronize()
     t0 = time.perf_counter()
 
-    inputs = processor(images=image, return_tensors="pt").to(device)
-    with torch.no_grad():
-        generated_ids = model.generate(**inputs, max_new_tokens=2048)
+    output = pipeline.predict(str(image_path))
 
-    output_text = processor.batch_decode(
-        generated_ids, skip_special_tokens=True
-    )[0]
-
-    if torch.cuda.is_available():
-        torch.cuda.synchronize()
+    paddle.device.synchronize()
     elapsed = time.perf_counter() - t0
 
-    # --- Parse output ---
-    # PaddleOCR-VL outputs Markdown/JSON by default.
-    # For now, return text with placeholder blocks.
-    # TODO: Parse structured PaddleOCR-VL output into blocks/bboxes.
+    # --- Parse PaddleOCR-VL structured output ---
+    # PaddleOCRVL.predict() returns list of result objects with:
+    #   res.json['res']['parsing_res_list'] → blocks with block_bbox, block_content
+    #   res.markdown['markdown_texts']        → full markdown text
+    #   res.json['res']['layout_det_res']     → layout detection results
+    blocks = []
+    full_text = ""
+
+    if output:
+        for res in output:
+            # Extract from JSON (has bboxes and layout)
+            if hasattr(res, "json") and res.json:
+                j = res.json
+                # res.json is {"res": {...}}
+                inner = j.get("res", j) if isinstance(j, dict) else {}
+                parsing_list = inner.get("parsing_res_list", [])
+                for item in parsing_list:
+                    text = item.get("block_content", "")
+                    bbox_str = item.get("block_bbox", "")
+                    if text and bbox_str:
+                        # bbox is stored as string "[x1, y1, x2, y2]"
+                        try:
+                            bbox = [int(float(x.strip())) for x in bbox_str.strip("[]").split(",")]
+                        except (ValueError, AttributeError):
+                            bbox = [0, 0, 0, 0]
+                        blocks.append({
+                            "bbox": bbox if len(bbox) == 4 else [0, 0, 0, 0],
+                            "text": str(text),
+                            "confidence": 1.0,
+                        })
+                        full_text += str(text) + " "
+
+            # Fallback: markdown text
+            if not full_text and hasattr(res, "markdown") and res.markdown:
+                md = res.markdown
+                if isinstance(md, dict):
+                    full_text = md.get("markdown_texts", str(md))
+                else:
+                    full_text = str(md)
+
+            # Fallback: plain text
+            if not full_text and hasattr(res, "text") and res.text:
+                full_text = str(res.text)
+
     return {
-        "text": output_text,
-        "blocks": [],
+        "text": full_text.strip(),
+        "blocks": blocks,
         "stage1_latency": elapsed,
     }
 
@@ -99,7 +134,7 @@ def inference_fn(image_path: str) -> dict:
 
 if __name__ == "__main__":
     images = sorted([
-        str(p) for p in TEST_DATASET.glob("*")
+        str(p) for p in (TEST_DATASET / "curated").glob("*")
         if p.suffix.lower() in {".jpg", ".jpeg", ".png"}
     ])
 
@@ -112,7 +147,9 @@ if __name__ == "__main__":
         inference_fn=inference_fn,
         test_images=images,
         ground_truth=GROUND_TRUTH if GROUND_TRUTH.exists() else None,
-        notes="PaddleOCR-VL-1.6 — 0.9B document VLM.",
+        notes="PaddleOCR-VL-1.6 — 0.9B document VLM (PaddlePaddle native).",
     )
+
+    print(f"[{CANDIDATE_NAME}] Done. Avg latency: {result.latency_total_avg:.2f}s, CER: {result.cer:.4f}")
 
     print(f"[{CANDIDATE_NAME}] Done. Avg latency: {result.latency_total_avg:.2f}s")

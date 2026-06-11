@@ -47,9 +47,10 @@ def inference_fn(image_path: str) -> dict:
             MODEL_ID,
             torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
             trust_remote_code=True,
+            attn_implementation="eager",
         ).to("cuda" if torch.cuda.is_available() else "cpu")
         inference_fn._processor = AutoProcessor.from_pretrained(
-            MODEL_ID, trust_remote_code=True
+            MODEL_ID, trust_remote_code=True, use_fast=True
         )
         print(f"[{CANDIDATE_NAME}] Model loaded.")
 
@@ -125,7 +126,7 @@ def inference_fn(image_path: str) -> dict:
 
 if __name__ == "__main__":
     images = sorted([
-        str(p) for p in TEST_DATASET.glob("*")
+        str(p) for p in (TEST_DATASET / "curated").glob("*")
         if p.suffix.lower() in {".jpg", ".jpeg", ".png"}
     ])
 

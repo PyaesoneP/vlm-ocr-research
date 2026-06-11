@@ -1,0 +1,31 @@
+{
+  "candidate_name": "monkeyocr",
+  "model_version": "",
+  "timestamp": "2026-06-11T18:47:35",
+  "gpu_name": "NVIDIA GeForce RTX 5070 Ti Laptop GPU",
+  "vram_total_mb": 12226,
+  "latency_total_avg": 5.959438646998024,
+  "latency_total_std": 0.0,
+  "latency_stage1_ocr": 5.95407852399876,
+  "latency_stage2_errors": 0.0,
+  "cer": 0.5787234042553191,
+  "wer": 0.6486486486486487,
+  "reading_order_tau": 0.0,
+  "error_detection_f1": 0.0,
+  "bounding_box_iou": 1.0,
+  "vram_peak_mb": 0,
+  "throughput_ppm": 10.068062371986006,
+  "setup_complexity": 0,
+  "flexibility": 0,
+  "sample_outputs": [
+    {
+      "text": "Sentence Database\n\nIn VIENNA, before flying off to Moscow, Mr. Khrushchov said he hoped his weekend talks with President Kennedy would help \"to establish an enduring peace between nations.\" Replying to a farewell speech from Austrian Kennedy would help \"to establish an enduring peace between nations.\"\n\nMr. Khrushchov said he hoped his weekend talks with President Kennedy would help \"to establish an enduring peace between nations.\"\n\nRepleting to a farewell speech from Austrian Pressier Schaefer, the Soviet Premier said he had received.\n\n\"The Soviet Union has always striven and is striving to safeguard an enduring peace for the people, to secure an early solution of the",
+      "blocks": [],
+      "stage1_latency": 5.95407852399876,
+      "reading_order": [],
+      "errors": [],
+      "stage2_latency": 0.0
+    }
+  ],
+  "notes": "GGUF Q4_K_M quant via llama-cpp-python CUDA (n_gpu_layers=-1). llama.cpp vision does not return bounding boxes."
+}

@@ -1,0 +1,271 @@
+{
+  "candidate_name": "nemotron_ocr_v2",
+  "model_version": "",
+  "timestamp": "2026-06-11T17:55:03",
+  "gpu_name": "NVIDIA GeForce RTX 5070 Ti Laptop GPU",
+  "vram_total_mb": 12226,
+  "latency_total_avg": 0.09036922027982655,
+  "latency_total_std": 0.010679631905483463,
+  "latency_stage1_ocr": 0.09011734819985577,
+  "latency_stage2_errors": 0.0,
+  "cer": 1.1652627982783184,
+  "wer": 1.2388669955857639,
+  "reading_order_tau": 0.0,
+  "error_detection_f1": 0.0,
+  "bounding_box_iou": 0.0,
+  "vram_peak_mb": 593,
+  "throughput_ppm": 663.9428758399282,
+  "setup_complexity": 0,
+  "flexibility": 0,
+  "sample_outputs": [
+    {
+      "text": "Sentence Database\nA04-039\nIn VIENNA, before flying off to Moscow, Mr. Khrushchov said he hoped his weekend talks with President Kennedy would help \"to establish an enduring peace between nations.\" \" Replying to farewell speech from Austrian President Schaerf, the Soviet Premier thanked Austria for the hospitality and welcome he had received. \"The Soviet Union has always striven and is striving safeguard an enduring peace for the peoples, to secure an early solution of the disarmament problem, and to bring about peaceful settlement of international disputes through negotiations,\" \" he said.\nOn Vienna, Aefore juging off to Morcow, Mr. Khrushihiou said he hopeat wis weekend talks with Presidews Kenneda would to hdlp \" to eslaseish an onduring peace Selweeh natiow.\" \"\nReplziss to a fawecll sprech from Aushiaa Pesidet Schaord the Soviet Prcncier thanked hustic for the hospilality and welcome he had kceived. The Soieet unioh ha always stoven and is stoluing to safeguard an on duriiy peace for the peoples to pecure an early solution of the\nName:",
+      "blocks": [
+        {
+          "bbox": [
+            346,
+            256,
+            892,
+            211
+          ],
+          "text": "Sentence Database",
+          "confidence": 0.9404761855729151
+        },
+        {
+          "bbox": [
+            1880,
+            259,
+            2113,
+            213
+          ],
+          "text": "A04-039",
+          "confidence": 0.9378723639730019
+        },
+        {
+          "bbox": [
+            346,
+            721,
+            2118,
+            371
+          ],
+          "text": "In VIENNA, before flying off to Moscow, Mr. Khrushchov said he hoped his weekend talks with President Kennedy would help \"to establish an enduring peace between nations.\" \" Replying to farewell speech from Austrian President Schaerf, the Soviet Premier thanked Austria for the hospitality and welcome he had received. \"The Soviet Union has always striven and is striving safeguard an enduring peace for the peoples, to secure an early solution of the disarmament problem, and to bring about peaceful settlement of international disputes through negotiations,\" \" he said.",
+          "confidence": 0.9384635004018447
+        },
+        {
+          "bbox": [
+            325,
+            1565,
+            1986,
+            912
+          ],
+          "text": "On Vienna, Aefore juging off to Morcow, Mr. Khrushihiou said he hopeat wis weekend talks with Presidews Kenneda would to hdlp \" to eslaseish an onduring peace Selweeh natiow.\" \"",
+          "confidence": 0.8728243544571276
+        },
+        {
+          "bbox": [
+            323,
+            2632,
+            2168,
+            1631
+          ],
+          "text": "Replziss to a fawecll sprech from Aushiaa Pesidet Schaord the Soviet Prcncier thanked hustic for the hospilality and welcome he had kceived. The Soieet unioh ha always stoven and is stoluing to safeguard an on duriiy peace for the peoples to pecure an early solution of the",
+          "confidence": 0.8837714593869085
+        },
+        {
+          "bbox": [
+            347,
+            2845,
+            481,
+            2813
+          ],
+          "text": "Name:",
+          "confidence": 0.9365161825326119
+        }
+      ],
+      "stage1_latency": 0.08152072699886048
+    },
+    {
+      "text": "Sentence Database\nA04-059\nThe party agreed that it was unwise to locate the base in the Holy Loch, only 30 miles from Glasgow, city with two million people. It should be sited in remote area. Mr. Gaitskell added that the Scarborough conference decisions did not, in his view, truly reflect the opinions of the majority of party members and still less the party's supporters in the country.\nThe party aguad that it was unwiie to locate the booe in the Holy Loch , only 30 miles Jurm Glaogaus, city with two mo Clicn pappe It should be so led in a more remoti ara Mr. Guitskell added that the Sear Sonoygh confeure a diistons did not, in this view tra ly seffect the ofinions of the mojoity by of jaity membeess and shll lux the yanty sulfores in the countyy\nName: chis",
+      "blocks": [
+        {
+          "bbox": [
+            352,
+            266,
+            894,
+            218
+          ],
+          "text": "Sentence Database",
+          "confidence": 0.9401544806778848
+        },
+        {
+          "bbox": [
+            1884,
+            267,
+            2116,
+            223
+          ],
+          "text": "A04-059",
+          "confidence": 0.9380394971275936
+        },
+        {
+          "bbox": [
+            350,
+            624,
+            2120,
+            382
+          ],
+          "text": "The party agreed that it was unwise to locate the base in the Holy Loch, only 30 miles from Glasgow, city with two million people. It should be sited in remote area. Mr. Gaitskell added that the Scarborough conference decisions did not, in his view, truly reflect the opinions of the majority of party members and still less the party's supporters in the country.",
+          "confidence": 0.9395698514995902
+        },
+        {
+          "bbox": [
+            293,
+            2150,
+            2097,
+            710
+          ],
+          "text": "The party aguad that it was unwiie to locate the booe in the Holy Loch , only 30 miles Jurm Glaogaus, city with two mo Clicn pappe It should be so led in a more remoti ara Mr. Guitskell added that the Sear Sonoygh confeure a diistons did not, in this view tra ly seffect the ofinions of the mojoity by of jaity membeess and shll lux the yanty sulfores in the countyy",
+          "confidence": 0.8679355699402131
+        },
+        {
+          "bbox": [
+            349,
+            2898,
+            679,
+            2802
+          ],
+          "text": "Name: chis",
+          "confidence": 0.9305516726504932
+        }
+      ],
+      "stage1_latency": 0.06898162300058175
+    },
+    {
+      "text": "Sentence Database\nA05-029\nSir Francis is to hand September, was delayed because of the Berlin crisis. Mr. Watkinson and his advisers felt the change would be unwise at a moment when attention had to be concentrated possible need for important military operations. For this reason Sir Francis stayed on, and sacrificed his leave.\nto Sir Richard from Nov. 1. The hand-over, due in\nsin Trancin is lo hand ours to s\u00fcr Richavo\nos from Noo. A. The hand cand-oo0p ove,, are in\nsaptemble, was delayea because of me Beilin crisio, Mr. watnison and his advices\nfelt te change woulld le moiie at a\nmomant wher when albentien lad lo OR coucenbahed on pessible ueed for in porkcut\nmilitcyy opesatius. For him aloren sir Francos o alayed on, and oakio eacriticed ni leave.\nName:\nu. Menu",
+      "blocks": [
+        {
+          "bbox": [
+            341,
+            256,
+            884,
+            212
+          ],
+          "text": "Sentence Database",
+          "confidence": 0.9420509543069
+        },
+        {
+          "bbox": [
+            1872,
+            257,
+            2106,
+            211
+          ],
+          "text": "A05-029",
+          "confidence": 0.9381634720758039
+        },
+        {
+          "bbox": [
+            340,
+            565,
+            2126,
+            323
+          ],
+          "text": "Sir Francis is to hand September, was delayed because of the Berlin crisis. Mr. Watkinson and his advisers felt the change would be unwise at a moment when attention had to be concentrated possible need for important military operations. For this reason Sir Francis stayed on, and sacrificed his leave.",
+          "confidence": 0.9391257567465312
+        },
+        {
+          "bbox": [
+            936,
+            361,
+            2124,
+            321
+          ],
+          "text": "to Sir Richard from Nov. 1. The hand-over, due in",
+          "confidence": 0.9364901754762643
+        },
+        {
+          "bbox": [
+            383,
+            820,
+            2178,
+            738
+          ],
+          "text": "sin Trancin is lo hand ours to s\u00fcr Richavo",
+          "confidence": 0.8271750076764725
+        },
+        {
+          "bbox": [
+            370,
+            1006,
+            2184,
+            926
+          ],
+          "text": "os from Noo. A. The hand cand-oo0p ove,, are in",
+          "confidence": 0.852851795694294
+        },
+        {
+          "bbox": [
+            328,
+            1359,
+            2267,
+            1113
+          ],
+          "text": "saptemble, was delayea because of me Beilin crisio, Mr. watnison and his advices",
+          "confidence": 0.8888217618440257
+        },
+        {
+          "bbox": [
+            337,
+            1543,
+            2118,
+            1474
+          ],
+          "text": "felt te change woulld le moiie at a",
+          "confidence": 0.8544587137890819
+        },
+        {
+          "bbox": [
+            346,
+            1892,
+            2255,
+            1655
+          ],
+          "text": "momant wher when albentien lad lo OR coucenbahed on pessible ueed for in porkcut",
+          "confidence": 0.8533247312144885
+        },
+        {
+          "bbox": [
+            328,
+            2424,
+            2102,
+            1991
+          ],
+          "text": "militcyy opesatius. For him aloren sir Francos o alayed on, and oakio eacriticed ni leave.",
+          "confidence": 0.7903266866599955
+        },
+        {
+          "bbox": [
+            355,
+            2851,
+            489,
+            2820
+          ],
+          "text": "Name:",
+          "confidence": 0.9418572612981422
+        },
+        {
+          "bbox": [
+            746,
+            2940,
+            1049,
+            2881
+          ],
+          "text": "u. Menu",
+          "confidence": 0.7055772954650571
+        }
+      ],
+      "stage1_latency": 0.10631123100029072
+    }
+  ],
+  "notes": "NVIDIA Nemotron OCR v2 (EN) \u2014 detector + recognizer + relational model. Full pass through all 25 curated images. Built in aiml conda env (CUDA 13.0 + PyTorch 2.12)."
+}
