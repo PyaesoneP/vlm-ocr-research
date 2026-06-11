@@ -39,13 +39,13 @@ def inference_fn(image_path: str) -> dict:
     import time
     import torch
     from PIL import Image
-    from transformers import AutoProcessor, AutoModelForImageTextToText
+    from transformers import AutoProcessor, AutoModelForCausalLM
 
     if not hasattr(inference_fn, "_model"):
         print(f"[{CANDIDATE_NAME}] Loading {MODEL_ID} ...")
-        inference_fn._model = AutoModelForImageTextToText.from_pretrained(
+        inference_fn._model = AutoModelForCausalLM.from_pretrained(
             MODEL_ID,
-            dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
+            torch_dtype=torch.float16 if torch.cuda.is_available() else torch.float32,
             trust_remote_code=True,
             attn_implementation="eager",
         ).to("cuda" if torch.cuda.is_available() else "cpu")
