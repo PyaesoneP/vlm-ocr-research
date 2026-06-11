@@ -15,6 +15,15 @@ from typing import Any
 # Character / Word Error Rate
 # ---------------------------------------------------------------------------
 
+def normalize_ocr_text(text: str) -> str:
+    """Normalize OCR text for fair comparison: collapse whitespace, strip."""
+    import re
+    # Replace newlines with spaces, collapse multiple spaces, strip
+    text = text.replace("\n", " ").replace("\r", " ")
+    text = re.sub(r"\s+", " ", text)
+    return text.strip()
+
+
 def _edit_distance(s1: str, s2: str) -> int:
     """Levenshtein distance between two strings."""
     if len(s1) < len(s2):
@@ -48,6 +57,16 @@ def compute_wer(prediction: str, ground_truth: str) -> float:
     if not gt_words:
         return 1.0 if pred_words else 0.0
     return _edit_distance(pred_words, gt_words) / len(gt_words)
+
+
+def compute_cer_normalized(prediction: str, ground_truth: str) -> float:
+    """CER with whitespace normalization — line breaks treated as spaces."""
+    return compute_cer(normalize_ocr_text(prediction), normalize_ocr_text(ground_truth))
+
+
+def compute_wer_normalized(prediction: str, ground_truth: str) -> float:
+    """WER with whitespace normalization — line breaks treated as spaces."""
+    return compute_wer(normalize_ocr_text(prediction), normalize_ocr_text(ground_truth))
 
 
 # ---------------------------------------------------------------------------

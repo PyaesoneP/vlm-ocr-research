@@ -200,9 +200,11 @@ class BenchmarkHarness:
         stage2_latencies: list[float] = []
         vram_peaks: list[int] = []
         all_outputs: list[dict[str, Any]] = []
+        image_paths: list[str] = []
 
         for i in range(num_runs):
             img_path = str(test_images[i % len(test_images)])
+            image_paths.append(img_path)
             self.reset_gpu_memory()
 
             output, elapsed = self.timed_call(inference_fn, img_path)
@@ -232,7 +234,7 @@ class BenchmarkHarness:
 
         # --- Ground-truth evaluation (if provided) ---
         if ground_truth:
-            self._evaluate_accuracy(result, all_outputs, Path(ground_truth))
+            self._evaluate_accuracy(result, all_outputs, image_paths, Path(ground_truth))
 
         return result
 
@@ -240,15 +242,16 @@ class BenchmarkHarness:
         self,
         result: BenchmarkResult,
         outputs: list[dict[str, Any]],
+        image_paths: list[str],
         gt_path: Path,
     ) -> None:
         """Compute CER, WER, reading-order tau, error F1, IoU from ground truth."""
         from benchmark.metrics import (
-            compute_cer,
+            compute_cer_normalized,
             compute_error_detection_f1,
             compute_iou,
             compute_reading_order_tau,
-            compute_wer,
+            compute_wer_normalized,
         )
 
         if not gt_path.exists():
@@ -257,18 +260,32 @@ class BenchmarkHarness:
 
         gt_data = json.loads(gt_path.read_text())
 
+        # Build lookup by image filename (stem or full name)
+        gt_by_name: dict[str, dict[str, Any]] = {}
+        for entry in gt_data:
+            img = entry.get("image", "")
+            gt_by_name[img] = entry
+            # Also index by stem (without extension) for flexible matching
+            stem = Path(img).stem if img else ""
+            if stem:
+                gt_by_name[stem] = entry
+
         # Accumulate across samples
         cer_vals, wer_vals, tau_vals, f1_vals, iou_vals = [], [], [], [], []
 
-        for idx, output in enumerate(outputs):
-            gt = gt_data[idx] if idx < len(gt_data) else None
+        for idx, (output, img_path) in enumerate(zip(outputs, image_paths)):
+            # Try matching by full filename, then by stem
+            img_name = Path(img_path).name
+            img_stem = Path(img_path).stem
+            gt = gt_by_name.get(img_name) or gt_by_name.get(img_stem)
+
             if gt is None:
                 continue
 
             pred_text = output.get("text", "")
             gt_text = gt.get("text", "")
-            cer_vals.append(compute_cer(pred_text, gt_text))
-            wer_vals.append(compute_wer(pred_text, gt_text))
+            cer_vals.append(compute_cer_normalized(pred_text, gt_text))
+            wer_vals.append(compute_wer_normalized(pred_text, gt_text))
 
             if "reading_order" in output and "reading_order" in gt:
                 tau_vals.append(compute_reading_order_tau(output["reading_order"], gt["reading_order"]))
