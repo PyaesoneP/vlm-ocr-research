@@ -148,7 +148,18 @@ set -a && source .env && set +a
 .venv/bin/python -u benchmark/baseline.py
 ```
 
-**Critical:** `gemini-3.5-flash` requires `genai.Client(vertexai=True, location="global")` — NOT `asia-southeast1`. The model returns 404 NOT_FOUND in regional endpoints. This is hardcoded in `benchmark/baseline.py` `_get_gemini_client()`.
+**Critical:** `gemini-3.5-flash` uses the official Gen AI SDK pattern:
+```python
+from google import genai
+from google.genai.types import HttpOptions
+
+client = genai.Client(http_options=HttpOptions(api_version="v1"))
+response = client.models.generate_content(
+    model="gemini-3.5-flash",
+    contents="...",
+)
+```
+When using Vertex AI fallback (no API key), `location="global"` is required — regional endpoints return 404. Handled in `baseline.py` `_get_gemini_client()`.
 
 #### Challenges Encountered
 
