@@ -122,26 +122,29 @@ def _get_gemini_client():
     """
     Lazy-load the Gemini client.
 
-    Tries in order: GEMINI_API_KEY, GOOGLE_API_KEY (AI Studio),
-    then Vertex AI via ADC.
+    Uses the official Gen AI SDK pattern with v1 API:
+      client = genai.Client(http_options=HttpOptions(api_version='v1'))
+    Authenticates via GOOGLE_API_KEY env var (AI Studio) or
+    GEMINI_API_KEY, or falls back to Vertex AI via ADC.
     """
     try:
         from google import genai
+        from google.genai.types import HttpOptions
     except ImportError:
         raise ImportError(
             "google-genai is required. Install with:\n"
             "  pip install google-genai"
         )
 
-    if GEMINI_API_KEY:
-        return genai.Client(api_key=GEMINI_API_KEY)
-    # Try GOOGLE_API_KEY (AI Studio default env var)
-    api_key = os.environ.get("GOOGLE_API_KEY", "")
+    # Preferred: API key auth (AI Studio)
+    api_key = GEMINI_API_KEY or os.environ.get("GOOGLE_API_KEY", "")
     if api_key:
-        return genai.Client(api_key=api_key)
-    # Fall back to Vertex AI via ADC — use global location for preview models
+        return genai.Client(api_key=api_key, http_options=HttpOptions(api_version="v1"))
+
+    # Fall back to Vertex AI via ADC (global location for preview models)
     return genai.Client(
-        vertexai=True, project=GCP_PROJECT, location="global"
+        vertexai=True, project=GCP_PROJECT, location="global",
+        http_options=HttpOptions(api_version="v1"),
     )
 
 
