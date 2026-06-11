@@ -247,7 +247,7 @@ Evaluate the 6 most promising candidates one-by-one. For each, measure:
 | **PaddleOCR-VL-1.6** |  Blocked | Native PaddleOCR API requires PaddlePaddle 3.2.1 which does not support Blackwell GPU (sm_120). `RuntimeError: Unsupported GPU architecture`. transformers 5.x path also blocked (same GPU compat issue for PaddlePaddle). |
 | **SmolDocling-256M** |  Complete | **Best candidate so far.** 12.2s avg latency (42% faster than baseline), 0.8 GB VRAM, CER 1.47, WER 1.50. DocTags output with bbox parsing via regex. Hallucinates/repeats on handwriting. `AutoModelForMultimodalLM` + transformers 5.x. | |
 | **Nemotron OCR v2** |  Complete | **Fastest candidate.** 0.09s avg (234x faster than baseline), 0.6 GB VRAM, CER 1.33, WER 1.41. 7 text regions per page with bboxes + reading order via relational model. Built in aiml conda env (CUDA 13.0 + PyTorch 2.12). CUDA extension compiled without issues. |
-| **MonkeyOCR** |  Complete (CPU) | 1.07s avg, 0 MB VRAM (CPU-only via llama.cpp Vulkan build; Vulkan not detected on RTX 5070 Ti). CER 0.81, WER 0.78 — **unusable accuracy**. Hallucinates headers ("Sentence Database") and generates irrelevant text. Model not suited for handwritten OCR. Backend: llama.cpp b9596 llama-server. |
+| **MonkeyOCR** |  Complete (CPU) | 5.96s avg, 0 MB VRAM (CPU-only). CER 0.58, WER 0.65 — poor due to generation repetition, not misrecognition. Recognizes typed text accurately but loops/repeats. IAM forms are mixed typed+handwritten; typed portion transcribed well. Backend: llama.cpp b9596 llama-server (ctx-size=8192). |
 
 ### Phase 3: Tier-2 Candidate Evaluation
 
@@ -394,16 +394,17 @@ Compare storage overhead, visual verifiability, and implementation complexity.
 | Metric | Value | Notes |
 |---|---|---|
 | Model | `dinhquangson/MonkeyOCR-pro-1.2B-Vision-GGUF` | Qwen2-VL based, GGUF Q4_K_M quantization |
-| Avg latency | 1.07 s | CPU-only (llama.cpp Vulkan backend not detected on RTX 5070 Ti) |
+| Avg latency | 5.96 s | CPU-only (llama.cpp Vulkan backend not detected on RTX 5070 Ti). Requires ctx-size=8192 + image-min-tokens=1024. |
 | VRAM peak | 0 MB | CPU inference. Vulkan GPU offload unavailable. |
-| CER (normalized) | 0.81 | **Unusable.** 80% character error rate. Model hallucinates headers. |
-| WER (normalized) | 0.78 | **Unusable.** 78% word error rate. Generates irrelevant text. |
-| Throughput | 56.2 ppm | Fast on CPU for 1.2B params. |
+| CER (normalized) | 0.58 | Improved from 0.81 after fixing context starvation. Still poor — driven by generation repetition, not misrecognition. |
+| WER (normalized) | 0.65 | Improved from 0.78 after context fix. Same repetition issue as CER. |
+| Throughput | 10.1 ppm | Down from 56.2 ppm due to longer output (676 vs 87 chars). |
 | Reading order | — | No bboxes, no layout output. Text-only via llama-server API. |
 | Bounding boxes | — | llama-server chat API provides text only. No structured output. |
-| Setup complexity | 3/5 | Pre-built llama.cpp b9596 binaries (Vulkan). Requires downloading release, starting llama-server. No Python dependency issues. |
-| Flexibility | 1/5 | Generates hallucinated headings ("Sentence Database"), irrelevant content. Not suited for handwritten IAM documents. |
-| Key issue | — | Model hallucinates severely on handwritten documents. Output quality makes it unsuitable for essay transcription. Fast inference is negated by 80% CER. |
+| Setup complexity | 3/5 | Pre-built llama.cpp b9596 binaries (Vulkan). Requires downloading release, starting llama-server with specific flags. No Python dependency issues. |
+| Flexibility | 2/5 | Accurate on typed text. Repeats itself on longer passages. Handwriting recognition untested (model loops before reaching it). IAM forms are mixed typed+handwritten — typed portion recognized well. |
+| Key issue | — | **Generation-control problem, not OCR problem.** Recognizes typed text correctly but cannot stop — repeats the same paragraph 2-3x with variations. Requires ctx-size=8192 for image tokens to fit (at 4096, output truncated to 87 chars). "Sentence Database" is NOT a hallucination — it's printed on the IAM form header. |
+| Root cause | — | Qwen2-VL is a generative LMM, not a dedicated OCR engine. The LLM component "completes" text beyond the visible image content. Repetition is a known issue with small VLMs used for transcription tasks. |
 | Backend | — | llama.cpp b9596 llama-server with Vulkan build. Vulkan GPU backend not detected on RTX 5070 Ti — fell back to CPU. |
 
 ### Phase 2 Environment Changes

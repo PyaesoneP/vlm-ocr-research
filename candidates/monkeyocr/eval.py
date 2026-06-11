@@ -12,7 +12,8 @@ Usage:
     #   cd /tmp/llama-b9596 && ./llama-server \
     #     --hf-repo dinhquangson/MonkeyOCR-pro-1.2B-Vision-GGUF \
     #     --hf-file MonkeyOCR-pro-1.2B-Recognition.gguf \
-    #     --host 0.0.0.0 --port 8080 --n-gpu-layers 99 --ctx-size 4096
+    #     --host 0.0.0.0 --port 8080 --n-gpu-layers 99 \
+    #     --ctx-size 8192 --image-min-tokens 1024
     python candidates/monkeyocr/eval.py
 """
 
@@ -40,8 +41,8 @@ TEST_DATASET = PROJECT_ROOT / "benchmark" / "test_dataset"
 GROUND_TRUTH = TEST_DATASET / "ground_truth.json"
 
 OCR_PROMPT = (
-    "Extract all visible text from this handwritten document. "
-    "Output only the transcription, no commentary."
+    "Transcribe every word visible on this page, both printed and handwritten. "
+    "Do not repeat yourself. Stop when you reach the end of the visible text."
 )
 
 
@@ -68,8 +69,10 @@ def inference_fn(image_path: str) -> dict:
                 {"type": "image_url", "image_url": {"url": f"data:image/png;base64,{img_b64}"}},
             ],
         }],
-        "max_tokens": 2048,
+        "max_tokens": 4096,
         "temperature": 0.0,
+        "repeat_penalty": 1.1,
+        "stop": ["\n\n\n", "Name:"],  # prevent form-field hallucination loops
     }
 
     t0 = time.perf_counter()
@@ -124,8 +127,10 @@ if __name__ == "__main__":
         ground_truth=GROUND_TRUTH if GROUND_TRUTH.exists() else None,
         num_warmup=1,
         num_runs=1,
-        notes="llama.cpp b9596 llama-server (Vulkan). Qwen2-VL GGUF Q4_K_M. "
-              "CPU-only fallback (Vulkan not detected on RTX 5070 Ti).",
+        notes="llama.cpp b9596 llama-server. Qwen2-VL GGUF Q4_K_M. "
+              "Server: ctx-size=8192, image-min-tokens=1024. "
+              "CPU-only (Vulkan not detected on RTX 5070 Ti). "
+              "Model has repetition/generation-control issues.",
     )
 
     from benchmark.harness import BenchmarkHarness
