@@ -7,6 +7,14 @@ running as llama-server with OpenAI-compatible API.
 
 Model: dinhquangson/MonkeyOCR-pro-1.2B-Vision-GGUF
 Backend: llama.cpp llama-server (Vulkan GPU)
+
+⚠ Bounding box output: MonkeyOCR via llama-server returns text only.
+The underlying Qwen2-VL model supports grounding, but the llama.cpp chat
+API provides text-only output and MonkeyOCR's OCR fine-tuning removes
+grounding capabilities.  No native bbox output is available.
+
+For bbox support, consider: Florence-2, SmolDocling, or Nemotron OCR v2.
+
 Usage:
     # Start server first:
     #   cd /tmp/llama-b9596 && ./llama-server \
@@ -56,6 +64,9 @@ def inference_fn(image_path: str) -> dict:
 
     llama-server provides an OpenAI-compatible /v1/chat/completions endpoint
     that natively handles Qwen2-VL multimodal input.
+
+    Returns ``blocks`` with empty bboxes (``[0,0,0,0]``) — this model
+    does not support native bounding box output via llama-server.
     """
     # Read and encode image
     img_bytes = Path(image_path).read_bytes()
@@ -82,19 +93,27 @@ def inference_fn(image_path: str) -> dict:
         data=json.dumps(payload).encode(),
         headers={"Content-Type": "application/json"},
     )
-    resp = urllib.request.urlopen(req, timeout=120)
+    resp = urllib.request.urlopen(req, timeout=300)
     data = json.loads(resp.read())
 
     elapsed = time.perf_counter() - t0
     text = data["choices"][0]["message"]["content"].strip()
 
+    # --- Parse blocks (text-only, no bboxes) ---
+    blocks = []
+    for line in text.split("\n"):
+        line = line.strip()
+        if line:
+            blocks.append({
+                "bbox": [0, 0, 0, 0],  # MonkeyOCR does not output bboxes
+                "text": line,
+                "confidence": 1.0,
+            })
+
     return {
         "text": text,
-        "blocks": [],
+        "blocks": blocks,
         "stage1_latency": elapsed,
-        "reading_order": [],
-        "errors": [],
-        "stage2_latency": 0.0,
     }
 
 
@@ -130,7 +149,7 @@ if __name__ == "__main__":
         notes="llama.cpp b9596 llama-server. Qwen2-VL GGUF Q4_K_M. "
               "Server: ctx-size=8192, image-min-tokens=1024. "
               "CPU-only (Vulkan not detected on RTX 5070 Ti). "
-              "Model has repetition/generation-control issues.",
+              "Text-only output — no native bbox support.",
     )
 
     from benchmark.harness import BenchmarkHarness
@@ -138,16 +157,6 @@ if __name__ == "__main__":
     harness = BenchmarkHarness(output_dir=PROJECT_ROOT / "benchmark" / "results")
     harness.save_result(result)
     print(f"[{CANDIDATE_NAME}] Done. Avg latency: {result.latency_total_avg:.2f}s")
-
-if __name__ == "__main__":
-    images = sorted([
-        str(p) for p in (TEST_DATASET / "curated").glob("*")
-        if p.suffix.lower() in {".jpg", ".jpeg", ".png"}
-    ])
-
-    if not images:
-        print(f"No test images in {TEST_DATASET / 'curated'}. Add handwritten essay samples.")
-        sys.exit(1)
 
     result = run_candidate(
         candidate_name=CANDIDATE_NAME,
