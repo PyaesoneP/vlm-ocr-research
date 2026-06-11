@@ -1,0 +1,31 @@
+{
+  "candidate_name": "monkeyocr",
+  "model_version": "",
+  "timestamp": "2026-06-11T18:33:54",
+  "gpu_name": "NVIDIA GeForce RTX 5070 Ti Laptop GPU",
+  "vram_total_mb": 12226,
+  "latency_total_avg": 1.0674202209993382,
+  "latency_total_std": 0.0,
+  "latency_stage1_ocr": 1.0632074530003592,
+  "latency_stage2_errors": 0.0,
+  "cer": 0.8063829787234043,
+  "wer": 0.7837837837837838,
+  "reading_order_tau": 0.0,
+  "error_detection_f1": 0.0,
+  "bounding_box_iou": 1.0,
+  "vram_peak_mb": 0,
+  "throughput_ppm": 56.21028983676823,
+  "setup_complexity": 0,
+  "flexibility": 0,
+  "sample_outputs": [
+    {
+      "text": "Sentence Database\n\nIn VIENNA, before flying off to Moscow, Mr. Khrushchov said he hoped his weekend talks with President Kennedy",
+      "blocks": [],
+      "stage1_latency": 1.0632074530003592,
+      "reading_order": [],
+      "errors": [],
+      "stage2_latency": 0.0
+    }
+  ],
+  "notes": "GGUF Q4_K_M quant via llama-cpp-python CUDA (n_gpu_layers=-1). llama.cpp vision does not return bounding boxes."
+}

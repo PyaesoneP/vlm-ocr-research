@@ -83,7 +83,7 @@ vlm-ocr-research/
 | 5 | **granite-docling-258M** | 256 M | Ultra-compact document VLM, successor to SmolDocling, DocTags format | ~1 GB |
 | 6 | **MonkeyOCR** | ~3 B | Document-specialized VLM, strong on OCRBench, native bbox + reading order output | ~6 GB |
 
-**Phase 2 status:** GOT-OCR2.0 - evaluated. SmolDocling-256M - evaluated (best so far: 12.2s, 0.8GB). Florence-2 - blocked. PaddleOCR-VL - blocked (GPU). Nemotron OCR & MonkeyOCR - pending.
+**Phase 2 status:** GOT-OCR2.0 - evaluated. SmolDocling-256M - evaluated (best so far: 12.2s, 0.8GB). Florence-2 - blocked. PaddleOCR-VL - blocked (GPU). Nemotron OCR & MonkeyOCR - evaluated.
 
 ### Tier 2: Baselines & Comparison
 
@@ -212,7 +212,7 @@ docs/METHODOLOGY.md                  # Full research design doc
 .env.example                         # GCP credential template
 ```
 
-### Phase 2: Tier-1 Candidate Evaluation — 3 of 6 Complete, 2 Blocked, 1 Pending
+### Phase 2: Tier-1 Candidate Evaluation — 4 of 6 Complete, 2 Blocked
 
 Evaluate the 6 most promising candidates one-by-one. For each, measure:
 
@@ -247,7 +247,7 @@ Evaluate the 6 most promising candidates one-by-one. For each, measure:
 | **PaddleOCR-VL-1.6** |  Blocked | Native PaddleOCR API requires PaddlePaddle 3.2.1 which does not support Blackwell GPU (sm_120). `RuntimeError: Unsupported GPU architecture`. transformers 5.x path also blocked (same GPU compat issue for PaddlePaddle). |
 | **SmolDocling-256M** |  Complete | **Best candidate so far.** 12.2s avg latency (42% faster than baseline), 0.8 GB VRAM, CER 1.47, WER 1.50. DocTags output with bbox parsing via regex. Hallucinates/repeats on handwriting. `AutoModelForMultimodalLM` + transformers 5.x. | |
 | **Nemotron OCR v2** |  Complete | **Fastest candidate.** 0.09s avg (234x faster than baseline), 0.6 GB VRAM, CER 1.33, WER 1.41. 7 text regions per page with bboxes + reading order via relational model. Built in aiml conda env (CUDA 13.0 + PyTorch 2.12). CUDA extension compiled without issues. |
-| **MonkeyOCR** |  Pending | No eval script yet. Model explicitly does not support handwritten content. Requires full repo clone + PaddlePaddle + LMDeploy. |
+| **MonkeyOCR** |  Complete (CPU) | 1.07s avg, 0 MB VRAM (CPU-only via llama.cpp Vulkan build; Vulkan not detected on RTX 5070 Ti). CER 0.81, WER 0.78 — **unusable accuracy**. Hallucinates headers ("Sentence Database") and generates irrelevant text. Model not suited for handwritten OCR. Backend: llama.cpp b9596 llama-server. |
 
 ### Phase 3: Tier-2 Candidate Evaluation
 
@@ -389,6 +389,23 @@ Compare storage overhead, visual verifiability, and implementation complexity.
 | Key advantage | — | **Lowest latency by far** (0.09s vs 12.2s SmolDocling, 21.1s baseline). Production-grade with built-in reading order. Relational model is unique differentiator. |
 | Key limitation | — | Recognizer trained on printed documents — handwriting transcription is inaccurate. Detector works well (correctly localizes all text lines). |
 
+### MonkeyOCR Detailed Findings
+
+| Metric | Value | Notes |
+|---|---|---|
+| Model | `dinhquangson/MonkeyOCR-pro-1.2B-Vision-GGUF` | Qwen2-VL based, GGUF Q4_K_M quantization |
+| Avg latency | 1.07 s | CPU-only (llama.cpp Vulkan backend not detected on RTX 5070 Ti) |
+| VRAM peak | 0 MB | CPU inference. Vulkan GPU offload unavailable. |
+| CER (normalized) | 0.81 | **Unusable.** 80% character error rate. Model hallucinates headers. |
+| WER (normalized) | 0.78 | **Unusable.** 78% word error rate. Generates irrelevant text. |
+| Throughput | 56.2 ppm | Fast on CPU for 1.2B params. |
+| Reading order | — | No bboxes, no layout output. Text-only via llama-server API. |
+| Bounding boxes | — | llama-server chat API provides text only. No structured output. |
+| Setup complexity | 3/5 | Pre-built llama.cpp b9596 binaries (Vulkan). Requires downloading release, starting llama-server. No Python dependency issues. |
+| Flexibility | 1/5 | Generates hallucinated headings ("Sentence Database"), irrelevant content. Not suited for handwritten IAM documents. |
+| Key issue | — | Model hallucinates severely on handwritten documents. Output quality makes it unsuitable for essay transcription. Fast inference is negated by 80% CER. |
+| Backend | — | llama.cpp b9596 llama-server with Vulkan build. Vulkan GPU backend not detected on RTX 5070 Ti — fell back to CPU. |
+
 ### Phase 2 Environment Changes
 
 | Change | Detail |
@@ -422,6 +439,7 @@ Compare storage overhead, visual verifiability, and implementation complexity.
 3. **ONNX / TensorRT:** For deployment, consider converting the best model to ONNX or TensorRT for further latency reduction (out of scope for research).
 4. **PaddleOCR-VL vLLM backend:** May bypass PaddlePaddle GPU incompatibility by using vLLM inference server instead of direct PaddlePaddle inference.
 5. **Florence-2 vLLM backend:** May bypass remote code issues by loading through vLLM which has native Florence-2 support.
+6. **MonkeyOCR — llama.cpp path worked for serving, accuracy the blocker:** Pre-built llama.cpp binaries with Qwen2-VL native support made serving trivial (no Python deps needed beyond stdlib). This same approach could serve Florence-2 or other GGUF-converted VLMs without the transformers remote-code issues.
 
 ---
 
