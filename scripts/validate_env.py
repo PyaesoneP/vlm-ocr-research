@@ -144,8 +144,19 @@ def check_bitsandbytes() -> CheckResult:
         return CheckResult(
             name="bitsandbytes",
             passed=False,
-            detail="Not installed (needed for INT4/INT8 quantization).",
+            detail="Not installed — blocked on Blackwell sm_120 (expected). "
+                   "Uncomment in requirements.txt once NVIDIA ships support.",
             severity="warning",
+        )
+
+
+def check_numpy() -> CheckResult:
+    try:
+        import numpy
+        return CheckResult(name="numpy", passed=True, detail=f"v{numpy.__version__}")
+    except ImportError:
+        return CheckResult(
+            name="numpy", passed=False, detail="Not installed.", severity="error",
         )
 
 
@@ -223,6 +234,7 @@ def run_all_checks() -> list[CheckResult]:
         check_gpu_info(),
         check_transformers(),
         check_accelerate(),
+        check_numpy(),
         check_bitsandbytes(),
         check_pillow(),
         check_opencv(),

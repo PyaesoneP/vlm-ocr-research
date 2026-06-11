@@ -68,10 +68,11 @@ if [ -z "$CUDA_VERSION" ] && [ -d /usr/local/cuda ]; then
 fi
 echo -e "  ${GREEN}✓${RESET} CUDA Toolkit: ${CUDA_VERSION:-not found (driver-only)}"
 
-# Determine PyTorch CUDA index
-# PyTorch 2.12 supports CUDA 12.4/12.6 — CUDA 13 drivers are backward-compatible
-PYTORCH_CUDA_INDEX="https://download.pytorch.org/whl/cu124"
-echo -e "  → Using PyTorch index: $PYTORCH_CUDA_INDEX"
+# PyTorch 2.11+ ships CUDA 13.0 wheels on PyPI directly.
+# No custom index URL needed. Blackwell (sm_120) requires 2.11+.
+PYTORCH_CUDA_INDEX=""
+echo -e "  → PyTorch will be installed from PyPI (CUDA 13.0 wheels)"
+echo -e "  → For older GPUs, use: pip install torch --index-url https://download.pytorch.org/whl/cu124"
 
 echo ""
 
@@ -139,7 +140,12 @@ fi
 
 # Only install if not already CUDA
 if ! echo "$CURRENT_TORCH" | grep -q "+cu"; then
-    pip install torch torchvision torchaudio --index-url "$PYTORCH_CUDA_INDEX"
+    # PyTorch 2.11+ ships CUDA wheels on PyPI (no custom index needed)
+    if [ -n "$PYTORCH_CUDA_INDEX" ]; then
+        pip install torch torchvision torchaudio --index-url "$PYTORCH_CUDA_INDEX"
+    else
+        pip install torch torchvision torchaudio
+    fi
     echo -e "  ${GREEN}✓${RESET} PyTorch CUDA installed"
 fi
 
@@ -175,6 +181,11 @@ if [ $VALIDATE_EXIT -eq 0 ]; then
     echo ""
     echo -e "  Activate the environment:"
     echo -e "    ${CYAN}source .venv/bin/activate${RESET}"
+    echo ""
+    echo -e "  Additional environments (Conda):"
+    echo -e "    ${CYAN}conda activate aiml${RESET}       — Nemotron OCR v2"
+    echo -e "    ${CYAN}conda activate florencetf${RESET}  — Florence-2 (transformers 4.40.0)"
+    echo "     (see requirements-aiml.txt and requirements-florencetf.txt)"
     echo ""
     echo -e "  Next step: Phase 1b — curate test dataset"
     echo -e "    ${CYAN}python scripts/download_essay_samples.py${RESET}"

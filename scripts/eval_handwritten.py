@@ -54,6 +54,16 @@ CANDIDATE_CONFIG = {
         "notes": "MonkeyOCR on cropped handwritten region. "
                  "Requires llama-server running on port 8080.",
     },
+    "florence2_large": {
+        "module": "candidates.florence2.eval",
+        "notes": "Florence-2-large on cropped handwritten region. "
+                 "Requires `conda activate florencetf` (transformers 4.40.0).",
+    },
+    "paddleocr_vl": {
+        "module": "candidates.paddleocr_vl.eval",
+        "notes": "PaddleOCR-VL-1.6 on cropped handwritten region. "
+                 "Requires `source .venv_paddleocr/bin/activate` and LD_LIBRARY_PATH=/usr/lib/wsl/lib.",
+    },
 }
 
 
