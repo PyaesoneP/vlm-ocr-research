@@ -8,6 +8,7 @@
 - **NEVER commit (git commit)** unless the user explicitly says "commit", "commit now", or similar.
 - Ask before committing, pushing, or opening a PR.
 - Never use emojis
+- **NEVER include credentials, API keys, tokens, secrets, or any sensitive values in any commit, push, or PR.** Always review staged changes for leaked credentials before committing, pushing, or opening a PR.
 
 ## Workflow
 
