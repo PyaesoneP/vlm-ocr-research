@@ -3,7 +3,7 @@
 
 # Core
 torch>=2.4.0
-transformers>=4.51.0
+transformers>=5.0.0
 accelerate>=0.34.0
 
 # Quantization (for models that need to fit in 12 GB)
