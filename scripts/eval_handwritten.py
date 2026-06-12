@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -120,7 +121,7 @@ def eval_candidate(name: str) -> None:
         test_images=images,
         ground_truth=HANDWRITTEN_GT if HANDWRITTEN_GT.exists() else None,
         num_warmup=1,
-        num_runs=1,
+        num_runs=len(images),
         notes=config["notes"],
     )
 
@@ -158,3 +159,7 @@ if __name__ == "__main__":
         eval_candidate(args.candidate)
     else:
         parser.print_help()
+
+    # Prevent Paddle inference teardown hang (bullet 5).
+    # Results are already saved to disk by harness.save_result().
+    os._exit(0)
