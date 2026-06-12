@@ -157,20 +157,3 @@ if __name__ == "__main__":
     harness = BenchmarkHarness(output_dir=PROJECT_ROOT / "benchmark" / "results")
     harness.save_result(result)
     print(f"[{CANDIDATE_NAME}] Done. Avg latency: {result.latency_total_avg:.2f}s")
-
-    result = run_candidate(
-        candidate_name=CANDIDATE_NAME,
-        inference_fn=inference_fn,
-        test_images=images,
-        ground_truth=GROUND_TRUTH if GROUND_TRUTH.exists() else None,
-        num_warmup=1,
-        num_runs=1,
-        notes="GGUF Q4_K_M quant via llama-cpp-python CUDA (n_gpu_layers=-1). "
-              "llama.cpp vision does not return bounding boxes.",
-    )
-
-    from benchmark.harness import BenchmarkHarness
-
-    harness = BenchmarkHarness(output_dir=PROJECT_ROOT / "benchmark" / "results")
-    harness.save_result(result)
-    print(f"[{CANDIDATE_NAME}] Done. Avg latency: {result.latency_total_avg:.2f}s")

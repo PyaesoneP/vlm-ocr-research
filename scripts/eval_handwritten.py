@@ -114,14 +114,6 @@ def eval_candidate(name: str) -> None:
     # Import the candidate's inference_fn
     module = importlib.import_module(config["module"])
 
-    # Monkey override: point the module's TEST_DATASET and GROUND_TRUTH to handwritten
-    # We do this by patching before calling run_candidate
-    old_test_dataset = getattr(module, "TEST_DATASET", None)
-    old_ground_truth = getattr(module, "GROUND_TRUTH", None)
-
-    module.TEST_DATASET = HANDWRITTEN_IMAGES_DIR.parent  # parent is test_dataset/
-    module.GROUND_TRUTH = HANDWRITTEN_GT
-
     result = run_candidate(
         candidate_name=f"{name}_handwritten",
         inference_fn=module.inference_fn,
@@ -131,12 +123,6 @@ def eval_candidate(name: str) -> None:
         num_runs=1,
         notes=config["notes"],
     )
-
-    # Restore originals
-    if old_test_dataset is not None:
-        module.TEST_DATASET = old_test_dataset
-    if old_ground_truth is not None:
-        module.GROUND_TRUTH = old_ground_truth
 
     # Save result
     harness = BenchmarkHarness(output_dir=RESULTS_DIR)

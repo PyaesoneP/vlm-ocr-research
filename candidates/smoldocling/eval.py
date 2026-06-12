@@ -167,8 +167,11 @@ def inference_fn(image_path: str) -> dict:
     # Sort blocks by reading position (top-to-bottom, left-to-right)
     blocks.sort(key=lambda b: (b["bbox"][1], b["bbox"][0]))
 
+    # Rebuild full_text_parts in sorted order for consistent reading order
+    full_text_parts_sorted = [b["text"] for b in blocks]
+
     return {
-        "text": "\n".join(full_text_parts) if full_text_parts else doctags,
+        "text": "\n".join(full_text_parts_sorted) if full_text_parts_sorted else doctags,
         "blocks": blocks,
         "stage1_latency": elapsed,
     }

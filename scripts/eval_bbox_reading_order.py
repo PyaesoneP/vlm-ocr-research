@@ -174,7 +174,7 @@ def evaluate_florence2() -> None:
         "images": all_results,
     }
 
-    out_path = RESULTS_DIR / "florence2_large_bbox_reading_order.json"
+    out_path = RESULTS_DIR / "florence2_large_layout.json"
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w") as f:
         json.dump(output, f, indent=2)
@@ -283,7 +283,7 @@ def run_generic_eval(candidate_name: str, inference_fn, bbox_normalizer=None, nu
         "images": all_results,
     }
 
-    out_path = RESULTS_DIR / f"{candidate_name}_bbox_reading_order.json"
+    out_path = RESULTS_DIR / f"{candidate_name}_layout.json"
     RESULTS_DIR.mkdir(parents=True, exist_ok=True)
     with open(out_path, "w") as f:
         json.dump(output, f, indent=2)
@@ -295,11 +295,14 @@ def run_generic_eval(candidate_name: str, inference_fn, bbox_normalizer=None, nu
 # ---------------------------------------------------------------------------
 
 def _nemotron_bbox_to_xyxy(bbox: list) -> list:
-    """Convert Nemotron xywh to xyxy format."""
+    """Passthrough — Nemotron eval.py already outputs xyxy boxes.
+
+    candidates/nemotron_ocr/eval.py denormalizes left/upper/right/lower
+    to absolute pixels, producing [x1, y1, x2, y2] directly.
+    """
     if len(bbox) != 4:
         return [0, 0, 0, 0]
-    # Heuristic: Nemotron uses [x, y, w, h]
-    return [bbox[0], bbox[1], bbox[0] + bbox[2], bbox[1] + bbox[3]]
+    return list(bbox)
 
 
 def evaluate_nemotron() -> None:
