@@ -505,7 +505,7 @@ welcome he had received.
 "The Soviet Union has always shown and is striving to safeguard an
 onduring peace for the people, to secure an early solution of the
 
-SMOLDOCLING   (CER=0.14, 7.1s)
+SMOLDOCLING   (CER=0.107 avg, 5.37s)
 ──────────────────────────────────────────────────────────────────────
 In Vienna, before flying off to Moscow, Mr. Khrushov said he hoped his
 weekend talkers with Presidet Kennedys would be help " to establish an
@@ -515,7 +515,7 @@ hospitally and welcome he had received. 4 The Soulet Union has always
 Join a shon and is stiving to safeguard an onduring peace for the
 peoples, to secure an early soluion of the
 
-NEMOTRON   (CER=0.74, 0.06s)
+NEMOTRON   (CER=0.214 avg, 0.07s)
 ──────────────────────────────────────────────────────────────────────
 4 The Souiet unioh ha always strven and is striving to safeguard an ou
 ondaring peace for the peoples) , to Decure an early sole hor of the
@@ -525,7 +525,7 @@ onduring peaie Selweeh natiows " Replbis so a were speech from Aushiag
 Prestdoct Schoerd 1 the Sovret Preneirr thanked Ausiia for the
 hospilality and welcome he had roeived.
 
-FLORENCE-2-LARGE   (CER=0.11 on this image, 1.8s)
+FLORENCE-2-LARGE   (CER=0.061 avg, 1.05s)
 ──────────────────────────────────────────────────────────────────────
 In Vienna, before flying off to Moscow,
 Mr. Khrushdov said he hoped his weekend
@@ -538,7 +538,7 @@ the hospitality and welcome he had received.
 striving to safeguard an ordinary peace for
 he people, ho secure an early solution of the
 
-GOT-OCR2.0   (CER=4.32, 38.9s)
+GOT-OCR2.0   (CER=0.088 avg, 2.53s)
 ──────────────────────────────────────────────────────────────────────
 Mr. Kh ush cho u said he hop col his week eu o talks with President
 Kennedy would help" to es laS e is hah oh d ul in s peace S elwe eh
