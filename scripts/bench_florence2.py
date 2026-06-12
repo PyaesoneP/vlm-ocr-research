@@ -18,7 +18,7 @@ from benchmark.metrics import compute_cer_normalized, compute_wer_normalized
 MODEL_ID = "microsoft/Florence-2-large"
 HANDWRITTEN_DIR = PROJECT_ROOT / "benchmark" / "test_dataset" / "handwritten"
 GT_FILE = PROJECT_ROOT / "benchmark" / "test_dataset" / "ground_truth_handwritten.json"
-RESULTS_FILE = PROJECT_ROOT / "benchmark" / "results" / "florence2_large_handwritten.json"
+RESULTS_FILE = PROJECT_ROOT / "benchmark" / "results" / "florence2_large_handwriting.json"
 
 # --- Load model ---
 print(f"Loading {MODEL_ID}...")

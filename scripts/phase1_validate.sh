@@ -104,7 +104,7 @@ echo ""
 # ---------------------------------------------------------------------------
 echo -e "${BOLD}[4] Baseline${RESET}"
 
-warn_check "baseline result"     test -f "$PROJECT_ROOT/benchmark/results/baseline_google_docai_gemini.json"
+warn_check "baseline result"     test -f "$PROJECT_ROOT/benchmark/results/baseline_google_docai_fullform.json"
 
 echo ""
 
