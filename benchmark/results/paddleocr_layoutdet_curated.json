@@ -1,0 +1,10 @@
+{
+  "candidate_name": "paddleocr_layoutdet_curated",
+  "model": "PP-DocLayout-L",
+  "timestamp": "2026-06-12T12:02:36.277896+00:00",
+  "gpu_name": "NVIDIA GeForce RTX 5070 Ti Laptop GPU",
+  "latency_total_avg": 0.07051990628000566,
+  "bounding_box_iou": 0.08441842677242374,
+  "reading_order_tau": 0.92,
+  "notes": "PaddleOCR LayoutDetection PP-DocLayout-L on curated images."
+}
