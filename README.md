@@ -491,7 +491,7 @@ of the
 
 Gemini 3.5 Flash found: "Khrushchou"→"Khrushchev", "onduring"→"enduring"
 
-MONKEYOCR   (CER=0.11, 3.8s)
+MONKEYOCR   (CER=0.57 avg, 4.27s GPU)
 ──────────────────────────────────────────────────────────────────────
 In Vienna, before flying off to Moscow,
 
