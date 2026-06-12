@@ -1,0 +1,101 @@
+{
+  "candidate_name": "monkeyocr_handwritten",
+  "model_version": "",
+  "timestamp": "2026-06-12T12:16:59",
+  "gpu_name": "NVIDIA GeForce RTX 5070 Ti Laptop GPU",
+  "vram_total_mb": 12226,
+  "latency_total_avg": 4.2743328764000035,
+  "latency_total_std": 3.329506102692271,
+  "latency_stage1_ocr": 4.072506902000043,
+  "latency_stage2_errors": 0.0,
+  "cer": 0.5655946119269274,
+  "wer": 0.23964396287308365,
+  "reading_order_tau": 0.0,
+  "error_detection_f1": 0.0,
+  "bounding_box_iou": 0.0,
+  "vram_peak_mb": 0,
+  "throughput_ppm": 14.037278268915301,
+  "setup_complexity": 0,
+  "flexibility": 0,
+  "sample_outputs": [
+    {
+      "text": "In Vienna, before flying off to Moscow,\n\nMr. Khrushchov said he hoped his weekend talks with President Kennedy would help \"to establish an onduring peace between nations.\" Replacing to a farewell speech from Jussinck President\n\nSchoerd, the Soviet Premier thanks to Jussinck for the hospitality and welcome he had received.\n\n\"The Soviet Union has always shown and is striving to safeguard an onduring peace for the people, to secure an early solution of the",
+      "blocks": [
+        {
+          "bbox": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "text": "In Vienna, before flying off to Moscow,",
+          "confidence": 1.0
+        },
+        {
+          "bbox": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "text": "Mr. Khrushchov said he hoped his weekend talks with President Kennedy would help \"to establish an onduring peace between nations.\" Replacing to a farewell speech from Jussinck President",
+          "confidence": 1.0
+        },
+        {
+          "bbox": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "text": "Schoerd, the Soviet Premier thanks to Jussinck for the hospitality and welcome he had received.",
+          "confidence": 1.0
+        },
+        {
+          "bbox": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "text": "\"The Soviet Union has always shown and is striving to safeguard an onduring peace for the people, to secure an early solution of the",
+          "confidence": 1.0
+        }
+      ],
+      "stage1_latency": 0.4993428189999918
+    },
+    {
+      "text": "The party agreed that it was unwise to locate the base in the Holy Loch, only 30 miles from Glasgow, a city with two metallic people. It should be noted in a more remote area. Mr. Gaitskell added that the Saerborough conference did not, in this view, truly reflect the opinions of the majority of party members and still less the party's support in the country.",
+      "blocks": [
+        {
+          "bbox": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "text": "The party agreed that it was unwise to locate the base in the Holy Loch, only 30 miles from Glasgow, a city with two metallic people. It should be noted in a more remote area. Mr. Gaitskell added that the Saerborough conference did not, in this view, truly reflect the opinions of the majority of party members and still less the party's support in the country.",
+          "confidence": 1.0
+        }
+      ],
+      "stage1_latency": 3.1500027309999723
+    },
+    {
+      "text": "Sir Francis is to hand over to Sir Francis in 1985 from November 1. The hand-over, one in September, was changed because of the Berlin crisis. Mr. Wathinson and his advisors felt that the change would be uniaxial at a moment where an attendant has had to be concanwaked on possible need for important military operations. For this reason Sir Francis played on, and said sacrifices no leave.",
+      "blocks": [
+        {
+          "bbox": [
+            0,
+            0,
+            0,
+            0
+          ],
+          "text": "Sir Francis is to hand over to Sir Francis in 1985 from November 1. The hand-over, one in September, was changed because of the Berlin crisis. Mr. Wathinson and his advisors felt that the change would be uniaxial at a moment where an attendant has had to be concanwaked on possible need for important military operations. For this reason Sir Francis played on, and said sacrifices no leave.",
+          "confidence": 1.0
+        }
+      ],
+      "stage1_latency": 4.02478591900001
+    }
+  ],
+  "notes": "MonkeyOCR on cropped handwritten region. Requires llama-server running on port 8080."
+}

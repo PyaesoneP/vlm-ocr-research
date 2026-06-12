@@ -38,7 +38,8 @@ _GEMINI_LAST_CALL = 0.0
 
 TEST_DATASET = _PROJECT_ROOT / "benchmark" / "test_dataset"
 RESULTS_DIR = _PROJECT_ROOT / "benchmark" / "results"
-NUM_RUNS = 10
+NUM_RUNS = 5
+NUM_IMAGES = 5  # limit to first N images from curated subset
 
 
 # ---------------------------------------------------------------------------
@@ -121,22 +122,30 @@ def _get_gemini_client():
     """
     Lazy-load the Gemini client.
 
-    Prefers API key auth (GEMINI_API_KEY) over Vertex AI (ADC).
+    Uses the official Gen AI SDK pattern with v1 API:
+      client = genai.Client(http_options=HttpOptions(api_version='v1'))
+    Authenticates via GOOGLE_API_KEY env var (AI Studio) or
+    GEMINI_API_KEY, or falls back to Vertex AI via ADC.
     """
     try:
         from google import genai
+        from google.genai.types import HttpOptions
     except ImportError:
         raise ImportError(
             "google-genai is required. Install with:\n"
             "  pip install google-genai"
         )
 
-    if GEMINI_API_KEY:
-        return genai.Client(api_key=GEMINI_API_KEY)
-    else:
-        return genai.Client(
-            vertexai=True, project=GCP_PROJECT, location=GCP_LOCATION
-        )
+    # Preferred: API key auth (AI Studio) — simplest path
+    api_key = GEMINI_API_KEY or os.environ.get("GOOGLE_API_KEY", "")
+    if api_key:
+        return genai.Client(api_key=api_key)
+
+    # Fall back to Vertex AI via ADC (global location for preview models)
+    return genai.Client(
+        vertexai=True, project=GCP_PROJECT, location="global",
+        http_options=HttpOptions(api_version="v1"),
+    )
 
 
 def gemini_error_detection(ocr_output: dict) -> dict:
@@ -168,14 +177,14 @@ Transcription:
 Blocks (index, bbox, text):
 {json.dumps([{'index': i, 'bbox': b['bbox'], 'text': b['text']} for i, b in enumerate(ocr_output.get('blocks', []))])}"""
 
-    t0 = time.perf_counter()
-
     # Rate limit: ensure we stay within GEMINI_RPM
     global _GEMINI_LAST_CALL
     min_interval = 60.0 / GEMINI_RPM
     elapsed_since_last = time.perf_counter() - _GEMINI_LAST_CALL
     if elapsed_since_last < min_interval:
         time.sleep(min_interval - elapsed_since_last)
+
+    t0 = time.perf_counter()
 
     # Retry on transient errors (503, 429)
     max_retries = 8
@@ -298,9 +307,12 @@ def _layout_text(doc, layout) -> str:
 
 
 def _normalized_to_absolute(bounding_poly, img_w: int, img_h: int) -> list[int]:
-    """Convert normalized vertices to absolute [x1, y1, x2, y2]."""
-    xs = [v.x * img_w for v in bounding_poly.vertices]
-    ys = [v.y * img_h for v in bounding_poly.vertices]
+    """Convert normalized vertices to absolute [x1, y1, x2, y2].
+
+    Uses .normalized_vertices (0–1 range), NOT .vertices (already absolute pixels).
+    """
+    xs = [v.x * img_w for v in bounding_poly.normalized_vertices]
+    ys = [v.y * img_h for v in bounding_poly.normalized_vertices]
     if not xs:
         return [0, 0, 0, 0]
     return [int(min(xs)), int(min(ys)), int(max(xs)), int(max(ys))]
@@ -313,12 +325,13 @@ def _normalized_to_absolute(bounding_poly, img_w: int, img_h: int) -> list[int]:
 if __name__ == "__main__":
     from benchmark.harness import BenchmarkHarness
 
-    # Gather test images
-    images = sorted(TEST_DATASET.glob("*"))
-    images = [p for p in images if p.suffix.lower() in {".jpg", ".jpeg", ".png"}]
+    # Gather test images from curated subset
+    curated_dir = TEST_DATASET / "curated"
+    images = sorted(p for p in curated_dir.glob("*") if p.suffix.lower() in {".jpg", ".jpeg", ".png"})
+    images = images[:NUM_IMAGES]
 
     if not images:
-        print(f"No test images found in {TEST_DATASET}. "
+        print(f"No test images found in {curated_dir}. "
               "Place handwritten essay images there and re-run.")
         exit(1)
 

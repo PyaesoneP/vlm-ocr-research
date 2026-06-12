@@ -1,142 +1,177 @@
 [
   {
-    "image": "iam_page_024.jpg",
-    "path": "benchmark/test_dataset/iam_page_024.jpg",
-    "text_density": 0.0387,
+    "image": "c03-016b.png",
+    "path": "benchmark/test_dataset/c03-016b.png",
+    "text_density": 0.44,
     "estimated_lines": 10,
-    "contrast": 36.18
+    "writer_prefix": "c03"
   },
   {
-    "image": "iam_page_031.jpg",
-    "path": "benchmark/test_dataset/iam_page_031.jpg",
-    "text_density": 0.0382,
-    "estimated_lines": 11,
-    "contrast": 35.39
-  },
-  {
-    "image": "iam_page_038.jpg",
-    "path": "benchmark/test_dataset/iam_page_038.jpg",
-    "text_density": 0.0381,
-    "estimated_lines": 9,
-    "contrast": 36.65
-  },
-  {
-    "image": "iam_page_088.jpg",
-    "path": "benchmark/test_dataset/iam_page_088.jpg",
-    "text_density": 0.0379,
-    "estimated_lines": 9,
-    "contrast": 34.41
-  },
-  {
-    "image": "iam_page_029.jpg",
-    "path": "benchmark/test_dataset/iam_page_029.jpg",
-    "text_density": 0.038,
-    "estimated_lines": 9,
-    "contrast": 35.37
-  },
-  {
-    "image": "iam_page_020.jpg",
-    "path": "benchmark/test_dataset/iam_page_020.jpg",
-    "text_density": 0.035,
-    "estimated_lines": 10,
-    "contrast": 33.48
-  },
-  {
-    "image": "iam_page_091.jpg",
-    "path": "benchmark/test_dataset/iam_page_091.jpg",
-    "text_density": 0.0357,
-    "estimated_lines": 10,
-    "contrast": 34.77
-  },
-  {
-    "image": "iam_page_036.jpg",
-    "path": "benchmark/test_dataset/iam_page_036.jpg",
-    "text_density": 0.0298,
-    "estimated_lines": 9,
-    "contrast": 31.38
-  },
-  {
-    "image": "iam_page_077.jpg",
-    "path": "benchmark/test_dataset/iam_page_077.jpg",
-    "text_density": 0.0349,
-    "estimated_lines": 9,
-    "contrast": 34.6
-  },
-  {
-    "image": "iam_page_018.jpg",
-    "path": "benchmark/test_dataset/iam_page_018.jpg",
-    "text_density": 0.0376,
-    "estimated_lines": 11,
-    "contrast": 35.85
-  },
-  {
-    "image": "iam_page_025.jpg",
-    "path": "benchmark/test_dataset/iam_page_025.jpg",
-    "text_density": 0.0359,
-    "estimated_lines": 10,
-    "contrast": 33.62
-  },
-  {
-    "image": "iam_page_005.jpg",
-    "path": "benchmark/test_dataset/iam_page_005.jpg",
-    "text_density": 0.037,
-    "estimated_lines": 10,
-    "contrast": 34.92
-  },
-  {
-    "image": "iam_page_015.jpg",
-    "path": "benchmark/test_dataset/iam_page_015.jpg",
-    "text_density": 0.0358,
-    "estimated_lines": 9,
-    "contrast": 35.52
-  },
-  {
-    "image": "iam_page_028.jpg",
-    "path": "benchmark/test_dataset/iam_page_028.jpg",
-    "text_density": 0.036,
-    "estimated_lines": 9,
-    "contrast": 33.8
-  },
-  {
-    "image": "iam_page_030.jpg",
-    "path": "benchmark/test_dataset/iam_page_030.jpg",
-    "text_density": 0.0358,
-    "estimated_lines": 9,
-    "contrast": 34.76
-  },
-  {
-    "image": "iam_page_078.jpg",
-    "path": "benchmark/test_dataset/iam_page_078.jpg",
-    "text_density": 0.0411,
-    "estimated_lines": 10,
-    "contrast": 37.59
-  },
-  {
-    "image": "iam_page_054.jpg",
-    "path": "benchmark/test_dataset/iam_page_054.jpg",
-    "text_density": 0.0324,
-    "estimated_lines": 10,
-    "contrast": 32.91
-  },
-  {
-    "image": "iam_page_017.jpg",
-    "path": "benchmark/test_dataset/iam_page_017.jpg",
-    "text_density": 0.0374,
+    "image": "a04-059.png",
+    "path": "benchmark/test_dataset/a04-059.png",
+    "text_density": 0.372,
     "estimated_lines": 8,
-    "contrast": 35.15
+    "writer_prefix": "a04"
   },
   {
-    "image": "iam_page_010.jpg",
-    "path": "benchmark/test_dataset/iam_page_010.jpg",
-    "text_density": 0.0404,
-    "estimated_lines": 9,
-    "contrast": 36.18
+    "image": "g05-098.png",
+    "path": "benchmark/test_dataset/g05-098.png",
+    "text_density": 0.431,
+    "estimated_lines": 7,
+    "writer_prefix": "g05"
   },
   {
-    "image": "iam_page_043.jpg",
-    "path": "benchmark/test_dataset/iam_page_043.jpg",
-    "text_density": 0.0361,
+    "image": "f07-069.png",
+    "path": "benchmark/test_dataset/f07-069.png",
+    "text_density": 0.55,
     "estimated_lines": 10,
-    "contrast": 34.6
+    "writer_prefix": "f07"
+  },
+  {
+    "image": "f02-076.png",
+    "path": "benchmark/test_dataset/f02-076.png",
+    "text_density": 0.429,
+    "estimated_lines": 10,
+    "writer_prefix": "f02"
+  },
+  {
+    "image": "d03-112.png",
+    "path": "benchmark/test_dataset/d03-112.png",
+    "text_density": 0.322,
+    "estimated_lines": 9,
+    "writer_prefix": "d03"
+  },
+  {
+    "image": "c02-017.png",
+    "path": "benchmark/test_dataset/c02-017.png",
+    "text_density": 0.433,
+    "estimated_lines": 10,
+    "writer_prefix": "c02"
+  },
+  {
+    "image": "b06-045.png",
+    "path": "benchmark/test_dataset/b06-045.png",
+    "text_density": 0.376,
+    "estimated_lines": 9,
+    "writer_prefix": "b06"
+  },
+  {
+    "image": "l07-135.png",
+    "path": "benchmark/test_dataset/l07-135.png",
+    "text_density": 0.368,
+    "estimated_lines": 9,
+    "writer_prefix": "l07"
+  },
+  {
+    "image": "a05-029.png",
+    "path": "benchmark/test_dataset/a05-029.png",
+    "text_density": 0.367,
+    "estimated_lines": 10,
+    "writer_prefix": "a05"
+  },
+  {
+    "image": "a04-039.png",
+    "path": "benchmark/test_dataset/a04-039.png",
+    "text_density": 0.47,
+    "estimated_lines": 10,
+    "writer_prefix": "a04"
+  },
+  {
+    "image": "b06-100.png",
+    "path": "benchmark/test_dataset/b06-100.png",
+    "text_density": 0.354,
+    "estimated_lines": 10,
+    "writer_prefix": "b06"
+  },
+  {
+    "image": "f01-058.png",
+    "path": "benchmark/test_dataset/f01-058.png",
+    "text_density": 0.398,
+    "estimated_lines": 10,
+    "writer_prefix": "f01"
+  },
+  {
+    "image": "f04-016.png",
+    "path": "benchmark/test_dataset/f04-016.png",
+    "text_density": 0.342,
+    "estimated_lines": 8,
+    "writer_prefix": "f04"
+  },
+  {
+    "image": "r06-103.png",
+    "path": "benchmark/test_dataset/r06-103.png",
+    "text_density": 0.292,
+    "estimated_lines": 8,
+    "writer_prefix": "r06"
+  },
+  {
+    "image": "g06-045p.png",
+    "path": "benchmark/test_dataset/g06-045p.png",
+    "text_density": 0.347,
+    "estimated_lines": 7,
+    "writer_prefix": "g06"
+  },
+  {
+    "image": "c02-026.png",
+    "path": "benchmark/test_dataset/c02-026.png",
+    "text_density": 0.378,
+    "estimated_lines": 9,
+    "writer_prefix": "c02"
+  },
+  {
+    "image": "j06-034.png",
+    "path": "benchmark/test_dataset/j06-034.png",
+    "text_density": 0.351,
+    "estimated_lines": 11,
+    "writer_prefix": "j06"
+  },
+  {
+    "image": "h06-082.png",
+    "path": "benchmark/test_dataset/h06-082.png",
+    "text_density": 0.464,
+    "estimated_lines": 11,
+    "writer_prefix": "h06"
+  },
+  {
+    "image": "j04-024.png",
+    "path": "benchmark/test_dataset/j04-024.png",
+    "text_density": 0.445,
+    "estimated_lines": 10,
+    "writer_prefix": "j04"
+  },
+  {
+    "image": "g04-043.png",
+    "path": "benchmark/test_dataset/g04-043.png",
+    "text_density": 0.439,
+    "estimated_lines": 9,
+    "writer_prefix": "g04"
+  },
+  {
+    "image": "e07-079.png",
+    "path": "benchmark/test_dataset/e07-079.png",
+    "text_density": 0.428,
+    "estimated_lines": 11,
+    "writer_prefix": "e07"
+  },
+  {
+    "image": "r06-106.png",
+    "path": "benchmark/test_dataset/r06-106.png",
+    "text_density": 0.337,
+    "estimated_lines": 10,
+    "writer_prefix": "r06"
+  },
+  {
+    "image": "r02-117.png",
+    "path": "benchmark/test_dataset/r02-117.png",
+    "text_density": 0.332,
+    "estimated_lines": 8,
+    "writer_prefix": "r02"
+  },
+  {
+    "image": "h01-014.png",
+    "path": "benchmark/test_dataset/h01-014.png",
+    "text_density": 0.475,
+    "estimated_lines": 9,
+    "writer_prefix": "h01"
   }
 ]

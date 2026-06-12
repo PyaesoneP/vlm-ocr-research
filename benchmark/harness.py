@@ -21,12 +21,16 @@ from __future__ import annotations
 
 import json
 import time
-import tracemalloc
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any, Callable, Optional
 
-import torch
+try:
+    import torch
+    _HAS_TORCH = True
+except ImportError:
+    torch = None  # type: ignore
+    _HAS_TORCH = False
 
 
 # ---------------------------------------------------------------------------
@@ -95,23 +99,30 @@ class BenchmarkHarness:
     @staticmethod
     def get_gpu_info() -> tuple[str, int]:
         """Return (gpu_name, vram_total_mb)."""
-        if not torch.cuda.is_available():
-            return "CPU", 0
-        name = torch.cuda.get_device_name(0)
-        total_mb = torch.cuda.get_device_properties(0).total_memory // (1024 * 1024)
-        return name, total_mb
+        if _HAS_TORCH and torch.cuda.is_available():
+            name = torch.cuda.get_device_name(0)
+            total_mb = torch.cuda.get_device_properties(0).total_memory // (1024 * 1024)
+            return name, total_mb
+        # Fallback: try PaddlePaddle GPU detection
+        try:
+            import paddle
+            if paddle.is_compiled_with_cuda():
+                return paddle.device.cuda.get_device_name(0), 0
+        except ImportError:
+            pass
+        return "Unknown GPU", 0
 
     @staticmethod
     def reset_gpu_memory() -> None:
         """Clear CUDA cache and reset peak memory stats."""
-        if torch.cuda.is_available():
+        if _HAS_TORCH and torch.cuda.is_available():
             torch.cuda.empty_cache()
             torch.cuda.reset_peak_memory_stats()
 
     @staticmethod
     def get_peak_vram_mb() -> int:
         """Return peak VRAM usage in MB since last reset."""
-        if not torch.cuda.is_available():
+        if not _HAS_TORCH or not torch.cuda.is_available():
             return 0
         return torch.cuda.max_memory_allocated(0) // (1024 * 1024)
 
@@ -122,11 +133,11 @@ class BenchmarkHarness:
     @staticmethod
     def timed_call(fn: Callable, *args: Any, **kwargs: Any) -> tuple[Any, float]:
         """Call fn and return (result, elapsed_seconds)."""
-        if torch.cuda.is_available():
+        if _HAS_TORCH and torch.cuda.is_available():
             torch.cuda.synchronize()
         t0 = time.perf_counter()
         result = fn(*args, **kwargs)
-        if torch.cuda.is_available():
+        if _HAS_TORCH and torch.cuda.is_available():
             torch.cuda.synchronize()
         elapsed = time.perf_counter() - t0
         return result, elapsed
@@ -200,15 +211,19 @@ class BenchmarkHarness:
         stage2_latencies: list[float] = []
         vram_peaks: list[int] = []
         all_outputs: list[dict[str, Any]] = []
+        image_paths: list[str] = []
 
         for i in range(num_runs):
-            img_path = str(test_images[i % len(test_images)])
-            self.reset_gpu_memory()
+            # One full pass over all test images per run.
+            for img_path in test_images:
+                img_path_str = str(img_path)
+                image_paths.append(img_path_str)
+                self.reset_gpu_memory()
 
-            output, elapsed = self.timed_call(inference_fn, img_path)
-            latencies.append(elapsed)
-            vram_peaks.append(self.get_peak_vram_mb())
-            all_outputs.append(output)
+                output, elapsed = self.timed_call(inference_fn, img_path_str)
+                latencies.append(elapsed)
+                vram_peaks.append(self.get_peak_vram_mb())
+                all_outputs.append(output)
 
             if "stage1_latency" in output:
                 stage1_latencies.append(output["stage1_latency"])
@@ -219,8 +234,8 @@ class BenchmarkHarness:
         n = len(latencies)
         result.latency_total_avg = sum(latencies) / n
         result.latency_total_std = (
-            (sum((x - result.latency_total_avg) ** 2 for x in latencies) / n) ** 0.5
-        )
+            (sum((x - result.latency_total_avg) ** 2 for x in latencies) / (n - 1)) ** 0.5
+        ) if n > 1 else 0.0
         if stage1_latencies:
             result.latency_stage1_ocr = sum(stage1_latencies) / len(stage1_latencies)
         if stage2_latencies:
@@ -232,7 +247,7 @@ class BenchmarkHarness:
 
         # --- Ground-truth evaluation (if provided) ---
         if ground_truth:
-            self._evaluate_accuracy(result, all_outputs, Path(ground_truth))
+            self._evaluate_accuracy(result, all_outputs, image_paths, Path(ground_truth))
 
         return result
 
@@ -240,15 +255,16 @@ class BenchmarkHarness:
         self,
         result: BenchmarkResult,
         outputs: list[dict[str, Any]],
+        image_paths: list[str],
         gt_path: Path,
     ) -> None:
         """Compute CER, WER, reading-order tau, error F1, IoU from ground truth."""
         from benchmark.metrics import (
-            compute_cer,
+            compute_cer_normalized,
             compute_error_detection_f1,
             compute_iou,
             compute_reading_order_tau,
-            compute_wer,
+            compute_wer_normalized,
         )
 
         if not gt_path.exists():
@@ -257,25 +273,41 @@ class BenchmarkHarness:
 
         gt_data = json.loads(gt_path.read_text())
 
+        # Build lookup by image filename (stem or full name)
+        gt_by_name: dict[str, dict[str, Any]] = {}
+        for entry in gt_data:
+            img = entry.get("image", "")
+            gt_by_name[img] = entry
+            # Also index by stem (without extension) for flexible matching
+            stem = Path(img).stem if img else ""
+            if stem:
+                gt_by_name[stem] = entry
+
         # Accumulate across samples
         cer_vals, wer_vals, tau_vals, f1_vals, iou_vals = [], [], [], [], []
 
-        for idx, output in enumerate(outputs):
-            gt = gt_data[idx] if idx < len(gt_data) else None
+        for idx, (output, img_path) in enumerate(zip(outputs, image_paths)):
+            # Try matching by full filename, then by stem
+            img_name = Path(img_path).name
+            img_stem = Path(img_path).stem
+            gt = gt_by_name.get(img_name) or gt_by_name.get(img_stem)
+
             if gt is None:
                 continue
 
             pred_text = output.get("text", "")
             gt_text = gt.get("text", "")
-            cer_vals.append(compute_cer(pred_text, gt_text))
-            wer_vals.append(compute_wer(pred_text, gt_text))
+            cer_vals.append(compute_cer_normalized(pred_text, gt_text))
+            wer_vals.append(compute_wer_normalized(pred_text, gt_text))
 
             if "reading_order" in output and "reading_order" in gt:
                 tau_vals.append(compute_reading_order_tau(output["reading_order"], gt["reading_order"]))
 
             if "errors" in output and "errors" in gt:
                 f1_vals.append(compute_error_detection_f1(output["errors"], gt["errors"]))
-                iou_vals.append(compute_iou(output["errors"], gt["errors"]))
+                iou_result = compute_iou(output["errors"], gt["errors"])
+                if iou_result["matched"] > 0:
+                    iou_vals.append(iou_result["mean_iou"])
 
         if cer_vals:
             result.cer = sum(cer_vals) / len(cer_vals)

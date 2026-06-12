@@ -1,0 +1,68 @@
+{
+  "candidate_name": "paddleocr_vl_handwritten",
+  "model_version": "PaddleOCR-VL-1.6-0.9B",
+  "timestamp": "2026-06-12T06:35:41.887791+00:00",
+  "gpu_name": "NVIDIA GeForce RTX 5070 Ti Laptop GPU",
+  "vram_total_mb": 0,
+  "latency_total_avg": 31.94043768083995,
+  "latency_total_std": 14.8226434540193,
+  "latency_stage1_ocr": 31.94043768083995,
+  "latency_stage2_errors": 0.0,
+  "cer": 0.044638548495018686,
+  "wer": 0.0853767813234984,
+  "reading_order_tau": 0.0,
+  "error_detection_f1": 0.0,
+  "bounding_box_iou": 0.0,
+  "vram_peak_mb": 0,
+  "throughput_ppm": 1.8784964877294743,
+  "setup_complexity": 0,
+  "flexibility": 0,
+  "sample_outputs": [
+    {
+      "text": "In Vienna, before flying off to Moscow,\nMr. Khrushchov said he hoped his weekend\ntalks with President Kennedy would help \"to\nestablish an enduring peace between nations.\"\nReplying to a farewell speech from Russian President\nSchaerd, the Soviet Premier thanked Russia for\nthe hospitality and welcome he had received.\n\"The Soviet Union has always strived and is\nstriving to safeguard an enduring peace for\nthe people, to secure an early solution of the",
+      "blocks": [
+        {
+          "bbox": [
+            0.0,
+            1.0,
+            1857.0,
+            1762.0
+          ],
+          "text": "In Vienna, before flying off to Moscow,\nMr. Khrushchov said he hoped his weekend\ntalks with President Kennedy would help \"to\nestablish an enduring peace between nations.\"\nReplying to a farewell speech from Russian President\nSchaerd, the Soviet Premier thanked Russia for\nthe hospitality and welcome he had received.\n\"The Soviet Union has always strived and is\nstriving to safeguard an enduring peace for\nthe people, to secure an early solution of the",
+          "confidence": 1.0
+        }
+      ]
+    },
+    {
+      "text": "The party agreed that it was unwise to locate the base in the Holy Loch, only 30 miles from Glasgow, a city with two million people. It should be asked in a more remote area. Mr. Gaitskell added that the Searborough conference decisions did not, in this view, truly reflect the opinions of the majority of party members and still less the party's supports in the country.",
+      "blocks": [
+        {
+          "bbox": [
+            0.0,
+            0.0,
+            1835.0,
+            1471.0
+          ],
+          "text": "The party agreed that it was unwise to locate the base in the Holy Loch, only 30 miles from Glasgow, a city with two million people. It should be asked in a more remote area. Mr. Gaitskell added that the Searborough conference decisions did not, in this view, truly reflect the opinions of the majority of party members and still less the party's supports in the country.",
+          "confidence": 1.0
+        }
+      ]
+    },
+    {
+      "text": "Sir Francis is to hand over to Sir Richard as from Nov. 1. The hand-over, due in September, was delayed because of me.\n\nBerlin crisis. Mr. Watkinson and his advisers felt the change would be unwise at a moment when we attention had to be curculling on possible need for important military operations. For this reason Sir Francis stayed on, and sales sacrificed his leave.",
+      "blocks": [
+        {
+          "bbox": [
+            0.0,
+            0.0,
+            1996.0,
+            1717.0
+          ],
+          "text": "Sir Francis is to hand over to Sir Richard as from Nov. 1. The hand-over, due in September, was delayed because of me.\n\nBerlin crisis. Mr. Watkinson and his advisers felt the change would be unwise at a moment when we attention had to be curculling on possible need for important military operations. For this reason Sir Francis stayed on, and sales sacrificed his leave.",
+          "confidence": 1.0
+        }
+      ]
+    }
+  ],
+  "notes": "PaddleOCR-VL-1.6 on cropped handwritten regions. Standalone benchmark (no harness imports)."
+}

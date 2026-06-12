@@ -1,0 +1,35 @@
+# ============================================================================
+# VLM-OCR Research — florencetf conda environment dependencies
+# ============================================================================
+# Purpose: Florence-2 base/large (requires transformers 4.40.0)
+# PyTorch 2.11.0+cu130, transformers 4.40.0, CUDA 13.0
+#
+# transformers 4.40.0 is incompatible with:
+#   - SmolDocling (needs AutoModelForMultimodalLM from 5.x)
+#   - PaddleOCR-VL (needs AutoModelForVision2Seq from 5.x)
+#   - Qwen3-VL (needs Qwen3VLForConditionalGeneration from 5.x)
+#
+# Usage:
+#   conda activate florencetf
+#   pip install -r requirements-florencetf.txt
+# ============================================================================
+
+# Core ML — CRITICAL: transformers MUST stay at 4.40.x
+torch>=2.11.0
+transformers==4.40.0
+accelerate>=1.0.0
+huggingface_hub>=0.36.0
+tokenizers>=0.19.0
+safetensors>=0.8.0
+
+# Image handling
+Pillow>=10.0.0
+opencv-python>=4.10.0
+numpy>=2.0.0
+
+# Evaluation
+scipy>=1.14.0
+
+# Dataset & IAM XML parsing
+lxml>=5.0.0
+requests>=2.31.0
