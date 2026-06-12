@@ -1,810 +1,13 @@
 [
   {
-    "image": "a04-039.png",
-    "text": "In VIENNA, before flying off to Moscow,\nMr. Khrushchov said he hoped his weekend\ntalks with President Kennedy would # help &quot;to\nestablish an enduring peace between nations.&quot;\nReplying to a farewell speech from Austrian President\nSchaerf, the Soviet Premier thanked Austria for\nthe hospitality and welcome he had received.\n&quot;The Soviet Union has always striven and is\nstriving to safeguard an enduring peace for\nthe peoples, to secure an early solution of the",
-    "blocks": [
-      {
-        "bbox": [
-          57,
-          20,
-          1678,
-          148
-        ],
-        "text": "In VIENNA, before flying off to Moscow,",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          38,
-          196,
-          1683,
-          303
-        ],
-        "text": "Mr. Khrushchov said he hoped his weekend",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          23,
-          386,
-          1675,
-          479
-        ],
-        "text": "talks with President Kennedy would # help &quot;to",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          29,
-          573,
-          1665,
-          674
-        ],
-        "text": "establish an enduring peace between nations.&quot;",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          41,
-          750,
-          1858,
-          858
-        ],
-        "text": "Replying to a farewell speech from Austrian President",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          20,
-          931,
-          1704,
-          1029
-        ],
-        "text": "Schaerf, the Soviet Premier thanked Austria for",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          31,
-          1101,
-          1725,
-          1199
-        ],
-        "text": "the hospitality and welcome he had received.",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          40,
-          1280,
-          1605,
-          1368
-        ],
-        "text": "&quot;The Soviet Union has always striven and is",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          38,
-          1473,
-          1656,
-          1567
-        ],
-        "text": "striving to safeguard an enduring peace for",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          46,
-          1654,
-          1706,
-          1750
-        ],
-        "text": "the peoples, to secure an early solution of the",
-        "confidence": 1.0
-      }
-    ],
-    "reading_order": [
-      0,
-      1,
-      2,
-      3,
-      4,
-      5,
-      6,
-      7,
-      8,
-      9
-    ],
-    "errors": [],
-    "_source": "iam_xml_cmp"
-  },
-  {
-    "image": "a04-059.png",
-    "text": "The party agreed that it was unwise to locate the base\nin the Holy Loch, only 30 miles from Glasgow, a\ncity with two million people. It should be sited\nin a more remote area. Mr. Gaitskell added that\nthe Scarborough conference decisions did not, in his\nview, truly reflect the opinions of the majority\nof party members and still less the party's\nsupporters in the country.",
-    "blocks": [
-      {
-        "bbox": [
-          64,
-          20,
-          1720,
-          196
-        ],
-        "text": "The party agreed that it was unwise to locate the base",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          46,
-          223,
-          1645,
-          367
-        ],
-        "text": "in the Holy Loch, only 30 miles from Glasgow, a",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          33,
-          405,
-          1735,
-          561
-        ],
-        "text": "city with two million people. It should be sited",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          26,
-          580,
-          1819,
-          676
-        ],
-        "text": "in a more remote area. Mr. Gaitskell added that",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          20,
-          741,
-          1740,
-          916
-        ],
-        "text": "the Scarborough conference decisions did not, in his",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          44,
-          940,
-          1727,
-          1090
-        ],
-        "text": "view, truly reflect the opinions of the majority",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          50,
-          1121,
-          1667,
-          1280
-        ],
-        "text": "of party members and still less the party's",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          48,
-          1294,
-          872,
-          1459
-        ],
-        "text": "supporters in the country.",
-        "confidence": 1.0
-      }
-    ],
-    "reading_order": [
-      0,
-      1,
-      2,
-      3,
-      4,
-      5,
-      6,
-      7
-    ],
-    "errors": [],
-    "_source": "iam_xml_cmp"
-  },
-  {
-    "image": "a05-029.png",
-    "text": "Sir Francis is to hand over to Sir Richard\nas from Nov. 1. The hand-over, due in\nSeptember, was delayed because of the\nBerlin crisis. Mr. Watkinson and his advisers\nfelt the change would be unwise at a\nmoment # when attention had to be\nconcentrated on possible need for important\nmilitary operations. For this reason Sir\nFrancis stayed on, and # sacrificed\nhis leave.",
-    "blocks": [
-      {
-        "bbox": [
-          97,
-          20,
-          1888,
-          97
-        ],
-        "text": "Sir Francis is to hand over to Sir Richard",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          83,
-          229,
-          1838,
-          308
-        ],
-        "text": "as from Nov. 1. The hand-over, due in",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          89,
-          399,
-          1801,
-          468
-        ],
-        "text": "September, was delayed because of the",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          35,
-          573,
-          1978,
-          640
-        ],
-        "text": "Berlin crisis. Mr. Watkinson and his advisers",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          53,
-          764,
-          1830,
-          818
-        ],
-        "text": "felt the change would be unwise at a",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          57,
-          942,
-          1818,
-          993
-        ],
-        "text": "moment # when attention had to be",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          75,
-          1114,
-          1966,
-          1177
-        ],
-        "text": "concentrated on possible need for important",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          80,
-          1281,
-          1707,
-          1366
-        ],
-        "text": "military operations. For this reason Sir",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          20,
-          1457,
-          1811,
-          1536
-        ],
-        "text": "Francis stayed on, and # sacrificed",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          59,
-          1637,
-          479,
-          1683
-        ],
-        "text": "his leave.",
-        "confidence": 1.0
-      }
-    ],
-    "reading_order": [
-      0,
-      1,
-      2,
-      3,
-      4,
-      5,
-      6,
-      7,
-      8,
-      9
-    ],
-    "errors": [],
-    "_source": "iam_xml_cmp"
-  },
-  {
-    "image": "b06-045.png",
-    "text": "For many years my union had to present its views\nto the two major conferences of the movement and\ntake a licking. For us, unity meant accepting\nunpalatable majority decisions as binding on the\nmovement and having a go next time. Alongside\nmany others, we conducted our fight by putting\ndown # unambiguous alternatives to\nofficial policy and seeking to win majorities\nfor them.",
-    "blocks": [
-      {
-        "bbox": [
-          20,
-          20,
-          1687,
-          212
-        ],
-        "text": "For many years my union had to present its views",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          61,
-          206,
-          1873,
-          381
-        ],
-        "text": "to the two major conferences of the movement and",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          60,
-          386,
-          1683,
-          570
-        ],
-        "text": "take a licking. For us, unity meant accepting",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          49,
-          583,
-          1854,
-          781
-        ],
-        "text": "unpalatable majority decisions as binding on the",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          33,
-          748,
-          1740,
-          950
-        ],
-        "text": "movement and having a go next time. Alongside",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          42,
-          889,
-          1802,
-          1101
-        ],
-        "text": "many others, we conducted our fight by putting",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          49,
-          1119,
-          1814,
-          1271
-        ],
-        "text": "down # unambiguous alternatives to",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          57,
-          1289,
-          1829,
-          1490
-        ],
-        "text": "official policy and seeking to win majorities",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          45,
-          1501,
-          1081,
-          1618
-        ],
-        "text": "for them.",
-        "confidence": 1.0
-      }
-    ],
-    "reading_order": [
-      0,
-      1,
-      2,
-      3,
-      4,
-      5,
-      6,
-      7,
-      8
-    ],
-    "errors": [],
-    "_source": "iam_xml_cmp"
-  },
-  {
-    "image": "b06-100.png",
-    "text": "The heli-hopping Duke of Edinburgh,\nopening a few technical college extensions,\nwill not keep us abreast of the\nscientific revolution. Out of the 550,000\nyoung people aged 15-17 starting\nwork in 1960 420000 (73 per cent)\nwent into unskilled work. The per-\ncentage is expected to swell to 80\nnext year. The Duke, possibly\nspeaking from experience, stated:",
-    "blocks": [
-      {
-        "bbox": [
-          54,
-          20,
-          1920,
-          136
-        ],
-        "text": "The heli-hopping Duke of Edinburgh,",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          41,
-          208,
-          2079,
-          317
-        ],
-        "text": "opening a few technical college extensions,",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          53,
-          388,
-          1736,
-          478
-        ],
-        "text": "will not keep us abreast of the",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          35,
-          559,
-          1974,
-          663
-        ],
-        "text": "scientific revolution. Out of the 550,000",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          30,
-          769,
-          1729,
-          883
-        ],
-        "text": "young people aged 15-17 starting",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          35,
-          917,
-          1859,
-          1020
-        ],
-        "text": "work in 1960 420000 (73 per cent)",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          28,
-          1108,
-          1844,
-          1211
-        ],
-        "text": "went into unskilled work. The per-",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          27,
-          1284,
-          1817,
-          1385
-        ],
-        "text": "centage is expected to swell to 80",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          23,
-          1462,
-          1682,
-          1557
-        ],
-        "text": "next year. The Duke, possibly",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          20,
-          1647,
-          1713,
-          1747
-        ],
-        "text": "speaking from experience, stated:",
-        "confidence": 1.0
-      }
-    ],
-    "reading_order": [
-      0,
-      1,
-      2,
-      3,
-      4,
-      5,
-      6,
-      7,
-      8,
-      9
-    ],
-    "errors": [],
-    "_source": "iam_xml_cmp"
-  },
-  {
-    "image": "c02-017.png",
-    "text": "Following Bruce Marshall's original novel with\nconsiderable fidelity, the film tells the story\nof a little monk who prays that a disrepu-\ntable night club near his church be re-\nmoved. One night his prayer is answered\nand the offending establishment is suddenly\ntransplanted to an island in the North Sea.\nBut Father Malachias's troubles have only\nbegun. Instead of having the desired effect,\nthe miracle becomes exploited by a group",
-    "blocks": [
-      {
-        "bbox": [
-          40,
-          20,
-          1755,
-          140
-        ],
-        "text": "Following Bruce Marshall's original novel with",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          41,
-          201,
-          1794,
-          334
-        ],
-        "text": "considerable fidelity, the film tells the story",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          39,
-          377,
-          1797,
-          506
-        ],
-        "text": "of a little monk who prays that a disrepu-",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          34,
-          548,
-          1789,
-          657
-        ],
-        "text": "table night club near his church be re-",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          49,
-          744,
-          1745,
-          869
-        ],
-        "text": "moved. One night his prayer is answered",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          38,
-          915,
-          1814,
-          1052
-        ],
-        "text": "and the offending establishment is suddenly",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          20,
-          1090,
-          1751,
-          1179
-        ],
-        "text": "transplanted to an island in the North Sea.",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          22,
-          1268,
-          1805,
-          1399
-        ],
-        "text": "But Father Malachias's troubles have only",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          40,
-          1454,
-          1823,
-          1592
-        ],
-        "text": "begun. Instead of having the desired effect,",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          36,
-          1626,
-          1813,
-          1734
-        ],
-        "text": "the miracle becomes exploited by a group",
-        "confidence": 1.0
-      }
-    ],
-    "reading_order": [
-      0,
-      1,
-      2,
-      3,
-      4,
-      5,
-      6,
-      7,
-      8,
-      9
-    ],
-    "errors": [],
-    "_source": "iam_xml_cmp"
-  },
-  {
-    "image": "c02-026.png",
-    "text": "A summary of the story can give almost\nindication of the scope of Wicki's artistry. He\ntells his story best in the faces of his crowds,\nrecording every wrinkle and drop of sweat\nwith brutal honesty, building up to a\ntremendous climax in the island orgy.\nHere, the guests arrive in ghost-like yachts,\nthe wildly flapping white sails slashed by\nthe glaring beacon of a lighthouse.",
-    "blocks": [
-      {
-        "bbox": [
-          75,
-          20,
-          1694,
-          165
-        ],
-        "text": "A summary of the story can give almost",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          82,
-          206,
-          1693,
-          336
-        ],
-        "text": "indication of the scope of Wicki's artistry. He",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          46,
-          374,
-          1781,
-          512
-        ],
-        "text": "tells his story best in the faces of his crowds,",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          62,
-          557,
-          1686,
-          684
-        ],
-        "text": "recording every wrinkle and drop of sweat",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          53,
-          721,
-          1511,
-          844
-        ],
-        "text": "with brutal honesty, building up to a",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          51,
-          924,
-          1618,
-          1060
-        ],
-        "text": "tremendous climax in the island orgy.",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          45,
-          1109,
-          1743,
-          1252
-        ],
-        "text": "Here, the guests arrive in ghost-like yachts,",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          29,
-          1284,
-          1726,
-          1450
-        ],
-        "text": "the wildly flapping white sails slashed by",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          20,
-          1457,
-          1456,
-          1609
-        ],
-        "text": "the glaring beacon of a lighthouse.",
-        "confidence": 1.0
-      }
-    ],
-    "reading_order": [
-      0,
-      1,
-      2,
-      3,
-      4,
-      5,
-      6,
-      7,
-      8
-    ],
-    "errors": [],
-    "_source": "iam_xml_cmp"
-  },
-  {
-    "image": "c03-016b.png",
     "text": "But there is heart in the telling, and an intense\nrealism in the situation. A young girl lives in\na single dingy room with her slatternly,\npromiscuous mother. In such surroundings she\nlearns sex is something sordid, and when she\nexperiences it for the first time herself it\nis incoherently, clumsily, but half shyly and\nhalf inquisitively. As is the case in Fanny her\nfirst lover is a sailor who leaves her to bear\nhis child and sails away.",
     "blocks": [
       {
         "bbox": [
           32,
           20,
-          1670,
-          150
+          1865,
+          159
         ],
         "text": "But there is heart in the telling, and an intense",
         "confidence": 1.0
@@ -812,9 +15,9 @@
       {
         "bbox": [
           35,
-          212,
+          214,
           1873,
-          343
+          345
         ],
         "text": "realism in the situation. A young girl lives in",
         "confidence": 1.0
@@ -822,9 +25,9 @@
       {
         "bbox": [
           35,
-          389,
+          383,
           2021,
-          535
+          523
         ],
         "text": "a single dingy room with her slatternly,",
         "confidence": 1.0
@@ -832,9 +35,9 @@
       {
         "bbox": [
           20,
-          583,
+          580,
           1817,
-          710
+          707
         ],
         "text": "promiscuous mother. In such surroundings she",
         "confidence": 1.0
@@ -842,9 +45,9 @@
       {
         "bbox": [
           38,
-          758,
+          745,
           1760,
-          892
+          880
         ],
         "text": "learns sex is something sordid, and when she",
         "confidence": 1.0
@@ -852,9 +55,9 @@
       {
         "bbox": [
           47,
-          937,
-          1793,
-          1061
+          933,
+          1826,
+          1057
         ],
         "text": "experiences it for the first time herself it",
         "confidence": 1.0
@@ -862,9 +65,9 @@
       {
         "bbox": [
           49,
-          1105,
+          1100,
           1879,
-          1246
+          1241
         ],
         "text": "is incoherently, clumsily, but half shyly and",
         "confidence": 1.0
@@ -872,9 +75,9 @@
       {
         "bbox": [
           56,
-          1295,
+          1286,
           1858,
-          1437
+          1426
         ],
         "text": "half inquisitively. As is the case in Fanny her",
         "confidence": 1.0
@@ -882,9 +85,9 @@
       {
         "bbox": [
           55,
-          1469,
+          1462,
           1801,
-          1591
+          1584
         ],
         "text": "first lover is a sailor who leaves her to bear",
         "confidence": 1.0
@@ -892,9 +95,9 @@
       {
         "bbox": [
           60,
-          1643,
+          1649,
           993,
-          1758
+          1767
         ],
         "text": "his child and sails away.",
         "confidence": 1.0
@@ -913,548 +116,90 @@
       9
     ],
     "errors": [],
-    "_source": "iam_xml_cmp"
+    "_source": "handwritten-part",
+    "image": "c03-016b.png"
   },
   {
-    "image": "d03-112.png",
-    "text": "Close to the building projects would be the\nVINEYARDS (1 Kings 4.25; S. of Sol. 8.11).\nThe word is a Persian loan-word,\npairi-deaza, from which our word paradise\nis derived. Qoheleth has a second\nparadise at his disposal but he is\nno happier than Adam was!\nThe word is used in the singular\nin Neh. 2.8 and S. of Sol. 4.13.",
+    "text": "The party agreed that it was unwise to locate the base\nin the Holy Loch, only 30 miles from Glasgow, a\ncity with two million people. It should be sited\nin a more remote area. Mr. Gaitskell added that\nthe Scarborough conference decisions did not, in his\nview, truly reflect the opinions of the majority\nof party members and still less the party's\nsupporters in the country.",
     "blocks": [
       {
         "bbox": [
-          45,
+          64,
           20,
-          1815,
-          124
+          1720,
+          198
         ],
-        "text": "Close to the building projects would be the",
+        "text": "The party agreed that it was unwise to locate the base",
         "confidence": 1.0
       },
       {
         "bbox": [
-          37,
-          369,
-          1506,
-          465
+          46,
+          225,
+          1645,
+          368
         ],
-        "text": "The word is a Persian loan-word,",
+        "text": "in the Holy Loch, only 30 miles from Glasgow, a",
         "confidence": 1.0
       },
       {
         "bbox": [
-          20,
-          544,
-          1888,
-          665
-        ],
-        "text": "pairi-deaza, from which our word paradise",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          35,
-          724,
-          1598,
-          844
-        ],
-        "text": "is derived. Qoheleth has a second",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          34,
-          903,
-          1778,
-          1010
-        ],
-        "text": "paradise at his disposal but he is",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          35,
-          1050,
-          1584,
-          1188
-        ],
-        "text": "no happier than Adam was!",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          50,
-          1253,
-          1699,
-          1395
-        ],
-        "text": "The word is used in the singular",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          38,
-          1434,
-          1504,
-          1518
-        ],
-        "text": "in Neh. 2.8 and S. of Sol. 4.13.",
-        "confidence": 1.0
-      }
-    ],
-    "reading_order": [
-      0,
-      1,
-      2,
-      3,
-      4,
-      5,
-      6,
-      7
-    ],
-    "errors": [],
-    "_source": "iam_xml_cmp"
-  },
-  {
-    "image": "e07-079.png",
-    "text": "The storage problem puts clay pots at a\ndefinite disadvantage. They are fairly heavy\nand difficult things to accommodate and\nthey must have some protection from severe\nweather, which can be quite a headache in\na small garden. While admitting that\nbroken pots have on occasions provided\nartists with delightful studies, there is no\ndoubt that a pile of badly stacked,\nhalf-broken pots is an unlovely sight\nfrom any point of view.",
-    "blocks": [
-      {
-        "bbox": [
-          36,
-          20,
-          1769,
-          151
-        ],
-        "text": "definite disadvantage. They are fairly heavy",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          32,
-          233,
-          1760,
-          352
-        ],
-        "text": "and difficult things to accommodate and",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          20,
-          410,
-          1784,
-          533
-        ],
-        "text": "they must have some protection from severe",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          37,
-          585,
-          1688,
-          695
-        ],
-        "text": "weather, which can be quite a headache in",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          37,
-          783,
-          1604,
-          901
-        ],
-        "text": "a small garden. While admitting that",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          30,
-          946,
-          1472,
-          1042
-        ],
-        "text": "broken pots have on occasions provided",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          27,
-          1122,
-          1803,
-          1234
-        ],
-        "text": "artists with delightful studies, there is no",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          32,
-          1300,
-          1599,
-          1423
-        ],
-        "text": "doubt that a pile of badly stacked,",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          41,
-          1482,
-          1484,
-          1609
-        ],
-        "text": "half-broken pots is an unlovely sight",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          45,
-          1662,
-          1002,
-          1794
-        ],
-        "text": "from any point of view.",
-        "confidence": 1.0
-      }
-    ],
-    "reading_order": [
-      0,
-      1,
-      2,
-      3,
-      4,
-      5,
-      6,
-      7,
-      8,
-      9
-    ],
-    "errors": [],
-    "_source": "iam_xml_cmp"
-  },
-  {
-    "image": "f01-058.png",
-    "text": "Thus learning how to learn means becoming\nyour own philosopher, your own psychologist\nand your own teacher. You will then be\na well-established learner and the world\nwill be at your feet. Although the word\n&quot;mind&quot; has given rise to endless\ncontroversy among philosophers and psycho-\nlogists, many of whom would like to\nabolish it from the dictionary, most\nof us obstinately go on using it.",
-    "blocks": [
-      {
-        "bbox": [
-          51,
-          20,
-          1624,
-          188
-        ],
-        "text": "Thus learning how to learn means becoming",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          61,
-          217,
-          1776,
-          345
-        ],
-        "text": "your own philosopher, your own psychologist",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          59,
+          33,
           403,
-          1694,
-          521
+          1735,
+          559
         ],
-        "text": "and your own teacher. You will then be",
+        "text": "city with two million people. It should be sited",
         "confidence": 1.0
       },
       {
         "bbox": [
-          52,
-          571,
-          1808,
-          659
+          26,
+          580,
+          1819,
+          676
         ],
-        "text": "a well-established learner and the world",
+        "text": "in a more remote area. Mr. Gaitskell added that",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          20,
+          740,
+          1768,
+          918
+        ],
+        "text": "the Scarborough conference decisions did not, in his",
         "confidence": 1.0
       },
       {
         "bbox": [
           44,
-          739,
-          1680,
-          899
+          940,
+          1727,
+          1090
         ],
-        "text": "will be at your feet. Although the word",
+        "text": "view, truly reflect the opinions of the majority",
         "confidence": 1.0
       },
       {
         "bbox": [
-          31,
-          927,
-          1419,
-          1050
+          50,
+          1115,
+          1667,
+          1264
         ],
-        "text": "&quot;mind&quot; has given rise to endless",
+        "text": "of party members and still less the party's",
         "confidence": 1.0
       },
       {
         "bbox": [
-          20,
-          1111,
-          1772,
-          1252
+          48,
+          1296,
+          872,
+          1459
         ],
-        "text": "controversy among philosophers and psycho-",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          45,
-          1297,
-          1671,
-          1421
-        ],
-        "text": "logists, many of whom would like to",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          58,
-          1465,
-          1736,
-          1593
-        ],
-        "text": "abolish it from the dictionary, most",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          82,
-          1653,
-          1625,
-          1822
-        ],
-        "text": "of us obstinately go on using it.",
-        "confidence": 1.0
-      }
-    ],
-    "reading_order": [
-      0,
-      1,
-      2,
-      3,
-      4,
-      5,
-      6,
-      7,
-      8,
-      9
-    ],
-    "errors": [],
-    "_source": "iam_xml_cmp"
-  },
-  {
-    "image": "f02-076.png",
-    "text": "1. Are there differences in adjustment to ageing\nand retirement according to the occupational\nlevel of employees? 2. If so, which occupational\nlevels are the better or the poorer prepared\nfor successful adjustment to retirement and\nin what aspects? 3. Does the evidence\nobtained support a rationale for adapting\na pre-retirement planning and preparation\nprogramme to the needs of older employees\nof different occupational levels?",
-    "blocks": [
-      {
-        "bbox": [
-          20,
-          20,
-          1892,
-          150
-        ],
-        "text": "1. Are there differences in adjustment to ageing",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          91,
-          214,
-          1885,
-          351
-        ],
-        "text": "and retirement according to the occupational",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          89,
-          397,
-          2076,
-          530
-        ],
-        "text": "level of employees? 2. If so, which occupational",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          82,
-          569,
-          1909,
-          675
-        ],
-        "text": "levels are the better or the poorer prepared",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          89,
-          756,
-          1983,
-          886
-        ],
-        "text": "for successful adjustment to retirement and",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          110,
-          927,
-          1869,
-          1037
-        ],
-        "text": "in what aspects? 3. Does the evidence",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          94,
-          1091,
-          1984,
-          1225
-        ],
-        "text": "obtained support a rationale for adapting",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          91,
-          1278,
-          1942,
-          1430
-        ],
-        "text": "a pre-retirement planning and preparation",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          104,
-          1464,
-          1960,
-          1585
-        ],
-        "text": "programme to the needs of older employees",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          96,
-          1648,
-          1612,
-          1755
-        ],
-        "text": "of different occupational levels?",
-        "confidence": 1.0
-      }
-    ],
-    "reading_order": [
-      0,
-      1,
-      2,
-      3,
-      4,
-      5,
-      6,
-      7,
-      8,
-      9
-    ],
-    "errors": [],
-    "_source": "iam_xml_cmp"
-  },
-  {
-    "image": "f04-016.png",
-    "text": "Elizabeth had left Hammersmith in the late afternoon,\nand arrived at Hounslow around 5 P.M., where\nshe had tea with her other sister, and then\nwent to catch the 7.42. Her sister saw her\nto the station, helping her with some of\nher packages. This sister was able to establish\nthat she had carried a green purse and\nhad bought a railway ticket.",
-    "blocks": [
-      {
-        "bbox": [
-          37,
-          20,
-          1876,
-          193
-        ],
-        "text": "Elizabeth had left Hammersmith in the late afternoon,",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          29,
-          207,
-          1879,
-          365
-        ],
-        "text": "and arrived at Hounslow around 5 P.M., where",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          29,
-          384,
-          1842,
-          544
-        ],
-        "text": "she had tea with her other sister, and then",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          35,
-          552,
-          1831,
-          691
-        ],
-        "text": "went to catch the 7.42. Her sister saw her",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          20,
-          725,
-          1818,
-          924
-        ],
-        "text": "to the station, helping her with some of",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          28,
-          918,
-          1867,
-          1120
-        ],
-        "text": "her packages. This sister was able to establish",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          29,
-          1085,
-          1815,
-          1275
-        ],
-        "text": "that she had carried a green purse and",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          38,
-          1258,
-          1353,
-          1450
-        ],
-        "text": "had bought a railway ticket.",
+        "text": "supporters in the country.",
         "confidence": 1.0
       }
     ],
@@ -1469,10 +214,97 @@
       7
     ],
     "errors": [],
-    "_source": "iam_xml_cmp"
+    "_source": "handwritten-part",
+    "image": "a04-059.png"
   },
   {
-    "image": "f07-069.png",
+    "text": "So far had our thinking led us in this matter of the\n&quot;Werewolves&quot; that we had contemplated the necessity of very\nspecial precautions to guard the lives of our airmen. Particular\nhatred, we felt, was bound to be aimed at the representatives of\nthose who had, over the years, spread such ghastly havoc, destruction\nand death over Germany, causing such wholesale slaughter among\nmen, women and children, old and young alike.",
+    "blocks": [
+      {
+        "bbox": [
+          48,
+          20,
+          1594,
+          117
+        ],
+        "text": "So far had our thinking led us in this matter of the",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          26,
+          206,
+          1633,
+          295
+        ],
+        "text": "&quot;Werewolves&quot; that we had contemplated the necessity of very",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          30,
+          383,
+          1755,
+          463
+        ],
+        "text": "special precautions to guard the lives of our airmen. Particular",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          29,
+          566,
+          1755,
+          645
+        ],
+        "text": "hatred, we felt, was bound to be aimed at the representatives of",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          20,
+          742,
+          1888,
+          840
+        ],
+        "text": "those who had, over the years, spread such ghastly havoc, destruction",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          34,
+          926,
+          1829,
+          1026
+        ],
+        "text": "and death over Germany, causing such wholesale slaughter among",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          26,
+          1110,
+          1339,
+          1201
+        ],
+        "text": "men, women and children, old and young alike.",
+        "confidence": 1.0
+      }
+    ],
+    "reading_order": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "errors": [],
+    "_source": "handwritten-part",
+    "image": "g05-098.png"
+  },
+  {
     "text": "Foodlore reflects much more of national temperament\nthan is customarily imagined as well as entering human\nactivities to a greater extent than is usually assumed.\nWe naturally cannot overlook that Magyar cookery owes\none of its most classic features to the Turkish rule under\nwhich the Hungarians groaned for nearly 200 years.\nIf that country had not been for so long a battlefield red\nwith the blood shed to defend Christian civilisation,\nHungary would have been deprived of the condiment which\nprovides many Magyar dishes with a vivid and brilliant",
     "blocks": [
       {
@@ -1480,7 +312,7 @@
           36,
           20,
           1895,
-          122
+          118
         ],
         "text": "Foodlore reflects much more of national temperament",
         "confidence": 1.0
@@ -1490,7 +322,7 @@
           20,
           203,
           1877,
-          309
+          312
         ],
         "text": "than is customarily imagined as well as entering human",
         "confidence": 1.0
@@ -1498,9 +330,9 @@
       {
         "bbox": [
           25,
-          388,
+          387,
           1850,
-          480
+          481
         ],
         "text": "activities to a greater extent than is usually assumed.",
         "confidence": 1.0
@@ -1508,9 +340,9 @@
       {
         "bbox": [
           23,
-          556,
+          563,
           1822,
-          661
+          662
         ],
         "text": "We naturally cannot overlook that Magyar cookery owes",
         "confidence": 1.0
@@ -1518,9 +350,9 @@
       {
         "bbox": [
           35,
-          743,
+          744,
           1844,
-          830
+          832
         ],
         "text": "one of its most classic features to the Turkish rule under",
         "confidence": 1.0
@@ -1528,9 +360,9 @@
       {
         "bbox": [
           46,
-          910,
+          921,
           1806,
-          1015
+          1024
         ],
         "text": "which the Hungarians groaned for nearly 200 years.",
         "confidence": 1.0
@@ -1538,9 +370,9 @@
       {
         "bbox": [
           37,
-          1106,
+          1108,
           1826,
-          1196
+          1201
         ],
         "text": "If that country had not been for so long a battlefield red",
         "confidence": 1.0
@@ -1548,9 +380,9 @@
       {
         "bbox": [
           33,
-          1290,
+          1282,
           1696,
-          1373
+          1361
         ],
         "text": "with the blood shed to defend Christian civilisation,",
         "confidence": 1.0
@@ -1558,9 +390,9 @@
       {
         "bbox": [
           33,
-          1461,
+          1456,
           1833,
-          1549
+          1548
         ],
         "text": "Hungary would have been deprived of the condiment which",
         "confidence": 1.0
@@ -1568,9 +400,9 @@
       {
         "bbox": [
           33,
-          1643,
+          1641,
           1819,
-          1743
+          1740
         ],
         "text": "provides many Magyar dishes with a vivid and brilliant",
         "confidence": 1.0
@@ -1589,633 +421,110 @@
       9
     ],
     "errors": [],
-    "_source": "iam_xml_cmp"
+    "_source": "handwritten-part",
+    "image": "f07-069.png"
   },
   {
-    "image": "g04-043.png",
-    "text": "But what a change from the dear little old church\nat Tatsfield to the great modern church of St. Mark's\nat Purley. One felt at Tatsfield that, small as the\nchurch was, it had its own atmosphere, and for centuries\nhad been a House of Prayer. I could not but feel the\nchilliness of the new church, beautiful as it was and is.\nWhen we had found a group of people who gladly\nco-operated, we made the little side chapel a place\nof daily prayer.",
+    "text": "1. Are there differences in adjustment to ageing\nand retirement according to the occupational\nlevel of employees? 2. If so, which occupational\nlevels are the better or the poorer prepared\nfor successful adjustment to retirement and\nin what aspects? 3. Does the evidence\nobtained support a rationale for adapting\na pre-retirement planning and preparation\nprogramme to the needs of older employees\nof different occupational levels?",
     "blocks": [
       {
         "bbox": [
-          49,
           20,
-          1878,
-          98
-        ],
-        "text": "But what a change from the dear little old church",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          43,
-          190,
-          1935,
-          278
-        ],
-        "text": "at Tatsfield to the great modern church of St. Mark's",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          38,
-          369,
-          1871,
-          468
-        ],
-        "text": "at Purley. One felt at Tatsfield that, small as the",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          35,
-          552,
+          20,
           1892,
-          630
+          152
         ],
-        "text": "church was, it had its own atmosphere, and for centuries",
+        "text": "1. Are there differences in adjustment to ageing",
         "confidence": 1.0
       },
       {
         "bbox": [
-          31,
-          718,
-          1931,
-          825
+          91,
+          200,
+          1885,
+          337
         ],
-        "text": "had been a House of Prayer. I could not but feel the",
+        "text": "and retirement according to the occupational",
         "confidence": 1.0
       },
       {
         "bbox": [
-          44,
-          917,
-          1943,
-          995
+          89,
+          382,
+          2076,
+          514
         ],
-        "text": "chilliness of the new church, beautiful as it was and is.",
+        "text": "level of employees? 2. If so, which occupational",
         "confidence": 1.0
       },
       {
         "bbox": [
-          20,
-          1082,
-          1816,
-          1196
-        ],
-        "text": "When we had found a group of people who gladly",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          26,
-          1269,
-          1852,
-          1355
-        ],
-        "text": "co-operated, we made the little side chapel a place",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          27,
-          1446,
-          656,
-          1539
-        ],
-        "text": "of daily prayer.",
-        "confidence": 1.0
-      }
-    ],
-    "reading_order": [
-      0,
-      1,
-      2,
-      3,
-      4,
-      5,
-      6,
-      7,
-      8
-    ],
-    "errors": [],
-    "_source": "iam_xml_cmp"
-  },
-  {
-    "image": "g05-098.png",
-    "text": "So far had our thinking led us in this matter of the\n&quot;Werewolves&quot; that we had contemplated the necessity of very\nspecial precautions to guard the lives of our airmen. Particular\nhatred, we felt, was bound to be aimed at the representatives of\nthose who had, over the years, spread such ghastly havoc, destruction\nand death over Germany, causing such wholesale slaughter among\nmen, women and children, old and young alike.",
-    "blocks": [
-      {
-        "bbox": [
-          48,
-          20,
-          1594,
-          116
-        ],
-        "text": "So far had our thinking led us in this matter of the",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          26,
-          213,
-          1633,
-          300
-        ],
-        "text": "&quot;Werewolves&quot; that we had contemplated the necessity of very",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          30,
-          397,
-          1656,
-          478
-        ],
-        "text": "special precautions to guard the lives of our airmen. Particular",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          29,
-          562,
-          1755,
-          648
-        ],
-        "text": "hatred, we felt, was bound to be aimed at the representatives of",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          20,
-          748,
-          1861,
-          839
-        ],
-        "text": "those who had, over the years, spread such ghastly havoc, destruction",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          34,
-          920,
-          1829,
-          1024
-        ],
-        "text": "and death over Germany, causing such wholesale slaughter among",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          26,
-          1121,
-          1339,
-          1212
-        ],
-        "text": "men, women and children, old and young alike.",
-        "confidence": 1.0
-      }
-    ],
-    "reading_order": [
-      0,
-      1,
-      2,
-      3,
-      4,
-      5,
-      6
-    ],
-    "errors": [],
-    "_source": "iam_xml_cmp"
-  },
-  {
-    "image": "g06-045p.png",
-    "text": "In April of that year his first wife's brother-in-law, the diplomatist\nLord Ponsonby, had written to advise Anglesey to give the\nsystem a trial, adding that it was being cultivated with\nextraordinary success in France and Italy, and that he\nhimself was being treated under a doctor who had\nstudied under its founder, the aged Dr. Samuel\nHahnemann.",
-    "blocks": [
-      {
-        "bbox": [
-          24,
-          20,
-          1845,
-          129
-        ],
-        "text": "In April of that year his first wife's brother-in-law, the diplomatist",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          28,
-          194,
-          1771,
-          299
-        ],
-        "text": "Lord Ponsonby, had written to advise Anglesey to give the",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          20,
-          387,
-          1686,
-          485
-        ],
-        "text": "system a trial, adding that it was being cultivated with",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          22,
-          560,
-          1764,
-          668
-        ],
-        "text": "extraordinary success in France and Italy, and that he",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          30,
-          741,
-          1623,
-          836
-        ],
-        "text": "himself was being treated under a doctor who had",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          23,
-          914,
-          1536,
-          1018
-        ],
-        "text": "studied under its founder, the aged Dr. Samuel",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          25,
-          1103,
-          424,
-          1184
-        ],
-        "text": "Hahnemann.",
-        "confidence": 1.0
-      }
-    ],
-    "reading_order": [
-      0,
-      1,
-      2,
-      3,
-      4,
-      5,
-      6
-    ],
-    "errors": [],
-    "_source": "iam_xml_cmp"
-  },
-  {
-    "image": "h01-014.png",
-    "text": "Each census since the first in 1801 has included questions\nabout housing and households. In 1961 the scope of the\nquestion was wider than before, because of the great\nuse of the data to the Ministry of Housing and Local\nGovernment and to local authorities. As before, the record\nmade during the enumeration lists all buildings, residen-\ntial premises and temporary places of abode, and all\nhouseholds occupying them, as the basis of the\nenumeration is the household schedule.",
-    "blocks": [
-      {
-        "bbox": [
-          39,
-          20,
-          1869,
-          147
-        ],
-        "text": "Each census since the first in 1801 has included questions",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          26,
-          188,
-          1853,
-          326
-        ],
-        "text": "about housing and households. In 1961 the scope of the",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          33,
-          372,
-          1775,
-          502
-        ],
-        "text": "question was wider than before, because of the great",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          29,
-          550,
-          1851,
-          683
-        ],
-        "text": "use of the data to the Ministry of Housing and Local",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          22,
-          732,
-          1919,
-          840
-        ],
-        "text": "Government and to local authorities. As before, the record",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          26,
-          918,
-          1892,
-          1047
-        ],
-        "text": "made during the enumeration lists all buildings, residen-",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          22,
-          1089,
-          1883,
-          1218
-        ],
-        "text": "tial premises and temporary places of abode, and all",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          29,
-          1262,
-          1741,
-          1399
-        ],
-        "text": "households occupying them, as the basis of the",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          20,
-          1442,
-          1454,
-          1533
-        ],
-        "text": "enumeration is the household schedule.",
-        "confidence": 1.0
-      }
-    ],
-    "reading_order": [
-      0,
-      1,
-      2,
-      3,
-      4,
-      5,
-      6,
-      7,
-      8
-    ],
-    "errors": [],
-    "_source": "iam_xml_cmp"
-  },
-  {
-    "image": "h06-082.png",
-    "text": "There is, however, a danger that workers\nwill rely too much on fixed devices because\nthey fail to recognise their limitations.\nIt is therefore safer both in principle and\npractice to keep the worker away from\noverhead lines wherever possible, e.g., by\n(1) re-routing the line, (2) putting the supply\nunderground, (3) making the line\ndead (after consultation with the supply\nauthority), (4) providing barriers at a safe\ndistance to prevent vehicles from approaching",
-    "blocks": [
-      {
-        "bbox": [
-          31,
-          20,
-          1809,
-          189
-        ],
-        "text": "There is, however, a danger that workers",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          64,
-          191,
-          1782,
-          339
-        ],
-        "text": "will rely too much on fixed devices because",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          64,
-          376,
-          1830,
-          536
-        ],
-        "text": "they fail to recognise their limitations.",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          79,
+          82,
           555,
-          1907,
-          719
+          1909,
+          662
         ],
-        "text": "It is therefore safer both in principle and",
+        "text": "levels are the better or the poorer prepared",
         "confidence": 1.0
       },
       {
         "bbox": [
-          79,
-          721,
-          1883,
-          880
+          89,
+          732,
+          1983,
+          864
         ],
-        "text": "practice to keep the worker away from",
+        "text": "for successful adjustment to retirement and",
         "confidence": 1.0
       },
       {
         "bbox": [
-          58,
-          922,
-          1859,
-          1089
+          110,
+          913,
+          1869,
+          1023
         ],
-        "text": "overhead lines wherever possible, e.g., by",
+        "text": "in what aspects? 3. Does the evidence",
         "confidence": 1.0
       },
       {
         "bbox": [
-          41,
-          1084,
-          1953,
-          1258
+          94,
+          1085,
+          1984,
+          1223
         ],
-        "text": "(1) re-routing the line, (2) putting the supply",
+        "text": "obtained support a rationale for adapting",
         "confidence": 1.0
       },
       {
         "bbox": [
-          20,
-          1275,
-          1886,
-          1446
+          91,
+          1266,
+          1942,
+          1419
         ],
-        "text": "underground, (3) making the line",
+        "text": "a pre-retirement planning and preparation",
         "confidence": 1.0
       },
       {
         "bbox": [
-          49,
-          1453,
-          1850,
-          1606
+          104,
+          1450,
+          1960,
+          1570
         ],
-        "text": "dead (after consultation with the supply",
+        "text": "programme to the needs of older employees",
         "confidence": 1.0
       },
       {
         "bbox": [
-          42,
-          1617,
-          1906,
-          1795
+          96,
+          1624,
+          1631,
+          1735
         ],
-        "text": "authority), (4) providing barriers at a safe",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          78,
-          1795,
-          1998,
-          1984
-        ],
-        "text": "distance to prevent vehicles from approaching",
-        "confidence": 1.0
-      }
-    ],
-    "reading_order": [
-      0,
-      1,
-      2,
-      3,
-      4,
-      5,
-      6,
-      7,
-      8,
-      9,
-      10
-    ],
-    "errors": [],
-    "_source": "iam_xml_cmp"
-  },
-  {
-    "image": "j04-024.png",
-    "text": "Rosenquist (4) showed that minute quantities of\nlead can be isolated from large volumes of solu-\ntion by coprecipitating the lead with a strontium\nsulphate. Lead and strontium form mixed cry-\nstals so that the more insoluble lead sulphate\nis almost completely recovered even if precipitation\nof the strontium sulphate is incomplete. Using\nten milligrams of lead carrier and six\nhundred milligrams of strontium per liter,\nmore than 95 experiment.",
-    "blocks": [
-      {
-        "bbox": [
-          39,
-          20,
-          1829,
-          125
-        ],
-        "text": "Rosenquist (4) showed that minute quantities of",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          34,
-          187,
-          1916,
-          322
-        ],
-        "text": "lead can be isolated from large volumes of solu-",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          33,
-          377,
-          1807,
-          503
-        ],
-        "text": "tion by coprecipitating the lead with a strontium",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          34,
-          553,
-          1812,
-          675
-        ],
-        "text": "sulphate. Lead and strontium form mixed cry-",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          40,
-          737,
-          1812,
-          830
-        ],
-        "text": "stals so that the more insoluble lead sulphate",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          49,
-          912,
-          1874,
-          1048
-        ],
-        "text": "is almost completely recovered even if precipitation",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          37,
-          1083,
-          1841,
-          1214
-        ],
-        "text": "of the strontium sulphate is incomplete. Using",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          44,
-          1269,
-          1706,
-          1423
-        ],
-        "text": "ten milligrams of lead carrier and six",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          21,
-          1447,
-          1830,
-          1585
-        ],
-        "text": "hundred milligrams of strontium per liter,",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          20,
-          1633,
-          1239,
-          1714
-        ],
-        "text": "more than 95 experiment.",
+        "text": "of different occupational levels?",
         "confidence": 1.0
       }
     ],
@@ -2232,10 +541,1329 @@
       9
     ],
     "errors": [],
-    "_source": "iam_xml_cmp"
+    "_source": "handwritten-part",
+    "image": "f02-076.png"
   },
   {
-    "image": "j06-034.png",
+    "text": "Close to the building projects would be the\nVINEYARDS (1 Kings 4.25; S. of Sol. 8.11).\nThe word is a Persian loan-word,\npairi-deaza, from which our word paradise\nis derived. Qoheleth has a second\nparadise at his disposal but he is\nno happier than Adam was!\nThe word is used in the singular\nin Neh. 2.8 and S. of Sol. 4.13.",
+    "blocks": [
+      {
+        "bbox": [
+          45,
+          20,
+          1815,
+          124
+        ],
+        "text": "Close to the building projects would be the",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          38,
+          183,
+          1550,
+          303
+        ],
+        "text": "VINEYARDS (1 Kings 4.25; S. of Sol. 8.11).",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          37,
+          367,
+          1516,
+          463
+        ],
+        "text": "The word is a Persian loan-word,",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          20,
+          549,
+          1888,
+          668
+        ],
+        "text": "pairi-deaza, from which our word paradise",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          35,
+          728,
+          1598,
+          848
+        ],
+        "text": "is derived. Qoheleth has a second",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          34,
+          901,
+          1796,
+          1010
+        ],
+        "text": "paradise at his disposal but he is",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          35,
+          1053,
+          1584,
+          1190
+        ],
+        "text": "no happier than Adam was!",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          50,
+          1252,
+          1699,
+          1398
+        ],
+        "text": "The word is used in the singular",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          38,
+          1437,
+          1505,
+          1524
+        ],
+        "text": "in Neh. 2.8 and S. of Sol. 4.13.",
+        "confidence": 1.0
+      }
+    ],
+    "reading_order": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "errors": [],
+    "_source": "handwritten-part",
+    "image": "d03-112.png"
+  },
+  {
+    "text": "Following Bruce Marshall's original novel with\nconsiderable fidelity, the film tells the story\nof a little monk who prays that a disrepu-\ntable night club near his church be re-\nmoved. One night his prayer is answered\nand the offending establishment is suddenly\ntransplanted to an island in the North Sea.\nBut Father Malachias's troubles have only\nbegun. Instead of having the desired effect,\nthe miracle becomes exploited by a group",
+    "blocks": [
+      {
+        "bbox": [
+          40,
+          20,
+          1755,
+          137
+        ],
+        "text": "Following Bruce Marshall's original novel with",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          41,
+          198,
+          1794,
+          331
+        ],
+        "text": "considerable fidelity, the film tells the story",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          39,
+          371,
+          1797,
+          498
+        ],
+        "text": "of a little monk who prays that a disrepu-",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          34,
+          546,
+          1789,
+          657
+        ],
+        "text": "table night club near his church be re-",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          49,
+          738,
+          1745,
+          863
+        ],
+        "text": "moved. One night his prayer is answered",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          38,
+          911,
+          1814,
+          1052
+        ],
+        "text": "and the offending establishment is suddenly",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          20,
+          1086,
+          1751,
+          1175
+        ],
+        "text": "transplanted to an island in the North Sea.",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          22,
+          1267,
+          1805,
+          1402
+        ],
+        "text": "But Father Malachias's troubles have only",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          40,
+          1453,
+          1823,
+          1594
+        ],
+        "text": "begun. Instead of having the desired effect,",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          36,
+          1624,
+          1813,
+          1746
+        ],
+        "text": "the miracle becomes exploited by a group",
+        "confidence": 1.0
+      }
+    ],
+    "reading_order": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "errors": [],
+    "_source": "handwritten-part",
+    "image": "c02-017.png"
+  },
+  {
+    "text": "For many years my union had to present its views\nto the two major conferences of the movement and\ntake a licking. For us, unity meant accepting\nunpalatable majority decisions as binding on the\nmovement and having a go next time. Alongside\nmany others, we conducted our fight by putting\ndown # unambiguous alternatives to\nofficial policy and seeking to win majorities\nfor them.",
+    "blocks": [
+      {
+        "bbox": [
+          20,
+          20,
+          1760,
+          208
+        ],
+        "text": "For many years my union had to present its views",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          61,
+          198,
+          1873,
+          373
+        ],
+        "text": "to the two major conferences of the movement and",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          60,
+          381,
+          1742,
+          567
+        ],
+        "text": "take a licking. For us, unity meant accepting",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          49,
+          561,
+          1854,
+          757
+        ],
+        "text": "unpalatable majority decisions as binding on the",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          33,
+          733,
+          1812,
+          939
+        ],
+        "text": "movement and having a go next time. Alongside",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          42,
+          898,
+          1854,
+          1099
+        ],
+        "text": "many others, we conducted our fight by putting",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          49,
+          1107,
+          1814,
+          1262
+        ],
+        "text": "down # unambiguous alternatives to",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          57,
+          1268,
+          1850,
+          1467
+        ],
+        "text": "official policy and seeking to win majorities",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          45,
+          1447,
+          1081,
+          1598
+        ],
+        "text": "for them.",
+        "confidence": 1.0
+      }
+    ],
+    "reading_order": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "errors": [],
+    "_source": "handwritten-part",
+    "image": "b06-045.png"
+  },
+  {
+    "text": "Clive - he insisted on being called Clive -\nhaggled with him and within half an hour\nSandpiper was mine for three hundred and\nfifty pounds. When all the business details\nhad been settled and the owner had\ndeparted with my cheque in his pocket,\nClive started the engine and gave me my\nfirst lesson in manoeuvring up and down\nthe river and in and out of the other boats.",
+    "blocks": [
+      {
+        "bbox": [
+          33,
+          20,
+          1697,
+          126
+        ],
+        "text": "Clive - he insisted on being called Clive -",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          40,
+          203,
+          1786,
+          311
+        ],
+        "text": "haggled with him and within half an hour",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          25,
+          375,
+          1857,
+          490
+        ],
+        "text": "Sandpiper was mine for three hundred and",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          21,
+          552,
+          1809,
+          672
+        ],
+        "text": "fifty pounds. When all the business details",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          35,
+          734,
+          1618,
+          823
+        ],
+        "text": "had been settled and the owner had",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          20,
+          911,
+          1768,
+          1022
+        ],
+        "text": "departed with my cheque in his pocket,",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          30,
+          1096,
+          1897,
+          1219
+        ],
+        "text": "Clive started the engine and gave me my",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          41,
+          1266,
+          1892,
+          1395
+        ],
+        "text": "first lesson in manoeuvring up and down",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          51,
+          1456,
+          1791,
+          1556
+        ],
+        "text": "the river and in and out of the other boats.",
+        "confidence": 1.0
+      }
+    ],
+    "reading_order": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "errors": [],
+    "_source": "handwritten-part",
+    "image": "l07-135.png"
+  },
+  {
+    "text": "Sir Francis is to hand over to Sir Richard\nas from Nov. 1. The hand-over, due in\nSeptember, was delayed because of the\nBerlin crisis. Mr. Watkinson and his advisers\nfelt the change would be unwise at a\nmoment # when attention had to be\nconcentrated on possible need for important\nmilitary operations. For this reason Sir\nFrancis stayed on, and # sacrificed\nhis leave.",
+    "blocks": [
+      {
+        "bbox": [
+          97,
+          20,
+          1888,
+          102
+        ],
+        "text": "Sir Francis is to hand over to Sir Richard",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          83,
+          209,
+          1897,
+          291
+        ],
+        "text": "as from Nov. 1. The hand-over, due in",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          89,
+          395,
+          1801,
+          470
+        ],
+        "text": "September, was delayed because of the",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          35,
+          570,
+          1978,
+          640
+        ],
+        "text": "Berlin crisis. Mr. Watkinson and his advisers",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          53,
+          757,
+          1830,
+          824
+        ],
+        "text": "felt the change would be unwise at a",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          57,
+          935,
+          1818,
+          994
+        ],
+        "text": "moment # when attention had to be",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          75,
+          1111,
+          1966,
+          1177
+        ],
+        "text": "concentrated on possible need for important",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          80,
+          1269,
+          1765,
+          1368
+        ],
+        "text": "military operations. For this reason Sir",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          20,
+          1453,
+          1811,
+          1529
+        ],
+        "text": "Francis stayed on, and # sacrificed",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          59,
+          1652,
+          479,
+          1700
+        ],
+        "text": "his leave.",
+        "confidence": 1.0
+      }
+    ],
+    "reading_order": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "errors": [],
+    "_source": "handwritten-part",
+    "image": "a05-029.png"
+  },
+  {
+    "text": "In VIENNA, before flying off to Moscow,\nMr. Khrushchov said he hoped his weekend\ntalks with President Kennedy would # help &quot;to\nestablish an enduring peace between nations.&quot;\nReplying to a farewell speech from Austrian President\nSchaerf, the Soviet Premier thanked Austria for\nthe hospitality and welcome he had received.\n&quot;The Soviet Union has always striven and is\nstriving to safeguard an enduring peace for\nthe peoples, to secure an early solution of the",
+    "blocks": [
+      {
+        "bbox": [
+          57,
+          20,
+          1678,
+          148
+        ],
+        "text": "In VIENNA, before flying off to Moscow,",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          38,
+          196,
+          1683,
+          306
+        ],
+        "text": "Mr. Khrushchov said he hoped his weekend",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          23,
+          388,
+          1675,
+          480
+        ],
+        "text": "talks with President Kennedy would # help &quot;to",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          29,
+          574,
+          1665,
+          674
+        ],
+        "text": "establish an enduring peace between nations.&quot;",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          41,
+          745,
+          1858,
+          847
+        ],
+        "text": "Replying to a farewell speech from Austrian President",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          20,
+          928,
+          1774,
+          1025
+        ],
+        "text": "Schaerf, the Soviet Premier thanked Austria for",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          31,
+          1101,
+          1725,
+          1199
+        ],
+        "text": "the hospitality and welcome he had received.",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          40,
+          1287,
+          1605,
+          1376
+        ],
+        "text": "&quot;The Soviet Union has always striven and is",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          38,
+          1473,
+          1656,
+          1564
+        ],
+        "text": "striving to safeguard an enduring peace for",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          46,
+          1648,
+          1706,
+          1742
+        ],
+        "text": "the peoples, to secure an early solution of the",
+        "confidence": 1.0
+      }
+    ],
+    "reading_order": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "errors": [],
+    "_source": "handwritten-part",
+    "image": "a04-039.png"
+  },
+  {
+    "text": "The heli-hopping Duke of Edinburgh,\nopening a few technical college extensions,\nwill not keep us abreast of the\nscientific revolution. Out of the 550,000\nyoung people aged 15-17 starting\nwork in 1960 420000 (73 per cent)\nwent into unskilled work. The per-\ncentage is expected to swell to 80\nnext year. The Duke, possibly\nspeaking from experience, stated:",
+    "blocks": [
+      {
+        "bbox": [
+          54,
+          20,
+          1920,
+          140
+        ],
+        "text": "The heli-hopping Duke of Edinburgh,",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          41,
+          208,
+          2079,
+          318
+        ],
+        "text": "opening a few technical college extensions,",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          53,
+          385,
+          1736,
+          489
+        ],
+        "text": "will not keep us abreast of the",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          35,
+          554,
+          1974,
+          664
+        ],
+        "text": "scientific revolution. Out of the 550,000",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          30,
+          750,
+          1729,
+          861
+        ],
+        "text": "young people aged 15-17 starting",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          35,
+          925,
+          1859,
+          1035
+        ],
+        "text": "work in 1960 420000 (73 per cent)",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          28,
+          1108,
+          1844,
+          1217
+        ],
+        "text": "went into unskilled work. The per-",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          27,
+          1281,
+          1817,
+          1381
+        ],
+        "text": "centage is expected to swell to 80",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          23,
+          1467,
+          1682,
+          1559
+        ],
+        "text": "next year. The Duke, possibly",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          20,
+          1645,
+          1719,
+          1742
+        ],
+        "text": "speaking from experience, stated:",
+        "confidence": 1.0
+      }
+    ],
+    "reading_order": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "errors": [],
+    "_source": "handwritten-part",
+    "image": "b06-100.png"
+  },
+  {
+    "text": "Thus learning how to learn means becoming\nyour own philosopher, your own psychologist\nand your own teacher. You will then be\na well-established learner and the world\nwill be at your feet. Although the word\n&quot;mind&quot; has given rise to endless\ncontroversy among philosophers and psycho-\nlogists, many of whom would like to\nabolish it from the dictionary, most\nof us obstinately go on using it.",
+    "blocks": [
+      {
+        "bbox": [
+          51,
+          20,
+          1624,
+          188
+        ],
+        "text": "Thus learning how to learn means becoming",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          61,
+          229,
+          1776,
+          362
+        ],
+        "text": "your own philosopher, your own psychologist",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          59,
+          405,
+          1694,
+          522
+        ],
+        "text": "and your own teacher. You will then be",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          52,
+          579,
+          1808,
+          673
+        ],
+        "text": "a well-established learner and the world",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          44,
+          742,
+          1680,
+          903
+        ],
+        "text": "will be at your feet. Although the word",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          31,
+          941,
+          1419,
+          1066
+        ],
+        "text": "&quot;mind&quot; has given rise to endless",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          20,
+          1123,
+          1772,
+          1259
+        ],
+        "text": "controversy among philosophers and psycho-",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          45,
+          1305,
+          1671,
+          1426
+        ],
+        "text": "logists, many of whom would like to",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          58,
+          1472,
+          1736,
+          1600
+        ],
+        "text": "abolish it from the dictionary, most",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          82,
+          1653,
+          1625,
+          1825
+        ],
+        "text": "of us obstinately go on using it.",
+        "confidence": 1.0
+      }
+    ],
+    "reading_order": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "errors": [],
+    "_source": "handwritten-part",
+    "image": "f01-058.png"
+  },
+  {
+    "text": "Elizabeth had left Hammersmith in the late afternoon,\nand arrived at Hounslow around 5 P.M., where\nshe had tea with her other sister, and then\nwent to catch the 7.42. Her sister saw her\nto the station, helping her with some of\nher packages. This sister was able to establish\nthat she had carried a green purse and\nhad bought a railway ticket.",
+    "blocks": [
+      {
+        "bbox": [
+          37,
+          20,
+          1876,
+          189
+        ],
+        "text": "Elizabeth had left Hammersmith in the late afternoon,",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          29,
+          203,
+          1879,
+          361
+        ],
+        "text": "and arrived at Hounslow around 5 P.M., where",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          29,
+          373,
+          1842,
+          531
+        ],
+        "text": "she had tea with her other sister, and then",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          35,
+          551,
+          1831,
+          692
+        ],
+        "text": "went to catch the 7.42. Her sister saw her",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          20,
+          730,
+          1818,
+          924
+        ],
+        "text": "to the station, helping her with some of",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          28,
+          910,
+          1867,
+          1115
+        ],
+        "text": "her packages. This sister was able to establish",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          29,
+          1080,
+          1815,
+          1274
+        ],
+        "text": "that she had carried a green purse and",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          38,
+          1265,
+          1353,
+          1450
+        ],
+        "text": "had bought a railway ticket.",
+        "confidence": 1.0
+      }
+    ],
+    "reading_order": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "errors": [],
+    "_source": "handwritten-part",
+    "image": "f04-016.png"
+  },
+  {
+    "text": "The sister, able to swim, had returned\nto the shore, but instead of returning\nto her brother-in-law (with whom\nshe had an illicit relationship), she\nwent to her fiance*?2's house and\nconfessed everything. Her fiance*?2\nreported her to the police, and then jumped\noff a cliff near Monte Carlo.",
+    "blocks": [
+      {
+        "bbox": [
+          33,
+          20,
+          1893,
+          138
+        ],
+        "text": "The sister, able to swim, had returned",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          25,
+          211,
+          1827,
+          351
+        ],
+        "text": "to the shore, but instead of returning",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          36,
+          396,
+          1735,
+          491
+        ],
+        "text": "to her brother-in-law (with whom",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          20,
+          579,
+          1729,
+          684
+        ],
+        "text": "she had an illicit relationship), she",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          29,
+          750,
+          1827,
+          851
+        ],
+        "text": "went to her fiance*?2's house and",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          29,
+          935,
+          1630,
+          1072
+        ],
+        "text": "confessed everything. Her fiance*?2",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          27,
+          1123,
+          1925,
+          1223
+        ],
+        "text": "reported her to the police, and then jumped",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          22,
+          1292,
+          1350,
+          1390
+        ],
+        "text": "off a cliff near Monte Carlo.",
+        "confidence": 1.0
+      }
+    ],
+    "reading_order": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "errors": [],
+    "_source": "handwritten-part",
+    "image": "r06-103.png"
+  },
+  {
+    "text": "In April of that year his first wife's brother-in-law, the diplomatist\nLord Ponsonby, had written to advise Anglesey to give the\nsystem a trial, adding that it was being cultivated with\nextraordinary success in France and Italy, and that he\nhimself was being treated under a doctor who had\nstudied under its founder, the aged Dr. Samuel\nHahnemann.",
+    "blocks": [
+      {
+        "bbox": [
+          24,
+          20,
+          1845,
+          127
+        ],
+        "text": "In April of that year his first wife's brother-in-law, the diplomatist",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          28,
+          197,
+          1771,
+          308
+        ],
+        "text": "Lord Ponsonby, had written to advise Anglesey to give the",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          20,
+          389,
+          1686,
+          485
+        ],
+        "text": "system a trial, adding that it was being cultivated with",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          22,
+          565,
+          1764,
+          673
+        ],
+        "text": "extraordinary success in France and Italy, and that he",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          30,
+          742,
+          1623,
+          836
+        ],
+        "text": "himself was being treated under a doctor who had",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          23,
+          918,
+          1536,
+          1026
+        ],
+        "text": "studied under its founder, the aged Dr. Samuel",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          25,
+          1100,
+          424,
+          1177
+        ],
+        "text": "Hahnemann.",
+        "confidence": 1.0
+      }
+    ],
+    "reading_order": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6
+    ],
+    "errors": [],
+    "_source": "handwritten-part",
+    "image": "g06-045p.png"
+  },
+  {
+    "text": "A summary of the story can give almost\nindication of the scope of Wicki's artistry. He\ntells his story best in the faces of his crowds,\nrecording every wrinkle and drop of sweat\nwith brutal honesty, building up to a\ntremendous climax in the island orgy.\nHere, the guests arrive in ghost-like yachts,\nthe wildly flapping white sails slashed by\nthe glaring beacon of a lighthouse.",
+    "blocks": [
+      {
+        "bbox": [
+          75,
+          20,
+          1717,
+          159
+        ],
+        "text": "A summary of the story can give almost",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          82,
+          222,
+          1693,
+          356
+        ],
+        "text": "indication of the scope of Wicki's artistry. He",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          46,
+          385,
+          1781,
+          523
+        ],
+        "text": "tells his story best in the faces of his crowds,",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          62,
+          567,
+          1720,
+          692
+        ],
+        "text": "recording every wrinkle and drop of sweat",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          53,
+          744,
+          1511,
+          872
+        ],
+        "text": "with brutal honesty, building up to a",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          51,
+          935,
+          1618,
+          1073
+        ],
+        "text": "tremendous climax in the island orgy.",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          45,
+          1112,
+          1743,
+          1251
+        ],
+        "text": "Here, the guests arrive in ghost-like yachts,",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          29,
+          1284,
+          1726,
+          1444
+        ],
+        "text": "the wildly flapping white sails slashed by",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          20,
+          1461,
+          1456,
+          1614
+        ],
+        "text": "the glaring beacon of a lighthouse.",
+        "confidence": 1.0
+      }
+    ],
+    "reading_order": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "errors": [],
+    "_source": "handwritten-part",
+    "image": "c02-026.png"
+  },
+  {
     "text": "2. Mechanisms. The majority of\nvertical migrations undoubtedly\nresult from active swimming\nalthough passive movement through\nthe water has been suggested on\nvarious grounds. For example,\ntransport in vertical currents\nresulting from temperature diff-\nerences has been proposed; diff-\nerences in water viscosity after\ntemperature changes have also been",
     "blocks": [
       {
@@ -2243,7 +1871,7 @@
           20,
           20,
           1794,
-          193
+          206
         ],
         "text": "2. Mechanisms. The majority of",
         "confidence": 1.0
@@ -2251,9 +1879,9 @@
       {
         "bbox": [
           85,
-          225,
-          1613,
-          428
+          222,
+          1652,
+          430
         ],
         "text": "vertical migrations undoubtedly",
         "confidence": 1.0
@@ -2261,9 +1889,9 @@
       {
         "bbox": [
           77,
-          426,
-          1507,
-          618
+          414,
+          1567,
+          601
         ],
         "text": "result from active swimming",
         "confidence": 1.0
@@ -2271,9 +1899,9 @@
       {
         "bbox": [
           84,
-          584,
-          1835,
-          764
+          572,
+          1878,
+          744
         ],
         "text": "although passive movement through",
         "confidence": 1.0
@@ -2281,9 +1909,9 @@
       {
         "bbox": [
           78,
-          750,
+          745,
           1876,
-          933
+          936
         ],
         "text": "the water has been suggested on",
         "confidence": 1.0
@@ -2291,9 +1919,9 @@
       {
         "bbox": [
           112,
-          967,
+          956,
           1788,
-          1104
+          1095
         ],
         "text": "various grounds. For example,",
         "confidence": 1.0
@@ -2301,9 +1929,9 @@
       {
         "bbox": [
           112,
-          1132,
+          1124,
           1640,
-          1270
+          1262
         ],
         "text": "transport in vertical currents",
         "confidence": 1.0
@@ -2311,9 +1939,9 @@
       {
         "bbox": [
           107,
-          1322,
+          1297,
           1811,
-          1493
+          1479
         ],
         "text": "resulting from temperature diff-",
         "confidence": 1.0
@@ -2321,9 +1949,9 @@
       {
         "bbox": [
           102,
-          1463,
-          1848,
-          1637
+          1460,
+          1849,
+          1642
         ],
         "text": "erences has been proposed; diff-",
         "confidence": 1.0
@@ -2331,9 +1959,9 @@
       {
         "bbox": [
           100,
-          1673,
-          1680,
-          1815
+          1662,
+          1782,
+          1806
         ],
         "text": "erences in water viscosity after",
         "confidence": 1.0
@@ -2341,9 +1969,9 @@
       {
         "bbox": [
           116,
-          1837,
+          1825,
           1907,
-          1993
+          1981
         ],
         "text": "temperature changes have also been",
         "confidence": 1.0
@@ -2363,100 +1991,351 @@
       10
     ],
     "errors": [],
-    "_source": "iam_xml_cmp"
+    "_source": "handwritten-part",
+    "image": "j06-034.png"
   },
   {
-    "image": "l07-135.png",
-    "text": "Clive - he insisted on being called Clive -\nhaggled with him and within half an hour\nSandpiper was mine for three hundred and\nfifty pounds. When all the business details\nhad been settled and the owner had\ndeparted with my cheque in his pocket,\nClive started the engine and gave me my\nfirst lesson in manoeuvring up and down\nthe river and in and out of the other boats.",
+    "text": "There is, however, a danger that workers\nwill rely too much on fixed devices because\nthey fail to recognise their limitations.\nIt is therefore safer both in principle and\npractice to keep the worker away from\noverhead lines wherever possible, e.g., by\n(1) re-routing the line, (2) putting the supply\nunderground, (3) making the line\ndead (after consultation with the supply\nauthority), (4) providing barriers at a safe\ndistance to prevent vehicles from approaching",
     "blocks": [
       {
         "bbox": [
-          33,
+          31,
           20,
-          1697,
-          124
-        ],
-        "text": "Clive - he insisted on being called Clive -",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          40,
-          210,
-          1786,
-          318
-        ],
-        "text": "haggled with him and within half an hour",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          25,
-          377,
-          1857,
-          493
-        ],
-        "text": "Sandpiper was mine for three hundred and",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          21,
-          567,
           1809,
-          682
+          191
         ],
-        "text": "fifty pounds. When all the business details",
+        "text": "There is, however, a danger that workers",
         "confidence": 1.0
       },
       {
         "bbox": [
-          35,
-          748,
-          1618,
-          834
+          64,
+          188,
+          1923,
+          333
         ],
-        "text": "had been settled and the owner had",
+        "text": "will rely too much on fixed devices because",
         "confidence": 1.0
       },
       {
         "bbox": [
-          20,
-          916,
-          1768,
-          1027
+          64,
+          366,
+          1830,
+          525
         ],
-        "text": "departed with my cheque in his pocket,",
+        "text": "they fail to recognise their limitations.",
         "confidence": 1.0
       },
       {
         "bbox": [
-          30,
-          1099,
-          1897,
-          1218
+          79,
+          546,
+          1907,
+          715
         ],
-        "text": "Clive started the engine and gave me my",
+        "text": "It is therefore safer both in principle and",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          79,
+          715,
+          1883,
+          878
+        ],
+        "text": "practice to keep the worker away from",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          58,
+          912,
+          1859,
+          1081
+        ],
+        "text": "overhead lines wherever possible, e.g., by",
         "confidence": 1.0
       },
       {
         "bbox": [
           41,
-          1268,
-          1892,
-          1400
+          1088,
+          1953,
+          1262
         ],
-        "text": "first lesson in manoeuvring up and down",
+        "text": "(1) re-routing the line, (2) putting the supply",
         "confidence": 1.0
       },
       {
         "bbox": [
-          51,
-          1464,
-          1791,
-          1565
+          20,
+          1271,
+          1886,
+          1445
         ],
-        "text": "the river and in and out of the other boats.",
+        "text": "underground, (3) making the line",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          49,
+          1443,
+          1861,
+          1597
+        ],
+        "text": "dead (after consultation with the supply",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          42,
+          1612,
+          1906,
+          1792
+        ],
+        "text": "authority), (4) providing barriers at a safe",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          78,
+          1797,
+          1998,
+          2003
+        ],
+        "text": "distance to prevent vehicles from approaching",
+        "confidence": 1.0
+      }
+    ],
+    "reading_order": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9,
+      10
+    ],
+    "errors": [],
+    "_source": "handwritten-part",
+    "image": "h06-082.png"
+  },
+  {
+    "text": "Rosenquist (4) showed that minute quantities of\nlead can be isolated from large volumes of solu-\ntion by coprecipitating the lead with a strontium\nsulphate. Lead and strontium form mixed cry-\nstals so that the more insoluble lead sulphate\nis almost completely recovered even if precipitation\nof the strontium sulphate is incomplete. Using\nten milligrams of lead carrier and six\nhundred milligrams of strontium per liter,\nmore than 95 experiment.",
+    "blocks": [
+      {
+        "bbox": [
+          39,
+          20,
+          1829,
+          125
+        ],
+        "text": "Rosenquist (4) showed that minute quantities of",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          34,
+          187,
+          1916,
+          320
+        ],
+        "text": "lead can be isolated from large volumes of solu-",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          33,
+          383,
+          1807,
+          509
+        ],
+        "text": "tion by coprecipitating the lead with a strontium",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          34,
+          553,
+          1812,
+          673
+        ],
+        "text": "sulphate. Lead and strontium form mixed cry-",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          40,
+          742,
+          1812,
+          834
+        ],
+        "text": "stals so that the more insoluble lead sulphate",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          49,
+          915,
+          1874,
+          1052
+        ],
+        "text": "is almost completely recovered even if precipitation",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          37,
+          1084,
+          1841,
+          1216
+        ],
+        "text": "of the strontium sulphate is incomplete. Using",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          44,
+          1275,
+          1706,
+          1425
+        ],
+        "text": "ten milligrams of lead carrier and six",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          21,
+          1447,
+          1830,
+          1584
+        ],
+        "text": "hundred milligrams of strontium per liter,",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          20,
+          1641,
+          1239,
+          1722
+        ],
+        "text": "more than 95 experiment.",
+        "confidence": 1.0
+      }
+    ],
+    "reading_order": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8,
+      9
+    ],
+    "errors": [],
+    "_source": "handwritten-part",
+    "image": "j04-024.png"
+  },
+  {
+    "text": "But what a change from the dear little old church\nat Tatsfield to the great modern church of St. Mark's\nat Purley. One felt at Tatsfield that, small as the\nchurch was, it had its own atmosphere, and for centuries\nhad been a House of Prayer. I could not but feel the\nchilliness of the new church, beautiful as it was and is.\nWhen we had found a group of people who gladly\nco-operated, we made the little side chapel a place\nof daily prayer.",
+    "blocks": [
+      {
+        "bbox": [
+          49,
+          20,
+          1878,
+          98
+        ],
+        "text": "But what a change from the dear little old church",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          43,
+          195,
+          1935,
+          281
+        ],
+        "text": "at Tatsfield to the great modern church of St. Mark's",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          38,
+          369,
+          1871,
+          467
+        ],
+        "text": "at Purley. One felt at Tatsfield that, small as the",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          35,
+          557,
+          1892,
+          635
+        ],
+        "text": "church was, it had its own atmosphere, and for centuries",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          31,
+          719,
+          1931,
+          827
+        ],
+        "text": "had been a House of Prayer. I could not but feel the",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          44,
+          916,
+          1943,
+          993
+        ],
+        "text": "chilliness of the new church, beautiful as it was and is.",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          20,
+          1084,
+          1816,
+          1200
+        ],
+        "text": "When we had found a group of people who gladly",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          26,
+          1276,
+          1852,
+          1359
+        ],
+        "text": "co-operated, we made the little side chapel a place",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          27,
+          1452,
+          656,
+          1546
+        ],
+        "text": "of daily prayer.",
         "confidence": 1.0
       }
     ],
@@ -2472,188 +2351,120 @@
       8
     ],
     "errors": [],
-    "_source": "iam_xml_cmp"
+    "_source": "handwritten-part",
+    "image": "g04-043.png"
   },
   {
-    "image": "r02-117.png",
-    "text": "Cecil stepped towards the dining room. 'I'm\nsure you must be tired,' his mother insisted.\n'You're very irritable, anyway.' 'I'm NOT tired\nand I'm NOT irritable.' 'Very well then.' His\nmother nodded with understanding. 'You're not tired.\nNobody's tired. Now just you run along\nupstairs and wash your hands whilst I get\ndinner ready.'",
+    "text": "The storage problem puts clay pots at a\ndefinite disadvantage. They are fairly heavy\nand difficult things to accommodate and\nthey must have some protection from severe\nweather, which can be quite a headache in\na small garden. While admitting that\nbroken pots have on occasions provided\nartists with delightful studies, there is no\ndoubt that a pile of badly stacked,\nhalf-broken pots is an unlovely sight\nfrom any point of view.",
     "blocks": [
       {
         "bbox": [
-          35,
+          49,
           20,
           1685,
-          176
+          142
         ],
-        "text": "Cecil stepped towards the dining room. 'I'm",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          39,
-          194,
-          1754,
-          315
-        ],
-        "text": "sure you must be tired,' his mother insisted.",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          37,
-          348,
-          1654,
-          507
-        ],
-        "text": "'You're very irritable, anyway.' 'I'm NOT tired",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          20,
-          545,
-          1537,
-          697
-        ],
-        "text": "and I'm NOT irritable.' 'Very well then.' His",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          22,
-          728,
-          1706,
-          881
-        ],
-        "text": "mother nodded with understanding. 'You're not tired.",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          30,
-          914,
-          1529,
-          1063
-        ],
-        "text": "Nobody's tired. Now just you run along",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          28,
-          1070,
-          1580,
-          1216
-        ],
-        "text": "upstairs and wash your hands whilst I get",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          42,
-          1265,
-          550,
-          1388
-        ],
-        "text": "dinner ready.'",
-        "confidence": 1.0
-      }
-    ],
-    "reading_order": [
-      0,
-      1,
-      2,
-      3,
-      4,
-      5,
-      6,
-      7
-    ],
-    "errors": [],
-    "_source": "iam_xml_cmp"
-  },
-  {
-    "image": "r06-103.png",
-    "text": "The sister, able to swim, had returned\nto the shore, but instead of returning\nto her brother-in-law (with whom\nshe had an illicit relationship), she\nwent to her fiance*?2's house and\nconfessed everything. Her fiance*?2\nreported her to the police, and then jumped\noff a cliff near Monte Carlo.",
-    "blocks": [
-      {
-        "bbox": [
-          33,
-          20,
-          1893,
-          125
-        ],
-        "text": "The sister, able to swim, had returned",
-        "confidence": 1.0
-      },
-      {
-        "bbox": [
-          25,
-          213,
-          1691,
-          341
-        ],
-        "text": "to the shore, but instead of returning",
+        "text": "The storage problem puts clay pots at a",
         "confidence": 1.0
       },
       {
         "bbox": [
           36,
-          398,
-          1735,
-          489
+          193,
+          1769,
+          313
         ],
-        "text": "to her brother-in-law (with whom",
+        "text": "definite disadvantage. They are fairly heavy",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          32,
+          376,
+          1760,
+          494
+        ],
+        "text": "and difficult things to accommodate and",
         "confidence": 1.0
       },
       {
         "bbox": [
           20,
-          565,
-          1729,
-          668
+          550,
+          1784,
+          677
         ],
-        "text": "she had an illicit relationship), she",
+        "text": "they must have some protection from severe",
         "confidence": 1.0
       },
       {
         "bbox": [
-          29,
-          751,
-          1827,
-          853
+          37,
+          731,
+          1746,
+          840
         ],
-        "text": "went to her fiance*?2's house and",
+        "text": "weather, which can be quite a headache in",
         "confidence": 1.0
       },
       {
         "bbox": [
-          29,
-          938,
-          1630,
-          1071
+          37,
+          921,
+          1604,
+          1035
         ],
-        "text": "confessed everything. Her fiance*?2",
+        "text": "a small garden. While admitting that",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          30,
+          1094,
+          1641,
+          1190
+        ],
+        "text": "broken pots have on occasions provided",
         "confidence": 1.0
       },
       {
         "bbox": [
           27,
-          1113,
-          1925,
-          1215
+          1272,
+          1803,
+          1384
         ],
-        "text": "reported her to the police, and then jumped",
+        "text": "artists with delightful studies, there is no",
         "confidence": 1.0
       },
       {
         "bbox": [
-          22,
-          1299,
-          1350,
-          1398
+          32,
+          1446,
+          1599,
+          1569
         ],
-        "text": "off a cliff near Monte Carlo.",
+        "text": "doubt that a pile of badly stacked,",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          41,
+          1628,
+          1620,
+          1753
+        ],
+        "text": "half-broken pots is an unlovely sight",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          45,
+          1801,
+          1002,
+          1935
+        ],
+        "text": "from any point of view.",
         "confidence": 1.0
       }
     ],
@@ -2665,13 +2476,16 @@
       4,
       5,
       6,
-      7
+      7,
+      8,
+      9,
+      10
     ],
     "errors": [],
-    "_source": "iam_xml_cmp"
+    "_source": "handwritten-part",
+    "image": "e07-079.png"
   },
   {
-    "image": "r06-106.png",
     "text": "The day I promised to take Catherine\ndown to visit my young friend Philip\nat his school in the country, we were\nto leave at eleven, but she arrived\nat nine. Her blue dress was new,\nand so were her fashionable shoes. Her\nhair had just been done. She looked\nmore than ever like a pink and gold\nRenoir girl who expects everything from\nlife.",
     "blocks": [
       {
@@ -2679,7 +2493,7 @@
           31,
           20,
           1681,
-          162
+          161
         ],
         "text": "The day I promised to take Catherine",
         "confidence": 1.0
@@ -2687,9 +2501,9 @@
       {
         "bbox": [
           33,
-          206,
+          204,
           1751,
-          343
+          340
         ],
         "text": "down to visit my young friend Philip",
         "confidence": 1.0
@@ -2697,9 +2511,9 @@
       {
         "bbox": [
           20,
-          393,
+          390,
           1829,
-          518
+          520
         ],
         "text": "at his school in the country, we were",
         "confidence": 1.0
@@ -2707,9 +2521,9 @@
       {
         "bbox": [
           39,
-          567,
+          566,
           1752,
-          656
+          658
         ],
         "text": "to leave at eleven, but she arrived",
         "confidence": 1.0
@@ -2717,9 +2531,9 @@
       {
         "bbox": [
           38,
-          739,
+          738,
           1758,
-          822
+          837
         ],
         "text": "at nine. Her blue dress was new,",
         "confidence": 1.0
@@ -2727,9 +2541,9 @@
       {
         "bbox": [
           30,
-          932,
+          928,
           1874,
-          1016
+          1013
         ],
         "text": "and so were her fashionable shoes. Her",
         "confidence": 1.0
@@ -2737,9 +2551,9 @@
       {
         "bbox": [
           37,
-          1111,
+          1107,
           1806,
-          1212
+          1209
         ],
         "text": "hair had just been done. She looked",
         "confidence": 1.0
@@ -2747,9 +2561,9 @@
       {
         "bbox": [
           41,
-          1286,
+          1284,
           1813,
-          1403
+          1406
         ],
         "text": "more than ever like a pink and gold",
         "confidence": 1.0
@@ -2757,9 +2571,9 @@
       {
         "bbox": [
           42,
-          1450,
+          1461,
           1858,
-          1583
+          1593
         ],
         "text": "Renoir girl who expects everything from",
         "confidence": 1.0
@@ -2767,9 +2581,9 @@
       {
         "bbox": [
           42,
-          1631,
+          1643,
           216,
-          1723
+          1737
         ],
         "text": "life.",
         "confidence": 1.0
@@ -2788,6 +2602,214 @@
       9
     ],
     "errors": [],
-    "_source": "iam_xml_cmp"
+    "_source": "handwritten-part",
+    "image": "r06-106.png"
+  },
+  {
+    "text": "Cecil stepped towards the dining room. 'I'm\nsure you must be tired,' his mother insisted.\n'You're very irritable, anyway.' 'I'm NOT tired\nand I'm NOT irritable.' 'Very well then.' His\nmother nodded with understanding. 'You're not tired.\nNobody's tired. Now just you run along\nupstairs and wash your hands whilst I get\ndinner ready.'",
+    "blocks": [
+      {
+        "bbox": [
+          35,
+          20,
+          1685,
+          170
+        ],
+        "text": "Cecil stepped towards the dining room. 'I'm",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          39,
+          199,
+          1754,
+          319
+        ],
+        "text": "sure you must be tired,' his mother insisted.",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          37,
+          356,
+          1654,
+          517
+        ],
+        "text": "'You're very irritable, anyway.' 'I'm NOT tired",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          20,
+          553,
+          1537,
+          703
+        ],
+        "text": "and I'm NOT irritable.' 'Very well then.' His",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          22,
+          734,
+          1706,
+          889
+        ],
+        "text": "mother nodded with understanding. 'You're not tired.",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          30,
+          917,
+          1529,
+          1064
+        ],
+        "text": "Nobody's tired. Now just you run along",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          28,
+          1089,
+          1580,
+          1244
+        ],
+        "text": "upstairs and wash your hands whilst I get",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          42,
+          1271,
+          550,
+          1393
+        ],
+        "text": "dinner ready.'",
+        "confidence": 1.0
+      }
+    ],
+    "reading_order": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7
+    ],
+    "errors": [],
+    "_source": "handwritten-part",
+    "image": "r02-117.png"
+  },
+  {
+    "text": "Each census since the first in 1801 has included questions\nabout housing and households. In 1961 the scope of the\nquestion was wider than before, because of the great\nuse of the data to the Ministry of Housing and Local\nGovernment and to local authorities. As before, the record\nmade during the enumeration lists all buildings, residen-\ntial premises and temporary places of abode, and all\nhouseholds occupying them, as the basis of the\nenumeration is the household schedule.",
+    "blocks": [
+      {
+        "bbox": [
+          39,
+          20,
+          1869,
+          143
+        ],
+        "text": "Each census since the first in 1801 has included questions",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          26,
+          191,
+          1853,
+          328
+        ],
+        "text": "about housing and households. In 1961 the scope of the",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          33,
+          378,
+          1775,
+          510
+        ],
+        "text": "question was wider than before, because of the great",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          29,
+          555,
+          1851,
+          688
+        ],
+        "text": "use of the data to the Ministry of Housing and Local",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          22,
+          732,
+          1919,
+          838
+        ],
+        "text": "Government and to local authorities. As before, the record",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          26,
+          921,
+          1892,
+          1049
+        ],
+        "text": "made during the enumeration lists all buildings, residen-",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          22,
+          1094,
+          1883,
+          1224
+        ],
+        "text": "tial premises and temporary places of abode, and all",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          29,
+          1264,
+          1741,
+          1401
+        ],
+        "text": "households occupying them, as the basis of the",
+        "confidence": 1.0
+      },
+      {
+        "bbox": [
+          20,
+          1448,
+          1454,
+          1539
+        ],
+        "text": "enumeration is the household schedule.",
+        "confidence": 1.0
+      }
+    ],
+    "reading_order": [
+      0,
+      1,
+      2,
+      3,
+      4,
+      5,
+      6,
+      7,
+      8
+    ],
+    "errors": [],
+    "_source": "handwritten-part",
+    "image": "h01-014.png"
   }
 ]
