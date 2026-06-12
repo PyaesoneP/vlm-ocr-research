@@ -540,13 +540,16 @@ he people, ho secure an early solution of the
 
 GOT-OCR2.0   (CER=0.088 avg, 2.53s)
 ──────────────────────────────────────────────────────────────────────
-Mr. Kh ush cho u said he hop col his week eu o talks with President
-Kennedy would help" to es laS e is hah oh d ul in s peace S elwe eh
-hao w.  Rep lg is ho a f ar well pe ch from Hush ian Pre sid oct S
-doer d, he So u let Pre nii er th auk eod Hush i a for the hospital
-i ly and welcome he had received.  4 The So u iet Union ha alwa gp
-show an ol is shi u ing to safe guard an on d turing peace for he pe
-opes, ho secure an ari ly shi u on of the1111111111111111111111111111...
+In Vienna, before flying off to Moscow,
+Mr.Khushchov said he hoped his weekend
+talks with President Kennedy would be help "to
+eslasish an obduing peace selween nations."
+Replying to a farvwell speech from Hushian President
+Schoerd, the Soviet Premier thankeal Hushia for
+the hospitality and welcome he had received.
+"The Soviet Union has always shown and is
+strolling to safeguard an ordinary peace for
+he peoples,he secure an early suthion of the
 ```
 
 ### Phase 3: Tier-2 Candidate Evaluation
