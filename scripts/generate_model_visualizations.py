@@ -108,7 +108,7 @@ def generate_florence2_images():
     gt_map = {g["image"]: g for g in gt_data}
 
     # Find CER results to pick representative images
-    cer_path = RESULTS_DIR / "florence2_large_handwritten.json"
+    cer_path = RESULTS_DIR / "florence2_large_handwriting.json"
     image_names = get_image_list(str(cer_path)) if cer_path.exists() else FALLBACK_IMAGES
 
     prompt = "<OCR_WITH_REGION>"
@@ -178,7 +178,7 @@ def generate_nemotron_images():
         gt_data = json.load(f)
     gt_map = {g["image"]: g for g in gt_data}
 
-    image_names = get_image_list(str(RESULTS_DIR / "nemotron_ocr_v2_handwritten.json"))
+    image_names = get_image_list(str(RESULTS_DIR / "nemotron_ocr_v2_handwriting.json"))
 
     for img_name in image_names:
         img_path = HANDWRITTEN_DIR / img_name
@@ -233,7 +233,7 @@ def generate_smoldocling_images():
         gt_data = json.load(f)
     gt_map = {g["image"]: g for g in gt_data}
 
-    image_names = get_image_list(str(RESULTS_DIR / "smoldocling_handwritten.json"))
+    image_names = get_image_list(str(RESULTS_DIR / "smoldocling_handwriting.json"))
 
     for img_name in image_names:
         img_path = HANDWRITTEN_DIR / img_name
@@ -281,7 +281,7 @@ def generate_gt_reference():
         gt_data = json.load(f)
 
     # Best, worst, median CER images from Florence-2 results
-    cer_path = RESULTS_DIR / "florence2_large_handwritten.json"
+    cer_path = RESULTS_DIR / "florence2_large_handwriting.json"
     if cer_path.exists():
         representatives = select_representative_images(str(cer_path))
         image_names = [r["image"] for r in representatives]

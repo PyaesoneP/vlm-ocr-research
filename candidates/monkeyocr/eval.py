@@ -2,11 +2,11 @@
 MonkeyOCR-pro-1.2B — Candidate evaluation script via llama.cpp server.
 
 MonkeyOCR is a 1.2B vision-language model (Qwen2-VL based) fine-tuned for
-challenging OCR. Uses pre-built llama.cpp binaries with Vulkan GPU backend
-running as llama-server with OpenAI-compatible API.
+challenging OCR. Uses llama.cpp llama-server built from source with CUDA
+GPU backend, providing an OpenAI-compatible API.
 
 Model: dinhquangson/MonkeyOCR-pro-1.2B-Vision-GGUF
-Backend: llama.cpp llama-server (Vulkan GPU)
+Backend: llama.cpp llama-server (CUDA GPU, built from source)
 
 ⚠ Bounding box output: MonkeyOCR via llama-server returns text only.
 The underlying Qwen2-VL model supports grounding, but the llama.cpp chat
@@ -15,13 +15,20 @@ grounding capabilities.  No native bbox output is available.
 
 For bbox support, consider: Florence-2, SmolDocling, or Nemotron OCR v2.
 
+GPU Setup (build llama.cpp from source with CUDA):
+    git clone https://github.com/ggerganov/llama.cpp.git
+    cd llama.cpp
+    cmake -B build -DGGML_CUDA=ON -DCMAKE_BUILD_TYPE=Release
+    cmake --build build -j$(nproc) --target llama-server
+
 Usage:
-    # Start server first:
-    #   cd /tmp/llama-b9596 && ./llama-server \
-    #     --hf-repo dinhquangson/MonkeyOCR-pro-1.2B-Vision-GGUF \
-    #     --hf-file MonkeyOCR-pro-1.2B-Recognition.gguf \
-    #     --host 0.0.0.0 --port 8080 --n-gpu-layers 99 \
-    #     --ctx-size 8192 --image-min-tokens 1024
+    # Start server (GPU-accelerated with CUDA):
+    cd llama.cpp/build/bin && LD_LIBRARY_PATH=. ./llama-server \\
+      -hf dinhquangson/MonkeyOCR-pro-1.2B-Vision-GGUF \\
+      --host 0.0.0.0 --port 8080 -ngl 99 -c 8192 \\
+      --mmproj-offload --image-min-tokens 1024
+
+    # Then evaluate:
     python candidates/monkeyocr/eval.py
 """
 
@@ -136,7 +143,7 @@ if __name__ == "__main__":
         urllib.request.urlopen("http://localhost:8080/health", timeout=5)
     except Exception:
         print("[monkeyocr] ERROR: llama-server not reachable at localhost:8080")
-        print("  Start it first: cd /tmp/llama-b9596 && ./llama-server --hf-repo ...")
+        print("  Build and start it first (see docstring for GPU setup instructions).")
         sys.exit(1)
 
     result = run_candidate(
@@ -150,23 +157,6 @@ if __name__ == "__main__":
               "Server: ctx-size=8192, image-min-tokens=1024. "
               "CPU-only (Vulkan not detected on RTX 5070 Ti). "
               "Text-only output — no native bbox support.",
-    )
-
-    from benchmark.harness import BenchmarkHarness
-
-    harness = BenchmarkHarness(output_dir=PROJECT_ROOT / "benchmark" / "results")
-    harness.save_result(result)
-    print(f"[{CANDIDATE_NAME}] Done. Avg latency: {result.latency_total_avg:.2f}s")
-
-    result = run_candidate(
-        candidate_name=CANDIDATE_NAME,
-        inference_fn=inference_fn,
-        test_images=images,
-        ground_truth=GROUND_TRUTH if GROUND_TRUTH.exists() else None,
-        num_warmup=1,
-        num_runs=1,
-        notes="GGUF Q4_K_M quant via llama-cpp-python CUDA (n_gpu_layers=-1). "
-              "llama.cpp vision does not return bounding boxes.",
     )
 
     from benchmark.harness import BenchmarkHarness

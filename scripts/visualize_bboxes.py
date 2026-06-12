@@ -9,7 +9,7 @@ from PIL import Image, ImageDraw, ImageFont
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 HANDWRITTEN_DIR = PROJECT_ROOT / "benchmark" / "test_dataset" / "handwritten"
 GT_FILE = PROJECT_ROOT / "benchmark" / "test_dataset" / "ground_truth_handwritten.json"
-BBOX_RESULTS = PROJECT_ROOT / "benchmark" / "results" / "florence2_large_bbox_reading_order.json"
+BBOX_RESULTS = PROJECT_ROOT / "benchmark" / "results" / "florence2_large_layout.json"
 VIZ_DIR = PROJECT_ROOT / "benchmark" / "visualizations"
 
 

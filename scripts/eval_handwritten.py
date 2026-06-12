@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import importlib
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -114,29 +115,15 @@ def eval_candidate(name: str) -> None:
     # Import the candidate's inference_fn
     module = importlib.import_module(config["module"])
 
-    # Monkey override: point the module's TEST_DATASET and GROUND_TRUTH to handwritten
-    # We do this by patching before calling run_candidate
-    old_test_dataset = getattr(module, "TEST_DATASET", None)
-    old_ground_truth = getattr(module, "GROUND_TRUTH", None)
-
-    module.TEST_DATASET = HANDWRITTEN_IMAGES_DIR.parent  # parent is test_dataset/
-    module.GROUND_TRUTH = HANDWRITTEN_GT
-
     result = run_candidate(
         candidate_name=f"{name}_handwritten",
         inference_fn=module.inference_fn,
         test_images=images,
         ground_truth=HANDWRITTEN_GT if HANDWRITTEN_GT.exists() else None,
         num_warmup=1,
-        num_runs=1,
+        num_runs=len(images),
         notes=config["notes"],
     )
-
-    # Restore originals
-    if old_test_dataset is not None:
-        module.TEST_DATASET = old_test_dataset
-    if old_ground_truth is not None:
-        module.GROUND_TRUTH = old_ground_truth
 
     # Save result
     harness = BenchmarkHarness(output_dir=RESULTS_DIR)
@@ -172,3 +159,7 @@ if __name__ == "__main__":
         eval_candidate(args.candidate)
     else:
         parser.print_help()
+
+    # Prevent Paddle inference teardown hang (bullet 5).
+    # Results are already saved to disk by harness.save_result().
+    os._exit(0)

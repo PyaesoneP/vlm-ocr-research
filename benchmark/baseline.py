@@ -177,14 +177,14 @@ Transcription:
 Blocks (index, bbox, text):
 {json.dumps([{'index': i, 'bbox': b['bbox'], 'text': b['text']} for i, b in enumerate(ocr_output.get('blocks', []))])}"""
 
-    t0 = time.perf_counter()
-
     # Rate limit: ensure we stay within GEMINI_RPM
     global _GEMINI_LAST_CALL
     min_interval = 60.0 / GEMINI_RPM
     elapsed_since_last = time.perf_counter() - _GEMINI_LAST_CALL
     if elapsed_since_last < min_interval:
         time.sleep(min_interval - elapsed_since_last)
+
+    t0 = time.perf_counter()
 
     # Retry on transient errors (503, 429)
     max_retries = 8
@@ -307,9 +307,12 @@ def _layout_text(doc, layout) -> str:
 
 
 def _normalized_to_absolute(bounding_poly, img_w: int, img_h: int) -> list[int]:
-    """Convert normalized vertices to absolute [x1, y1, x2, y2]."""
-    xs = [v.x * img_w for v in bounding_poly.vertices]
-    ys = [v.y * img_h for v in bounding_poly.vertices]
+    """Convert normalized vertices to absolute [x1, y1, x2, y2].
+
+    Uses .normalized_vertices (0–1 range), NOT .vertices (already absolute pixels).
+    """
+    xs = [v.x * img_w for v in bounding_poly.normalized_vertices]
+    ys = [v.y * img_h for v in bounding_poly.normalized_vertices]
     if not xs:
         return [0, 0, 0, 0]
     return [int(min(xs)), int(min(ys)), int(max(xs)), int(max(ys))]

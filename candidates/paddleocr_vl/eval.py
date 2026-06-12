@@ -95,12 +95,17 @@ def inference_fn(image_path: str) -> dict:
                 parsing_list = inner.get("parsing_res_list", [])
                 for item in parsing_list:
                     text = item.get("block_content", "")
-                    bbox_str = item.get("block_bbox", "")
-                    if text and bbox_str:
-                        # bbox is stored as string "[x1, y1, x2, y2]"
-                        try:
-                            bbox = [int(float(x.strip())) for x in bbox_str.strip("[]").split(",")]
-                        except (ValueError, AttributeError):
+                    bbox_raw = item.get("block_bbox", "")
+                    if text and bbox_raw:
+                        # bbox may be a string "[x1, y1, x2, y2]" or already a list
+                        if isinstance(bbox_raw, list):
+                            bbox = [float(x) for x in bbox_raw[:4]]
+                        elif isinstance(bbox_raw, str):
+                            try:
+                                bbox = [int(float(x.strip())) for x in bbox_raw.strip("[]").split(",")]
+                            except (ValueError, AttributeError):
+                                bbox = [0, 0, 0, 0]
+                        else:
                             bbox = [0, 0, 0, 0]
                         blocks.append({
                             "bbox": bbox if len(bbox) == 4 else [0, 0, 0, 0],
@@ -151,5 +156,3 @@ if __name__ == "__main__":
     )
 
     print(f"[{CANDIDATE_NAME}] Done. Avg latency: {result.latency_total_avg:.2f}s, CER: {result.cer:.4f}")
-
-    print(f"[{CANDIDATE_NAME}] Done. Avg latency: {result.latency_total_avg:.2f}s")

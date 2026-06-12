@@ -21,7 +21,6 @@ from __future__ import annotations
 
 import json
 import time
-import tracemalloc
 from dataclasses import dataclass, field, asdict
 from pathlib import Path
 from typing import Any, Callable, Optional
@@ -215,14 +214,16 @@ class BenchmarkHarness:
         image_paths: list[str] = []
 
         for i in range(num_runs):
-            img_path = str(test_images[i % len(test_images)])
-            image_paths.append(img_path)
-            self.reset_gpu_memory()
+            # One full pass over all test images per run.
+            for img_path in test_images:
+                img_path_str = str(img_path)
+                image_paths.append(img_path_str)
+                self.reset_gpu_memory()
 
-            output, elapsed = self.timed_call(inference_fn, img_path)
-            latencies.append(elapsed)
-            vram_peaks.append(self.get_peak_vram_mb())
-            all_outputs.append(output)
+                output, elapsed = self.timed_call(inference_fn, img_path_str)
+                latencies.append(elapsed)
+                vram_peaks.append(self.get_peak_vram_mb())
+                all_outputs.append(output)
 
             if "stage1_latency" in output:
                 stage1_latencies.append(output["stage1_latency"])
@@ -233,8 +234,8 @@ class BenchmarkHarness:
         n = len(latencies)
         result.latency_total_avg = sum(latencies) / n
         result.latency_total_std = (
-            (sum((x - result.latency_total_avg) ** 2 for x in latencies) / n) ** 0.5
-        )
+            (sum((x - result.latency_total_avg) ** 2 for x in latencies) / (n - 1)) ** 0.5
+        ) if n > 1 else 0.0
         if stage1_latencies:
             result.latency_stage1_ocr = sum(stage1_latencies) / len(stage1_latencies)
         if stage2_latencies:
@@ -304,7 +305,9 @@ class BenchmarkHarness:
 
             if "errors" in output and "errors" in gt:
                 f1_vals.append(compute_error_detection_f1(output["errors"], gt["errors"]))
-                iou_vals.append(compute_iou(output["errors"], gt["errors"]))
+                iou_result = compute_iou(output["errors"], gt["errors"])
+                if iou_result["matched"] > 0:
+                    iou_vals.append(iou_result["mean_iou"])
 
         if cer_vals:
             result.cer = sum(cer_vals) / len(cer_vals)

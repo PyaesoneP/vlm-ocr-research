@@ -30,7 +30,14 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 TEST_DATASET = PROJECT_ROOT / "benchmark" / "test_dataset"
 IAM_XML_DIR = TEST_DATASET / "iam_xml" / "archive" / "xml"
 CURATED_MANIFEST = TEST_DATASET / "curated_manifest.json"
+HANDWRITTEN_MANIFEST = TEST_DATASET / "handwritten_manifest.json"
 OUTPUT_PATH = TEST_DATASET / "ground_truth.json"
+
+# Must match the PADDING value in scripts/crop_handwritten.py.
+# The crop bbox in handwritten_manifest.json does NOT include padding,
+# but the actual cropped images do. GT bboxes must be offset by the
+# padded crop origin to match the cropped image coordinates.
+PADDING = 20
 
 
 # ---------------------------------------------------------------------------
@@ -218,6 +225,16 @@ def main() -> None:
     entries: list[dict[str, Any]] = []
     xml_hits = 0
 
+    # If generating handwritten-only GT, load crop origins from the manifest
+    # so that parsed XML bboxes are offset to cropped coordinates.
+    crop_offsets: dict[str, tuple[int, int]] = {}
+    if args.handwritten_only and HANDWRITTEN_MANIFEST.exists():
+        hw_manifest = json.loads(HANDWRITTEN_MANIFEST.read_text())
+        for item in hw_manifest:
+            crop = item.get("crop_bbox", [0, 0, 0, 0])
+            crop_offsets[item["image"]] = (crop[0], crop[1])
+        print(f"  Loaded {len(crop_offsets)} crop offsets from handwritten_manifest.json")
+
     for img_name, img_path in images:
         if xml_available:
             xml_file = find_xml_for_image(img_name)
@@ -225,6 +242,22 @@ def main() -> None:
                 try:
                     entry = parse_iam_xml(xml_file, filter_signatures=args.handwritten_only)
                     entry["image"] = img_name
+
+                    # Apply crop-offset transform: subtract crop origin from all bboxes.
+                    # The manifest stores union_bbox WITHOUT padding, but the
+                    # actual cropped image includes PADDING px on each side.
+                    # GT bboxes must be relative to the padded crop origin.
+                    offset = crop_offsets.get(img_name)
+                    if offset:
+                        ox = max(0, offset[0] - PADDING)
+                        oy = max(0, offset[1] - PADDING)
+                        for block in entry.get("blocks", []):
+                            b = block["bbox"]
+                            block["bbox"] = [
+                                b[0] - ox, b[1] - oy,
+                                b[2] - ox, b[3] - oy,
+                            ]
+
                     entries.append(entry)
                     xml_hits += 1
                     continue
