@@ -110,7 +110,7 @@ def compute_reading_order_tau(
     total_pairs = n * (n - 1) // 2
     denom = math.sqrt((total_pairs - ties_pred) * (total_pairs - ties_gt))
     if denom == 0:
-        return 1.0
+        return 0.0
     return (concordant - discordant) / denom
 
 
@@ -136,6 +136,11 @@ def compute_error_detection_f1(
     for etype in error_types:
         pred_of_type = [e for e in predicted_errors if e.get("type") == etype]
         gt_of_type = [e for e in ground_truth_errors if e.get("type") == etype]
+
+        # Skip error types absent from BOTH prediction and ground truth.
+        # Including them would punish perfect agreement (both empty → F1=0).
+        if not pred_of_type and not gt_of_type:
+            continue
 
         tp = 0
         matched_gt: set[int] = set()
@@ -164,13 +169,22 @@ def compute_error_detection_f1(
 # Block-Level Alignment & IoU
 # ---------------------------------------------------------------------------
 
-def _normalize_bbox_to_xyxy(bbox: list[float]) -> list[float]:
-    """Convert [x1,y1,x2,y2] or [x,y,w,h] to [x1,y1,x2,y2]."""
+def _normalize_bbox_to_xyxy(bbox: list[float], fmt: str = "auto") -> list[float]:
+    """Convert [x1,y1,x2,y2] or [x,y,w,h] to [x1,y1,x2,y2].
+
+    Args:
+        bbox: 4-element list.
+        fmt: "xyxy", "xywh", or "auto" (heuristic: if w < x1 or h < y1, treat as xywh).
+    """
     if len(bbox) != 4:
         return [0, 0, 0, 0]
-    # Heuristic: if x2 < x1 or y2 < y1 (negative width/height), it's xywh
-    if bbox[2] < bbox[0] or bbox[3] < bbox[1]:
+    if fmt == "xywh":
         return [bbox[0], bbox[1], bbox[0] + bbox[2], bbox[1] + bbox[3]]
+    if fmt == "auto":
+        # Heuristic: xywh has small width/height relative to position,
+        # or width < x1 / height < y1 (zero/negative dimensions).
+        if bbox[2] < bbox[0] or bbox[3] < bbox[1]:
+            return [bbox[0], bbox[1], bbox[0] + bbox[2], bbox[1] + bbox[3]]
     return list(bbox)
 
 
@@ -272,11 +286,21 @@ def compute_reading_order_from_blocks(
         # ground_truth_order[i] = rank of block i (0 = first in reading order)
         gt_ordered = sorted(range(len(ground_truth_blocks)), key=lambda i: ground_truth_order[i])
 
-        # Map pred to the same ordering
-        common = list(matched_gt)  # blocks that were matched
+        # Map pred to the same ordering.
+        # pred_ranks = list of GT indices in predicted visit order.
+        # Build parallel rank lists: for each matched GT block, its
+        # predicted rank (position in pred_ranks) vs GT rank (from ground_truth_order).
+        common = sorted(matched_gt)  # sort by GT index for consistent alignment
         if len(common) >= 2:
-            pred_ranks_mapped = [i for i in gt_ordered if i in common]
-            gt_ranks_mapped = [i for i in gt_ordered if i in common]
+            pred_ranks_mapped = []
+            gt_ranks_mapped = []
+            for gt_idx in common:
+                try:
+                    pred_rank = pred_ranks.index(gt_idx)
+                except ValueError:
+                    continue
+                pred_ranks_mapped.append(pred_rank)
+                gt_ranks_mapped.append(ground_truth_order[gt_idx])
             tau = compute_reading_order_tau(pred_ranks_mapped, gt_ranks_mapped)
         else:
             tau = 0.0
@@ -315,10 +339,16 @@ def _bbox_iou(box_a: list[float], box_b: list[float]) -> float:
 def compute_iou(
     predicted_errors: list[dict[str, Any]],
     ground_truth_errors: list[dict[str, Any]],
-) -> float:
-    """Mean IoU across all matched error bounding-box pairs."""
+    iou_threshold: float = 0.1,
+) -> dict:
+    """Mean IoU across matched error bounding-box pairs with precision/recall.
+
+    Returns dict with mean_iou, matched, total_gt, total_pred, precision, recall.
+    """
     if not ground_truth_errors:
-        return 1.0 if not predicted_errors else 0.0
+        return {"mean_iou": 1.0 if not predicted_errors else 0.0,
+                "matched": 0, "total_gt": 0, "total_pred": len(predicted_errors),
+                "precision": 0.0, "recall": 1.0}
 
     ious: list[float] = []
     matched_gt: set[int] = set()
@@ -333,11 +363,19 @@ def compute_iou(
             if iou > best_iou:
                 best_iou = iou
                 best_j = j
-        if best_j >= 0:
+        if best_j >= 0 and best_iou >= iou_threshold:
             ious.append(best_iou)
             matched_gt.add(best_j)
 
-    return sum(ious) / len(ious) if ious else 0.0
+    matched = len(ious)
+    return {
+        "mean_iou": sum(ious) / matched if ious else 0.0,
+        "matched": matched,
+        "total_gt": len(ground_truth_errors),
+        "total_pred": len(predicted_errors),
+        "precision": matched / len(predicted_errors) if predicted_errors else 0.0,
+        "recall": matched / len(ground_truth_errors) if ground_truth_errors else 0.0,
+    }
 
 
 # ---------------------------------------------------------------------------
