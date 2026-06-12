@@ -99,6 +99,35 @@ pip install paddlepaddle-gpu -i https://www.paddlepaddle.org.cn/packages/stable/
 
 Reference: [PaddleOCR-VL NVIDIA Blackwell Tutorial](https://www.paddleocr.ai/latest/en/version3.x/pipeline_usage/PaddleOCR-VL-NVIDIA-Blackwell.html)
 
+### MonkeyOCR GPU Setup (llama.cpp from source)
+
+The pre-built ggml-org/llama.cpp binaries are CPU-only. GPU acceleration requires
+building from source with CUDA. The built binary lives at
+`/tmp/llama.cpp/build/bin/llama-server`.
+
+```bash
+# One-time build (requires cmake, CUDA toolkit):
+git clone https://github.com/ggerganov/llama.cpp.git /tmp/llama.cpp
+cd /tmp/llama.cpp
+cmake -B build -DGGML_CUDA=ON -DCMAKE_BUILD_TYPE=Release
+cmake --build build -j$(nproc) --target llama-server
+
+# Start the server (GPU-accelerated):
+cd /tmp/llama.cpp/build/bin && LD_LIBRARY_PATH=. ./llama-server \
+  -hf dinhquangson/MonkeyOCR-pro-1.2B-Vision-GGUF \
+  --host 0.0.0.0 --port 8080 -ngl 99 -c 8192 \
+  --mmproj-offload --image-min-tokens 1024
+
+# Verify:
+curl -s http://localhost:8080/health  # → {"status":"ok"}
+```
+
+**Details:** The `-ngl 99` flag offloads all model layers to GPU. `--mmproj-offload`
+puts the multimodal vision projector on GPU (critical for image encoding speed).
+Without GPU: 54s/image. With CUDA: 4.27s/image (10× faster).
+
+See `candidates/monkeyocr/eval.py` for the full eval script header docs.
+
 ---
 
 ## Project Structure
