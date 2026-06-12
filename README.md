@@ -481,22 +481,27 @@ the peoples, to secure an early solution of the
 GOOGLE DOC AI   (CER=0.095 avg, 2.19s OCR-only)
 ──────────────────────────────────────────────────────────────────────
 In Vienna, before flying off to Moscow,
+во
 Mr. Khrushchou said he hoped his weekend
-4 
-talks with President Kennedy would be help to
-establish an onduring peace belweeh nations."
+talks with President Kennedy would help
+" to
+"
+establish an
+onduring peace between nations.
 Replying to
 a
-farewell speech from Austrian Presidect
-Schaerd, the Soviet Premier thanked Austria for
-the hospitality
-and welcome he had received.
-" The Soviet Union has always striven and is
-striving to safeguard on on during peace for
-the peoples,
-ho
+farewell speech from Austrian President
+Schaerf
+the Soviet Premier thanked Austria for
+I
+the hospitality and welcome he had received.
+"The Soviet Union has always striven and is
+striving to safeguard an onduring peace for
+the peoples
+to
 secure
-an early solution of the
+an
+early solution of the
 
 MONKEYOCR   (CER=0.57 avg, 4.27s GPU)
 ──────────────────────────────────────────────────────────────────────
