@@ -8,6 +8,36 @@ Empirical evaluation of open-source OCR models and Vision-Language Models (VLMs)
 
 ---
 
+## Contents
+
+- [Status at a Glance](#status-at-a-glance)
+- [Cloud Reference Pipeline](#cloud-reference-pipeline)
+- [Constraints](#constraints)
+- [Environments](#environments)
+  - [PaddleOCR-VL on Blackwell](#paddleocr-vl-on-blackwell-nvidia-sm_120)
+  - [MonkeyOCR GPU Setup](#monkeyocr-gpu-setup-llamacpp-from-source)
+- [Project Structure](#project-structure)
+- [Candidate Models](#candidate-models)
+  - [Tier 1: Most Promising](#tier-1-most-promising)
+  - [Tier 2: Baselines & Comparison](#tier-2-baselines--comparison)
+- [Architecture Insight](#architecture-insight)
+- [Research Phases](#research-phases)
+  - [Phase 1: Environment Setup & Baseline](#phase-1-environment-setup--baseline---complete)
+  - [Phase 2: Tier-1 Candidate Evaluation](#phase-2-tier-1-candidate-evaluation---complete-66-evaluated)
+  - [Handwriting-Only Re-Evaluation](#handwriting-only-re-evaluation-xml-guided-cropping)
+  - [Phase 3–8](#phase-3-tier-2-candidate-evaluation)
+- [Metrics Framework](#metrics-framework)
+- [How Each Metric Is Computed](#how-each-metric-is-computed)
+  - [CER](#cer-character-error-rate)
+  - [WER](#wer-word-error-rate)
+  - [Bounding Box IoU](#bounding-box-iou)
+  - [Reading Order — Kendall's τ-b](#reading-order--kendalls-%CF%84-b)
+- [Results (Live)](#results-live)
+- [Further Considerations](#further-considerations)
+- [License](#license)
+
+---
+
 ## Status at a Glance
 
 **Phase 2 is complete — all 6 Tier-1 candidates evaluated.**
@@ -722,6 +752,148 @@ Compare storage overhead, visual verifiability, and implementation complexity.
 | **Cost (cloud)** | If any cloud API component used | Documented for comparison |
 
 \* Stage budgets derive from the original 40s end-to-end budget and predate the measured baseline; treat 21.1s as the operative end-to-end target.
+
+---
+
+## How Each Metric Is Computed
+
+All metrics use a **greedy spatial matching** step first: each predicted block is matched to the best-IoU unmatched ground-truth block. Only matched pairs contribute to IoU and reading-order scores.
+
+### CER (Character Error Rate)
+
+CER measures **character-level** transcription accuracy on whitespace-normalized text.
+
+```
+1. normalize_text(): replace \n and \r with space, collapse
+   multiple whitespace to single space, strip
+
+2. Levenshtein distance: minimum number of single-character
+   insertions, deletions, or substitutions to turn prediction
+   into ground truth
+
+3. CER = edit_distance / len(ground_truth)
+```
+
+| Edge case | Result |
+|---|---|
+| Both empty | 0.0 (perfect) |
+| GT empty, pred non-empty | 1.0 (completely wrong) |
+| Perfect match | 0.0 |
+
+**Implementation:** space-optimized DP (two-row `prev`/`curr` arrays, O(n) memory).
+
+**Worked example** — one word: `Khrushchov` (GT, 10 chars) vs `Khrushdov` (pred, 9 chars):
+
+| Operation | Cost | After |
+|---|---|---|
+| Substitute `c` → `d` | 1 | `Khrushdov` |
+| Delete `h` | 1 | `Khrushdov` |
+
+Distance = 2, CER = 2/10 = **0.20** (20% of characters wrong on this word).
+
+**Aggregation:** per-image CER → arithmetic mean across all 25 images. Every image contributes; no exclusions.
+
+### WER (Word Error Rate)
+
+Identical Levenshtein algorithm but the unit is a **word token**, not a character.
+
+```
+1. Same normalize_text() → whitespace-normalized string
+2. Tokenize via .split() on whitespace → list of word tokens
+3. Levenshtein distance on word lists
+4. WER = edit_distance / len(gt_words)
+```
+
+**Same word example:** `Khrushchov` → `Khrushdov` is 1 wrong word out of 1 (WER = **1.0**) — WER penalizes the entire word, CER penalizes the 2 characters within it. This is why WER is always >= CER: every wrong word contributes at least 1 character error.
+
+**Aggregation:** per-image WER → arithmetic mean across all images.
+
+### CER vs WER as a Diagnostic
+
+The ratio WER/CER reveals the **type** of errors:
+
+| Pattern | WER/CER | Meaning |
+|---|---|---|
+| PaddleOCR-VL (0.045 / 0.085) | ~2× | Errors are isolated characters in mostly-correct words — best case |
+| Florence-2-large (0.061 / 0.170) | ~3× | Errors cluster in content words (names: `Khrushchov`→`Khrushdov`, `Austria`→`husbia`) |
+| SmolDocling full-form (1.47 / 1.50) | ~1× | WER ≈ CER → **hallucination**: entire chunks fabricated, characters and words equally wrong |
+
+When WER ≫ CER, the model is mostly fluent but botches specific words. When WER ≈ CER, the output is structurally broken.
+
+### Bounding Box IoU
+
+Intersection-over-Union for axis-aligned `[x1, y1, x2, y2]` boxes.
+
+```
+inter_area = max(0, min(x2_a, x2_b) - max(x1_a, x1_b))
+           × max(0, min(y2_a, y2_b) - max(y1_a, y1_b))
+
+area_a = (x2_a - x1_a) × (y2_a - y1_a)
+area_b = (x2_b - x1_b) × (y2_b - y1_b)
+
+IoU = inter_area / (area_a + area_b - inter_area)
+```
+
+**Block-level aggregation** (`compute_block_iou`):
+```
+for each predicted block:
+    find the unmatched GT block with highest IoU
+    if IoU ≥ 0.1 (permissive noise-filter threshold):
+        record as a match
+
+mean_iou   = average IoU over all matched pairs
+recall     = matched / total_gt_blocks
+precision  = matched / total_pred_blocks
+```
+
+**Bbox format normalization** before IoU:
+| Source format | Conversion |
+|---|---|
+| `[x, y, w, h]` (xywh) | → `[x, y, x+w, y+h]` |
+| `[x1,y1,x2,y2,x3,y3,x4,y4]` (quad) | → `[min(xs), min(ys), max(xs), max(ys)]` |
+| Auto-detect | Treat as xywh if width < x1 or height < y1 (negative dims) |
+
+**Aggregation:** per-image mean IoU → arithmetic mean. Images with **0 matched blocks are excluded** from the aggregate (they contribute nothing to the numerator).
+
+### Reading Order — Kendall's τ-b
+
+Measures how well the model's top-to-bottom, left-to-right ordering of text blocks matches the ground-truth reading order.
+
+**Step 1 — Extract predicted order** (`extract_reading_order`):
+```python
+# Sort predicted blocks by y (top-to-bottom), then x (left-to-right)
+# Returns list of block indices in reading order
+```
+This is a **geometric heuristic**: reading order = sort by (y, x). It works perfectly for single-column IAM forms but would need a line-grouping step (blocks within 20px y-difference → same line) for multi-column documents in Phase 5.
+
+**Step 2 — Spatial alignment:**
+```
+for each predicted block in sorted order:
+    find the unmatched GT block with highest IoU > 0.05
+    record (predicted_position, gt_index) pair
+```
+
+**Step 3 — Kendall's τ-b:**
+
+$$\tau_b = \frac{C - D}{\sqrt{(T - T_{\text{pred}})(T - T_{\text{gt}})}}$$
+
+Where for the two parallel rank lists (predicted and GT positions of matched blocks):
+- $C$ = number of **concordant** pairs — both lists agree on which element comes first
+- $D$ = number of **discordant** pairs — the lists disagree
+- $T$ = total pairs = $n(n-1)/2$
+- $T_{\text{pred}}$, $T_{\text{gt}}$ = tied pairs in each list
+
+A pair $(i, j)$ is concordant if $(a_i - a_j) \cdot (b_i - b_j) > 0$, discordant if $< 0$, and tied if either difference is zero.
+
+| τ value | Meaning |
+|---|---|
+| +1.0 | Perfect agreement (all pairs concordant) |
+| 0.0 | No correlation (random ordering) |
+| −1.0 | Perfect inverse (model reverses the order) |
+
+**Aggregation:** per-image τ → arithmetic mean. Images with **fewer than 2 matched blocks are excluded** (Kendall's τ is undefined for n < 2).
+
+**Why τ = 1.00 for single-column models:** IAM forms are single-column. Any top-to-bottom sort of predicted blocks exactly matches the ground-truth `[0, 1, 2, ...]` ordering. This confirms correct vertical ordering but does **not** test multi-column or unruled reading order — that is the focus of Phase 5. For region-level detectors (DocLayoutYOLO, PP-DocLayout-L), τ drops below 1.0 because region-level blocks don't map 1:1 to line-level GT blocks, producing detectable ordering disagreements.
 
 ---
 
