@@ -19,7 +19,22 @@ sys.path.insert(0, str(PROJECT_ROOT))
 from candidates import run_candidate
 
 TEST_DATASET = PROJECT_ROOT / "benchmark" / "test_dataset"
-GROUND_TRUTH = TEST_DATASET / "ground_truth.json"
+HANDWRITTEN_DIR = TEST_DATASET / "handwritten"
+GROUND_TRUTH = TEST_DATASET / "ground_truth_handwritten.json"
+
+
+def _get_test_images() -> list[str]:
+    """Return test image paths — handwritten if available, else curated fallback."""
+    img_dir = HANDWRITTEN_DIR if HANDWRITTEN_DIR.exists() else TEST_DATASET / "curated"
+    return sorted([
+        str(p) for p in img_dir.glob("*")
+        if p.suffix.lower() in {".jpg", ".jpeg", ".png"}
+    ])
+
+
+def _get_ground_truth():
+    """Return ground truth path if it exists, else None."""
+    return GROUND_TRUTH if GROUND_TRUTH.exists() else None
 
 # ---------------------------------------------------------------------------
 # EasyOCR
@@ -113,18 +128,87 @@ def _tesseract_inference(image_path: str) -> dict:
 
 
 # ---------------------------------------------------------------------------
+# docTR
+# ---------------------------------------------------------------------------
+
+def _doctr_inference(image_path: str) -> dict:
+    """Run docTR (PyTorch backend) on a handwritten image.
+
+    Uses the high-level ocr_predictor API which combines detection + recognition.
+    Install: pip install python-doctr[torch]
+    """
+    import time
+
+    try:
+        from doctr.models import ocr_predictor
+    except ImportError:
+        raise ImportError("python-doctr[torch] required: pip install python-doctr[torch]")
+
+    if not hasattr(_doctr_inference, "_model"):
+        print("[doctr] Loading model ...")
+        _doctr_inference._model = ocr_predictor(
+            det_arch="db_resnet50",
+            reco_arch="crnn_vgg16_bn",
+            pretrained=True,
+        )
+        print("[doctr] Model loaded.")
+
+    model = _doctr_inference._model
+
+    t0 = time.perf_counter()
+    # docTR expects numpy arrays; load image and convert
+    import numpy as np
+    from PIL import Image
+    img = np.array(Image.open(image_path).convert("RGB"))
+    result = model([img])
+    elapsed = time.perf_counter() - t0
+
+    blocks = []
+    full_text_parts = []
+    # Get image dimensions for coordinate denormalization
+    from PIL import Image
+    img = Image.open(image_path)
+    img_w, img_h = img.size
+
+    page = result.pages[0]
+    for block in page.blocks:
+        for line in block.lines:
+            for word in line.words:
+                # word.geometry is ((x1,y1),(x2,y2)) relative coords [0,1]
+                (x1, y1), (x2, y2) = word.geometry
+                bbox = [
+                    int(x1 * img_w),
+                    int(y1 * img_h),
+                    int(x2 * img_w),
+                    int(y2 * img_h),
+                ]
+                text = word.value
+                blocks.append({
+                    "bbox": bbox,
+                    "text": text,
+                    "confidence": float(word.confidence),
+                })
+                full_text_parts.append(text)
+
+    return {
+        "text": " ".join(full_text_parts),
+        "blocks": blocks,
+        "stage1_latency": elapsed,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    images = sorted([
-        str(p) for p in (TEST_DATASET / "curated").glob("*")
-        if p.suffix.lower() in {".jpg", ".jpeg", ".png"}
-    ])
+    images = _get_test_images()
 
     if not images:
-        print(f"No test images in {TEST_DATASET}. Add handwritten essay samples.")
+        print(f"No test images found. Add handwritten essay samples.")
         sys.exit(1)
+
+    gt_path = _get_ground_truth()
 
     # --- EasyOCR ---
     if os.environ.get("EASYOCR_ENABLED"):
@@ -133,7 +217,7 @@ if __name__ == "__main__":
                 candidate_name="easyocr",
                 inference_fn=_easyocr_inference,
                 test_images=images,
-                ground_truth=GROUND_TRUTH if GROUND_TRUTH.exists() else None,
+                ground_truth=gt_path,
                 notes="EasyOCR — 80+ language support, CRNN-based.",
             )
             print(f"[easyocr] Done. Avg latency: {result.latency_total_avg:.2f}s")
@@ -147,9 +231,23 @@ if __name__ == "__main__":
                 candidate_name="tesseract",
                 inference_fn=_tesseract_inference,
                 test_images=images,
-                ground_truth=GROUND_TRUTH if GROUND_TRUTH.exists() else None,
+                ground_truth=gt_path,
                 notes="Tesseract 5 — traditional OCR engine.",
             )
             print(f"[tesseract] Done. Avg latency: {result.latency_total_avg:.2f}s")
         except ImportError as e:
             print(f"[tesseract] Skipped: {e}")
+
+    # --- docTR ---
+    if os.environ.get("DOCTR_ENABLED"):
+        try:
+            result = run_candidate(
+                candidate_name="doctr",
+                inference_fn=_doctr_inference,
+                test_images=images,
+                ground_truth=gt_path,
+                notes="docTR — PyTorch detection + recognition, db_resnet50 + crnn_vgg16_bn.",
+            )
+            print(f"[doctr] Done. Avg latency: {result.latency_total_avg:.2f}s")
+        except ImportError as e:
+            print(f"[doctr] Skipped: {e}")
