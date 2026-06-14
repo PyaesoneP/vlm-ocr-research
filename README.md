@@ -40,23 +40,27 @@ Empirical evaluation of open-source OCR models and Vision-Language Models (VLMs)
 
 ## Status at a Glance
 
-**Phase 2 is complete, all 6 Tier-1 candidates evaluated.**
+**Phase 3 is complete, all 12 candidates (Tier 1 + Tier 2) evaluated.**
 
 | | Headline result |
 |---|---|
-| **Most accurate** | **PaddleOCR-VL-1.6**: CER **0.045** (beats <5% target), WER 0.085. Avg 31.94s (bimodal 3.7-61.9s on 12 GB VRAM; Docker-only on Blackwell). Built-in layout + bboxes + structure. |
+| **Most accurate (line)** | **Hunyuan VL**: CER **0.015** (5 images, manual via lmarena). Beats Qwen3-VL-4B (0.022) and <5% target by 3.3×. Text-only, no bbox output. |
 | **Best overall** | **Florence-2-large**: CER 0.061, **1.05s**/page, bbox IoU **0.76**, reading order τ = 1.00, 2.0 GB VRAM |
+| **#1 accuracy** | **PaddleOCR-VL-1.6**: CER 0.045 (beats <5% target), WER 0.085. Avg 31.94s (bimodal 3.7-61.9s on 12 GB VRAM; Docker-only on Blackwell). Built-in layout + bboxes + structure. |
 | **#3 local model** | **GOT-OCR2.0**: CER 0.088, 2.53s/page, text-only (no bbox output) |
-| **Cloud reference** | Google Doc AI: CER 0.095, 2.19s OCR-only (16.7s end-to-end with Gemini feedback) |
+| **Cloud reference** | Google Doc AI: CER 0.095 (full-form), CER **0.108** word-level, word IoU **0.611**, 3.6s/image. Beaten by Qwen VLMs on both CER (0.035) and word IoU (0.72). |
 | **Fastest model** | Nemotron OCR v2: 0.07s/page (239× faster than end-to-end baseline), CER 0.214 (not competitive on accuracy) |
 | **Latency target** | Met for Stage 1: Florence-2-large transcribes in 1.05s vs the 16.7s end-to-end baseline. Stage 2 (error detection, currently Gemini at 12.4s) is now the dominant open problem |
-| **Accuracy target** | Achieved: PaddleOCR-VL-1.6 CER 0.045 beats the <5% CER target (Florence-2-large is close at 0.061) |
+| **Accuracy target** | Achieved: Qwen3-VL-8B word-level CER **0.035** and 4B line-level CER **0.022** both beat the <5% CER target (PaddleOCR-VL-1.6 at 0.045, Florence-2-large at 0.061) |
+| **Word-level bbox (4B)** | **Qwen3-VL-4B**: Word IoU **0.718**, τ = **1.000**, CER **0.049**, WER **0.242**. 1891 words, ~80s/image (local). Vizes at `benchmark/visualizations/qwen3vl_4b_wordlevel/`. |
+| **Word-level bbox (8B)** | **Qwen3-VL-8B** (API): Word IoU **0.722**, CER **0.035**, WER **0.223**. 1891 words, 26.8s/image (API). **Best word-level accuracy.** Vizes at `benchmark/visualizations/qwen3vl_8b_wordlevel/`. |
+| **Word IoU leader** | **Tesseract 5**: Word IoU **0.812** (best bbox precision), but CER 0.443 (unusable). **Qwen VLMs** have best CER/IoU balance: CER 0.035-0.049 with IoU 0.72. Traditional OCRs (EasyOCR 0.60, docTR 0.58) have moderate IoU, poor CER. Full table in [Word-Level IoU Comparison](#word-level-iou-cross-model-comparison-2026-06-14). |
 
 > **2026-06-12, Evaluation bug fixes applied.** A code review identified several metric bugs (τ always 1.0, single-image CERs, Nemotron bbox double-conversion, missing crop-offset transform). All numbers above reflect corrected evaluations on the full 25-image dataset. See commit history for details.
 
 > **Read this before interpreting any numbers:** IAM evaluation forms contain the same text both **machine-printed** and **handwritten**, so full-form CER/WER cannot reveal which region a model actually read. Only the [handwriting-only re-evaluation](#handwriting-only-re-evaluation-xml-guided-cropping) on XML-cropped images measures true handwriting recognition. Full-form Phase 2 numbers are retained as printed-text OCR benchmarks. Details: [IAM Dataset Structure](#iam-dataset-structure).
 
-**Next up:** Phase 3 (Tier-2 baselines), then pipeline assembly, reading-order deep-dive, and error-detection accuracy (Phases 4-8).
+**Next up:** Phase 4 (pipeline assembly), Phase 5 (reading-order deep-dive), and Phase 6 (error-detection accuracy). All 13 candidates evaluated. Hunyuan VL (CER 0.015) is new #1 by CER but manual-only. Qwen3-VL-8B (word CER 0.035, IoU 0.722) is best automatable model for Stage 1+2.
 
 ---
 
@@ -524,13 +528,14 @@ See `scripts/generate_ground_truth.py` for the generation code and `scripts/crop
 
 | Candidate | Printed CER (full form) | **Handwriting CER** | Bbox IoU | Read Order τ | Latency (cropped) | Verdict |
 |---|---|---|---|---|---|---|
-| **Florence-2-large** | - | **0.061** | **0.76** | **1.00** | 1.05s (text) / 1.49s (bbox) | **Best overall model** (accuracy + speed + bboxes). 24% better CER than Doc AI. Perfect reading order, strong line-level bboxes (100% block recall). 2.0 GB VRAM. PaddleOCR-VL has better CER (0.045) but 30× slower on 12 GB. |
+| **Florence-2-large** | - | **0.061** | **0.76** (line) | **1.00** | 1.05s (text) / 1.49s (bbox) | **Best overall model** (accuracy + speed + line bboxes). 2.0 GB VRAM. PaddleOCR-VL has better CER (0.045) but 30× slower. Word-level IoU is 0.176 (line bboxes only, see word-level table). |
 | **PaddleOCR-VL-1.6** | - | **0.045** | block-level† | block-level† | 31.94s avg (3.7-61.9s) | **#1 local model by CER.** Beats the <5% CER target. SOTA doc VLM (96.3% OmniDocBench), built-in layout + bboxes + structure. Bimodal latency: ~4s for short text, ~30-62s for long text (12 GB VRAM limit triggers WDDM sysmem fallback). Evaluated via standalone `bench_paddleocr_handwritten.py` (Docker, data-only mount). |
-| **Google Doc AI** (cloud) | 0.08 | **0.095** | **0.58** | **0.91** | 2.19s (OCR only) | Cloud baseline. Handwriting CER 0.095 (25-image evaluation). Strong bbox quality (0.58 IoU). Reading order τ = 0.91. |
-| **MonkeyOCR** | - | **0.566** | - | - | 4.27s | GPU-accelerated via CUDA llama-server. Struggles with IAM handwriting (CER 0.566 vs 0.061 best local). Text-only (no bbox/reading-order output). |
+| **Google Doc AI** (cloud) | 0.08 | **0.095** (line) / **0.108** (word) | **0.58** (line) / **0.611** (word) | **0.91** | 2.19s (line) / 3.6s (word) | Cloud baseline. Word-level CER 0.108, WER 0.315, word IoU 0.611. Beaten by Qwen VLMs on both CER (0.035) and word IoU (0.72). |
+| **Hunyuan VL** (~4B, manual) | - | **0.015** | - | - | ~5-10s (chat) | **#1 by CER** (5-image manual eval via lmarena). Text-only, no bbox/API access. Confirms competitive performance but not automatable. |
 | **SmolDocling-256M** | 1.47 | 0.107 | 0.24 | 1.00 | 5.37s | Best structured output (DocTags + bboxes), but weak localization (coarse blocks). |
 | **Nemotron OCR v2** | 1.17 | 0.214 | 0.28 | 0.89 | 0.07s | Fastest (239× baseline). Recognizer struggles with handwriting (CER 0.214) but detector localizes ~40% of line-level blocks. Reading order τ informative (0.89, not uniformly 1.0). |
-| **GOT-OCR2.0** | 2.93 | 0.088 | ‡ | - | 2.53s | **#2 local model by CER on handwriting.** Previously misreported as 4.32 (single-image bug). No bbox output. |
+| **GOT-OCR2.0** | 2.93 | 0.088 | ‡ | - | 2.53s | **#3 local model by CER.** Previously misreported as 4.32 (single-image bug). No bbox output. |
+| **Hunyuan VL** (~4B) | - | **0.015** | - | - | ~5-10s (chat) | **#1 by CER overall** (5-image manual eval via lmarena). Text-only, no bbox/API. Beats Qwen3-VL-4B (0.022). Manual only — not automatable. |
 | **PaddleOCR PP-DocLayout-L** (layout only) | - | - | 0.08 † | **0.92** | **0.07s** | **Best layout detector tested.** 3-9 regions per full-form page (text, header, paragraph_title). Solid reading order (τ = 0.92) vs DocLayoutYOLO's τ = -0.17. Runs in the PaddleOCR Docker image alongside PaddleOCR-VL. |
 | **DocLayoutYOLO** (layout only) | - | - | 0.12 † | -0.17 | 0.10s | Layout detection only (no OCR). Region-level blocks cannot resolve line-level reading order (τ = -0.17). Runs on Blackwell without PaddlePaddle. |
 
@@ -590,7 +595,7 @@ the hospitality and welcome he had received.
 striving to safeguard an enduring peace for
 the peoples, to secure an early solution of the
 
-GOOGLE DOC AI   (CER=0.095 avg, 2.19s OCR-only)
+GOOGLE DOC AI   (CER=0.095 line / 0.108 word, 3.6s word-level OCR)
 ──────────────────────────────────────────────────────────────────────
 In Vienna, before flying off to Moscow,
 во
@@ -676,9 +681,119 @@ strolling to safeguard an ordinary peace for
 he peoples,he secure an early suthion of the
 ```
 
-### Phase 3: Tier-2 Candidate Evaluation
+### Phase 3: Tier-2 Candidate Evaluation (Complete, 13/13 candidates)
 
-Evaluate comparison baselines and larger models for reference.
+Evaluate comparison baselines and larger models for reference on the
+authoritative cropped-handwriting dataset (25 images, `ground_truth_handwritten.json`).
+> **2026-06-14, Critical bug found.** The existing `candidates/qwen3_vl/eval.py` uses
+> `Qwen3VLForConditionalGeneration` which is the WRONG class. The official
+> [Qwen3-VL README](https://github.com/QwenLM/Qwen3-VL) shows the correct API is
+> `AutoModelForImageTextToText` + `AutoProcessor`. This must be fixed before evaluation.
+**Candidates, status, and plan:**
+| # | Candidate | Params | Eval Script | Status | Notes |
+|---|---|---|---|---|---|
+| 7 | TrOCR (base + large) | 0.3B / 0.6B | `candidates/trocr/eval.py` | Exists, needs path update | IAM-finetuned, line-level only. Heuristic line detector may need CRAFT fallback on cropped images. |
+| 8 | Qwen3-VL-4B-Instruct | 4B | `candidates/qwen3_vl/eval.py` | **BUG: wrong model class** | Fix `Qwen3VLForConditionalGeneration` → `AutoModelForImageTextToText`. BF16 fits 12 GB (~8 GB). |
+| 9 | Qwen3-VL-8B-Instruct (INT4) | 8B | same as #8 | **BLOCKED** | bitsandbytes lacks Blackwell sm_120 kernels. Cloud API fallback noted. |
+| 10 | Hunyuan VL | ~4B | none | **Manual only** | No API/HF access; lmarena chat only. Manual transcription of 5-10 images. |
+| 11 | EasyOCR | ~50M | `candidates/baselines/eval.py` | Exists, needs path update | `easyocr.Reader(["en"])` already implemented. |
+| 12 | docTR | varies | `candidates/baselines/eval.py` | **Needs new function** | `doctr.models.ocr_predictor(pretrained=True)`. PyTorch backend. |
+| 13 | Tesseract 5 | N/A | `candidates/baselines/eval.py` | Exists, needs path update | `pytesseract.image_to_data()` already implemented. |
+**Implementation steps:**
+1. ✓ **Fix Qwen3-VL eval:** Replaced `Qwen3VLForConditionalGeneration` → `AutoModelForImageTextToText`. Updated to handwritten images + `ground_truth_handwritten.json`. (done 2026-06-14)
+2. ✓ **Update TrOCR eval:** Switched to handwritten images + `ground_truth_handwritten.json`. Added `TROCR_MODEL` env var for base/large switching. (done 2026-06-14)
+3. ✓ **Update baselines eval:** Added `_doctr_inference` (`python-doctr[torch]`), switched to handwritten images via `_get_test_images()` helper. (done 2026-06-14)
+4. ✓ **Register in `eval_handwritten.py`:** Added `trocr_large`, `trocr_base`, `qwen3_vl_4b`, `easyocr`, `tesseract`, `doctr` with `fn_name` support for baselines. (done 2026-06-14)
+5. ✓ **Run evaluations (6/6 automated complete):** TrOCR-large, TrOCR-base, EasyOCR, Tesseract, docTR, Qwen3-VL-4B done. Qwen3-VL-4B re-evaluated with inline bbox parsing fix. (done 2026-06-14)
+6. ✓ **Manual Hunyuan VL:** 5-image eval via lmarena chat. CER **0.015** — new #1 by CER, beats Qwen3-VL-4B (0.022). Text-only, no bbox. (done 2026-06-14)
+7. ✓ **Document:** Phase 3 results table added. Per-candidate findings below. (done 2026-06-14)
+
+**Phase 3 Handwriting-Only Results (CER-sorted, cropped images, 25 images)**
+
+| Candidate | Handwriting CER | WER | Latency (cropped) | VRAM | Bbox | Notes |
+|---|---|---|---|---|---|---|
+| **Qwen3-VL-4B** | **0.022** | 0.054 | 14.00s | 9.6 GB | Line-level (parsed) | **#1 model by CER.** Beats <5% target by 2.3×. Prompt-based OCR with inline bbox parsing. Fixed model class bug (`AutoModelForImageTextToText`). |
+| **TrOCR-large** | **0.244** | 0.506 | 1.35s | 2.2 GB | Heuristic (10 lines) | IAM-finetuned, line-level model. Heuristic vertical-projection detector. |
+| **docTR** | **0.272** | 0.757 | 1.09s | ~1 GB | Word-level (native) | db_resnet50 + crnn_vgg16_bn. Word-level bboxes, moderate accuracy on handwriting. |
+| **TrOCR-base** | **0.380** | 0.681 | 1.22s | ~1.5 GB | Heuristic (10 lines) | Smaller variant, ~50% worse CER than large. |
+| **Tesseract 5** | **0.439** | 0.862 | 0.50s | N/A (CPU) | Word-level (native) | Traditional OCR engine. Not designed for handwriting. |
+| **EasyOCR** | **0.628** | 1.086 | 0.88s | ~0.5 GB | Word-level (native) | CRNN-based. Struggles with handwriting (roadmap feature). |
+| **Qwen3-VL-8B-INT4** | BLOCKED | BLOCKED | BLOCKED | — | — | bitsandbytes lacks Blackwell sm_120 kernels. |
+| **Hunyuan VL** | *manual* | *manual* | *manual* | — | — | lmarena chat only, no API access. |
+
+*For comparison — Tier 1 leaders: PaddleOCR-VL-1.6 (CER 0.045), Florence-2-large (CER 0.061), GOT-OCR2.0 (CER 0.088).*
+
+**Key findings:**
+- **Qwen3-VL-4B is the new #1 model by CER (0.022)** — 2.1× better than PaddleOCR-VL-1.6 (0.045) and 2.8× better than Florence-2-large (0.061). Prompt-based OCR with inline bbox parsing. However, at 14.0s/page and 9.6 GB VRAM, it's 13× slower than Florence-2-large (1.05s). The corrected model class (`AutoModelForImageTextToText`) and bbox-stripped text parsing were critical — the initial run with bbox tokens in the text produced a misleading CER of 0.597.
+- **No other Tier-2 model competes with Tier-1 on handwriting.** TrOCR-large (CER 0.244) is 11× worse than Qwen3-VL-4B.
+- **Florence-2-large remains best overall** for deployment (CER 0.061, 1.05s, IoU 0.76, 2.0 GB VRAM) — the best accuracy/speed balance.
+- **TrOCR-large > TrOCR-base** (0.244 vs 0.380): the larger model is worth the extra VRAM.
+- **Traditional OCR engines (EasyOCR, Tesseract) are not viable for handwriting** — CER > 0.4.
+- **docTR is the best open-source traditional OCR** for handwriting at CER 0.272, with native word-level bboxes.
+
+#### Qwen3-VL-4B Word-Level Evaluation (2026-06-14)
+
+Beyond line-level CER, we evaluated Qwen3-VL-4B on **per-word bounding box accuracy** and **reading order** using word-level prompts. Ground truth was generated from IAM XML word-level annotations (1891 words across 25 images, with 20px padding applied to crop offset).
+
+| Metric | Value | Notes |
+|---|---|---|
+| **Word-level CER** | **0.049** | Slightly higher than line-level (0.022) — word-by-word prompting introduces minor word-splitting errors |
+| **WER** | 0.242 | Word-level WER is naturally higher due to per-word evaluation granularity |
+| **Word IoU** | **0.718** | Greedy spatial matching at IoU ≥ 0.05 threshold. VLM-predicted bboxes are typically larger than GT, which penalizes IoU even when boxes are visually well-aligned |
+| **Reading Order τ** | **1.000** | Perfect on single-column IAM forms. Kendall's tau-b against GT word sequence |
+| **Word Recall** | ~93% | Most GT words matched by at least one predicted bbox |
+| **Latency** | ~80s/image | Significantly slower than line-level (14s) due to per-word output generation |
+
+**Visualizations:** 25 annotated images saved to `benchmark/visualizations/qwen3vl_4b_wordlevel/` (red = predicted bbox + text, green = GT bbox + text). Result JSON: `benchmark/results/qwen3_vl_4b_wordlevel_handwritten.json`.
+
+**Key insight:** Qwen3-VL-4B can produce usable word-level bounding boxes via prompting alone (no fine-tuning). IoU of 0.72 is solid for a generalist VLM — the main gap vs. specialist detectors (Florence-2 IoU 0.76) is that VLMs tend to predict slightly oversized boxes. The reading order is flawless on structured single-column forms.
+
+#### Qwen3-VL-8B Word-Level Evaluation (2026-06-14)
+
+Evaluated via HF Inference API (novita provider) — the 8B model cannot run locally due to bitsandbytes lacking Blackwell sm_120 kernels. Same word-level prompt, ground truth, and metrics as the 4B evaluation.
+
+| Metric | 8B (API) | 4B (local) | Notes |
+|---|---|---|---|
+| **Word-level CER** | **0.035** | 0.049 | 8B is 29% more accurate at word level |
+| **WER** | **0.223** | 0.242 | |
+| **Word IoU** | **0.722** | 0.718 | Essentially tied on spatial accuracy |
+| **Word Recall** | ~99% | ~93% | 8B matches nearly every GT word |
+| **Latency** | 26.8s/image | ~80s/image | API inference is faster than local 4B generation |
+| **Total tokens** | 108,640 | N/A | ~4,300 tokens/image |
+
+**Visualizations:** 25 annotated images (red=pred, green=GT) at `benchmark/visualizations/qwen3vl_8b_wordlevel/`. Result JSON: `benchmark/results/qwen3_vl_8b_wordlevel_handwritten.json`.
+
+**Key insight:** The 8B model improves on the already-strong 4B across every metric — CER drops from 0.049 → 0.035 (29% better), word recall goes from 93% → 99%, and IoU is essentially tied (0.722 vs 0.718). The API latency (26.8s/image) is surprisingly lower than local 4B (~80s/image), likely due to better hardware on the API side. At 0.035 CER, Qwen3-VL-8B achieves the best word-level accuracy of any model evaluated. The practical limitation is API cooldown (~5 min between requests), making full-dataset benchmarks slow but individual image inference fast.
+
+**Decisions:**
+- **Direct handwritten evaluation only:** skip full-form; Phase 2 proved it's confounded by printed text.
+- **Qwen3-VL-8B local blocked** by bitsandbytes on Blackwell; API evaluation via novita provider is the fallback.
+- **Hunyuan VL manual only:** no API access; lmarena chat is the only path.
+- **docTR uses PyTorch backend** (`python-doctr[torch]`) to avoid adding TensorFlow to `.venv`.
+
+#### Word-Level IoU Cross-Model Comparison (2026-06-14)
+
+All models evaluated against the same word-level ground truth (1891 words from IAM XML, 25 images). IoU computed via greedy spatial matching at threshold 0.05.
+
+| Model | Word IoU | CER | WER | τ | Latency | Bbox Source |
+|---|---|---|---|---|---|---|
+| **Tesseract 5** | **0.812** | 0.443 | 0.832 | 0.993 | 0.5s | Native word-level engine |
+| **Qwen3-VL-8B** | **0.722** | 0.035 | 0.223 | — | 26.8s (API) | Prompted word-level |
+| **Qwen3-VL-4B** | **0.718** | 0.049 | 0.242 | 1.000 | ~80s | Prompted word-level |
+| EasyOCR | 0.597 | 0.625 | 1.007 | 0.760 | 1.1s | Native word-level |
+| docTR | 0.581 | 0.275 | 0.737 | 0.999 | 1.2s | Native word-level |
+| **Google Doc AI** | **0.611** | 0.108 | 0.315 | — | 3.6s | Native word-level (cloud) |
+| Florence-2-large | 0.176* | 0.091 | 0.341 | 1.000 | 1.7s | Line-level only* |
+
+> \*Florence-2 outputs line-level bboxes (~10 per page), not word-level. Its previously reported IoU of 0.76 was line-level vs. line-level GT. At word granularity, IoU drops to 0.176 because single line boxes can't match individual word GT annotations. PaddleOCR-VL also outputs layout-level blocks (not word-level), so word IoU is not meaningful for it.
+
+**Key takeaways:**
+- **Tesseract wins on bbox precision** (0.812) — its traditional word-level engine produces the tightest bounding boxes. But CER is terrible (0.443), making it unusable for transcription.
+- **Qwen3-VL models have the best CER/IoU balance** — 0.72 IoU with 0.035-0.049 CER. This is the only approach that delivers both accurate transcription AND usable word localization.
+- **Traditional OCR engines (EasyOCR, docTR) have moderate IoU (0.58-0.60)** with moderate-to-poor CER (0.28-0.63). They can detect where words are but can't reliably read them.
+- **No traditional OCR engine achieves CER < 0.27** on handwriting. The VLMs are 5-8× more accurate at transcription.
+- **Reading order is a solved problem for single-column forms** — all models achieve τ > 0.99 except EasyOCR (0.76, which has top-to-bottom confusion).
+- **For Stage 2 error detection** (Phase 6), per-word bounding boxes are critical — Tesseract or Qwen VLMs would be the only viable candidates.
 
 ### Phase 4: Two-Stage Pipeline Architecture Design
 
@@ -912,7 +1027,7 @@ Sorted by CER. Bbox IoU and reading-order τ are excluded here because they were
 | **Florence-2-large** | 1.05 | **0.061** | 0.170 | Handwriting (no header) | Appears to read the handwritten section even on full forms |
 | **MonkeyOCR** (GGUF, CPU) | 5.96 | 0.58 | 0.65 | Printed (headers in output) | CER driven by generation repetition, not misrecognition |
 | **Nemotron OCR v2** | 0.09 | 1.17 | 1.24 | Printed (headers in output) | Recognizer trained on printed documents |
-| *(baseline)* **Doc AI + Gemini** | 16.7 | 1.22 | 1.22 | Full form | Scope mismatch vs handwritten-only GT inflates CER (handwriting-only CER is 0.08) |
+| *(baseline)* **Doc AI + Gemini** | 16.7 | 1.22 | 1.22 | Full form | Scope mismatch vs handwritten-only GT inflates CER (handwriting-only CER: 0.108 word-level, 0.095 line-level) |
 | **SmolDocling-256M** | 12.2 | 1.47 | 1.50 | Ambiguous (skips header) | Repetition/hallucination on handwriting |
 | **GOT-OCR2.0** | 35.9 | 2.93 | 3.92 | Ambiguous (skips header) | Transcribes printed + handwritten; chat-template tokens need cleanup |
 | **PaddleOCR-VL-1.6** | 31.94 (cropped) | **0.045** | 0.085 | Handwriting (cropped) | **#1 CER.** Bimodal latency (3.7-61.9s), 12 GB VRAM causes WDDM spill on long-text images. Standalone benchmark. |
@@ -937,7 +1052,7 @@ Sorted by CER. Bbox IoU and reading-order τ are excluded here because they were
 | Model | `microsoft/Florence-2-large` (770M) | Runs in `florencetf` conda env (transformers 4.40.0) |
 | Avg latency | 1.05 s (plain `<OCR>`) / 1.49 s (`<OCR_WITH_REGION>`) | Fastest GPU model; 0.44s overhead for boxes |
 | VRAM peak | 2.0 GB | Fits 12 GB with large headroom |
-| Handwriting CER | **0.061** | #1 of all models, local or cloud (Doc AI: 0.08) |
+| Handwriting CER | **0.061** | #1 line-level of all models (Doc AI word-level: 0.108, Qwen3-VL-8B word-level: 0.035) |
 | **Mean Bbox IoU** | **0.76** | vs IAM XML line-level GT. All GT blocks matched on all 25 images (100% recall). |
 | **Mean Kendall's τ** | **1.00** | Top-to-bottom y-sort of model bboxes exactly matches GT order (single-column). |
 | Bbox format | 4-corner quad → xyxy | `[x1,y1,x2,y2,x3,y3,x4,y4]` converted to `[x_min,y_min,x_max,y_max]` |
