@@ -267,7 +267,7 @@ vlm-ocr-research/
 
 † Blackwell requires PaddlePaddle 3.4.0+ from the cu129 index or the official Docker image, see [PaddleOCR-VL on Blackwell](#paddleocr-vl-on-blackwell-nvidia-sm_120).
 
-- **Phase 2 status:** All 6 Tier-1 candidates evaluated. Florence-2-large is the #1 local model (handwriting CER 0.061, IoU 0.76, 1.05s). GOT-OCR2.0 is #2 (0.088 CER on handwriting). DocLayoutYOLO provides native layout bboxes (0.10s; coarse region-level, IoU 0.12 vs line-level GT, τ = -0.17, region-level detection cannot resolve line-level reading order).
+- **Phase 2-3 status:** All 13 candidates evaluated. See [Status at a Glance](#status-at-a-glance) for the ranked leaderboard. Hunyuan VL leads CER (0.015, manual), Qwen3-VL-8B is best automatable model (CER 0.035 + word IoU 0.722).
 
 ### Tier 2: Baselines & Comparison
 
@@ -453,7 +453,7 @@ Handwriting-specific evaluation therefore requires isolating section 3 via bound
 | Candidate | Status | Text Source | Key Findings |
 |---|---|---|---|
 | **GOT-OCR2.0** | Complete | Ambiguous (no header output) | 35.9s avg, 3.4 GB VRAM. Transcribes full form (printed + handwritten). No native bbox output, format mode produces text formatting only. Verified against HF transformers and original implementation. |
-| **Florence-2-large** | Complete (separate env) | **Handwriting** (no header in output) | **#1 local model.** CER 0.061 (24% better than Doc AI), 1.05s avg (fastest GPU model). 770M params, 2.0 GB VRAM. Requires `conda activate florencetf` with transformers 4.40.0. Base model (230M): CER 0.187, 1.2s. |
+| **Florence-2-large** | Complete (separate env) | **Handwriting** (no header in output) | **Was #1 at Phase 2.** CER 0.061, 1.05s avg (fastest GPU model). 770M params, 2.0 GB VRAM. Now #5 behind Hunyuan, Qwen-4B, Qwen-8B, PaddleOCR-VL. Base model (230M): CER 0.187, 1.2s. |
 | **PaddleOCR-VL-1.6** | Complete (Docker) | Handwriting-only (cropped) | **#1 by CER (0.045).** Evaluated via standalone `bench_paddleocr_handwritten.py` in Docker (data-only mount). Avg 31.94s (3.7-61.9s bimodal). `.venv_paddleocr` native path confirmed broken on Blackwell; Docker `sm120-offline` image is the only working path. Built-in layout + bboxes + structure. See [PaddleOCR-VL Docker Workflow](#paddleocr-vl-docker-workflow). |
 | **SmolDocling-256M** | Complete | Ambiguous (skips header) | 12.2s avg latency (42% faster than baseline), 0.8 GB VRAM, CER 1.47, WER 1.50. DocTags output with bbox parsing via regex. Hallucinates/repeats on handwriting. `AutoModelForMultimodalLM` + transformers 5.x. |
 | **Nemotron OCR v2** | Complete | **Printed text** (headers in output) | **Fastest candidate.** 0.09s avg (234× faster than baseline), 0.6 GB VRAM, CER 1.17, WER 1.24. Outputs form headers ("Sentence Database") + form IDs → confirmed reading printed text. 7 text regions per page with bboxes + reading order via relational model. Built in `aiml` conda env (CUDA 13.0 + PyTorch 2.12). CUDA extension compiled without issues. |
@@ -546,7 +546,7 @@ See `scripts/generate_ground_truth.py` for the generation code and `scripts/crop
 | Candidate | Printed CER (full form) | **Handwriting CER** | Bbox IoU | Read Order τ | Latency (cropped) | Verdict |
 |---|---|---|---|---|---|---|
 | **Florence-2-large** | - | **0.061** | **0.76** (line) | **1.00** | 1.05s (text) / 1.49s (bbox) | **Best overall model** (accuracy + speed + line bboxes). 2.0 GB VRAM. PaddleOCR-VL has better CER (0.045) but 30× slower. Word-level IoU is 0.176 (line bboxes only, see word-level table). |
-| **PaddleOCR-VL-1.6** | - | **0.045** | block-level† | block-level† | 31.94s avg (3.7-61.9s) | **#1 local model by CER.** Beats the <5% CER target. SOTA doc VLM (96.3% OmniDocBench), built-in layout + bboxes + structure. Bimodal latency: ~4s for short text, ~30-62s for long text (12 GB VRAM limit triggers WDDM sysmem fallback). Evaluated via standalone `bench_paddleocr_handwritten.py` (Docker, data-only mount). |
+| **PaddleOCR-VL-1.6** | - | **0.045** | block-level† | block-level† | 31.94s avg (3.7-61.9s) | #4 by CER. Beats the <5% CER target. SOTA doc VLM (96.3% OmniDocBench), built-in layout + bboxes + structure. Bimodal latency: ~4s for short text, ~30-62s for long text (12 GB VRAM limit triggers WDDM sysmem fallback). Docker-only on Blackwell. |
 | **Google Doc AI** (cloud) | 0.08 | **0.095** (line) / **0.108** (word) | **0.58** (line) / **0.611** (word) | **0.91** | 2.19s (line) / 3.6s (word) | Cloud baseline. Word-level CER 0.108, WER 0.315, word IoU 0.611. Beaten by Qwen VLMs on both CER (0.035) and word IoU (0.72). |
 | **Hunyuan VL** (~4B, manual) | - | **0.015** | - | - | ~5-10s (chat) | **#1 by CER** (5-image manual eval via lmarena). Text-only, no bbox/API access. Confirms competitive performance but not automatable. |
 | **SmolDocling-256M** | 1.47 | 0.107 | 0.24 | 1.00 | 5.37s | Best structured output (DocTags + bboxes), but weak localization (coarse blocks). |
@@ -1083,7 +1083,7 @@ Sorted by CER. Bbox IoU and reading-order τ are excluded here because they were
 |---|---|---|
 | Model | PaddleOCR-VL-1.6 via native `PaddleOCRVL` pipeline | NOT HuggingFace transformers, PaddlePaddle inference engine |
 | Avg latency | 31.94 s (cropped handwriting) | Bimodal: 3.7-4.9s for short text, 30-62s for long text. WDDM sysmem fallback on 12 GB VRAM causes bimodality. On >=16 GB expect sub-5s uniform. |
-| Handwriting CER | **0.045** | #1 local model, first to beat the <5% CER target |
+| Handwriting CER | **0.045** | First model to beat the <5% CER target (now #4 overall) |
 | Handwriting WER | **0.085** | Beats <10% WER target |
 | Bounding boxes | Document-level blocks | 1 block per cropped image covering ~entire handwritten region. Not comparable to line-level GT (IoU/tau not scored). |
 | VRAM peak | ~8 GB | Dual-model load: PP-DocLayoutV3 + PaddleOCR-VL-1.6. Leaves ~4 GB headroom on 12 GB cards, insufficient for long-text KV cache. |
