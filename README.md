@@ -44,13 +44,13 @@ Empirical evaluation of open-source OCR models and Vision-Language Models (VLMs)
 
 | | Headline result |
 |---|---|
-| **#1 local model** | **Florence-2-large**: handwriting CER **0.061**, full-form CER 1.22, **1.05s**/page, bbox IoU **0.76**, reading order τ = 1.00, 2.0 GB VRAM |
-| **#2 local model** | **GOT-OCR2.0**: handwriting CER **0.088**, 2.53s/page, text-only (no bbox output) |
-| **#3 local model** | **SmolDocling-256M**: handwriting CER **0.107**, 5.37s/page, DocTags bboxes (IoU 0.24) |
-| **Cloud reference** | Google Doc AI: handwriting CER 0.08, 2.8s OCR-only (16.7s end-to-end with Gemini feedback) |
-| **Fastest model** | Nemotron OCR v2: 0.07s/page (301× faster than baseline), CER 0.214 (not competitive on accuracy) |
+| **Most accurate** | **PaddleOCR-VL-1.6**: CER **0.045** (beats <5% target), WER 0.085. Avg 31.94s (bimodal 3.7-61.9s on 12 GB VRAM; Docker-only on Blackwell). Built-in layout + bboxes + structure. |
+| **Best overall** | **Florence-2-large**: CER 0.061, **1.05s**/page, bbox IoU **0.76**, reading order τ = 1.00, 2.0 GB VRAM |
+| **#3 local model** | **GOT-OCR2.0**: CER 0.088, 2.53s/page, text-only (no bbox output) |
+| **Cloud reference** | Google Doc AI: CER 0.095, 2.19s OCR-only (16.7s end-to-end with Gemini feedback) |
+| **Fastest model** | Nemotron OCR v2: 0.07s/page (239× faster than end-to-end baseline), CER 0.214 (not competitive on accuracy) |
 | **Latency target** | Met for Stage 1: Florence-2-large transcribes in 1.05s vs the 16.7s end-to-end baseline. Stage 2 (error detection, currently Gemini at 12.4s) is now the dominant open problem |
-| **Accuracy target** | Achieved: PaddleOCR-VL-1.6 CER **0.045** beats the <5% target (Florence-2-large is close at 0.061) |
+| **Accuracy target** | Achieved: PaddleOCR-VL-1.6 CER 0.045 beats the <5% CER target (Florence-2-large is close at 0.061) |
 
 > **2026-06-12, Evaluation bug fixes applied.** A code review identified several metric bugs (τ always 1.0, single-image CERs, Nemotron bbox double-conversion, missing crop-offset transform). All numbers above reflect corrected evaluations on the full 25-image dataset. See commit history for details.
 
@@ -529,7 +529,7 @@ See `scripts/generate_ground_truth.py` for the generation code and `scripts/crop
 | **Google Doc AI** (cloud) | 0.08 | **0.095** | **0.58** | **0.91** | 2.19s (OCR only) | Cloud baseline. Handwriting CER 0.095 (25-image evaluation). Strong bbox quality (0.58 IoU). Reading order τ = 0.91. |
 | **MonkeyOCR** | - | **0.566** | - | - | 4.27s | GPU-accelerated via CUDA llama-server. Struggles with IAM handwriting (CER 0.566 vs 0.061 best local). Text-only (no bbox/reading-order output). |
 | **SmolDocling-256M** | 1.47 | 0.107 | 0.24 | 1.00 | 5.37s | Best structured output (DocTags + bboxes), but weak localization (coarse blocks). |
-| **Nemotron OCR v2** | 1.17 | 0.214 | 0.28 | 0.89 | 0.07s | Fastest (301× baseline). Recognizer struggles with handwriting (CER 0.214) but detector localizes ~40% of line-level blocks. Reading order τ informative (0.89, not uniformly 1.0). |
+| **Nemotron OCR v2** | 1.17 | 0.214 | 0.28 | 0.89 | 0.07s | Fastest (239× baseline). Recognizer struggles with handwriting (CER 0.214) but detector localizes ~40% of line-level blocks. Reading order τ informative (0.89, not uniformly 1.0). |
 | **GOT-OCR2.0** | 2.93 | 0.088 | ‡ | - | 2.53s | **#2 local model by CER on handwriting.** Previously misreported as 4.32 (single-image bug). No bbox output. |
 | **PaddleOCR PP-DocLayout-L** (layout only) | - | - | 0.08 † | **0.92** | **0.07s** | **Best layout detector tested.** 3-9 regions per full-form page (text, header, paragraph_title). Solid reading order (τ = 0.92) vs DocLayoutYOLO's τ = -0.17. Runs in the PaddleOCR Docker image alongside PaddleOCR-VL. |
 | **DocLayoutYOLO** (layout only) | - | - | 0.12 † | -0.17 | 0.10s | Layout detection only (no OCR). Region-level blocks cannot resolve line-level reading order (τ = -0.17). Runs on Blackwell without PaddlePaddle. |
@@ -548,7 +548,7 @@ See `scripts/generate_ground_truth.py` for the generation code and `scripts/crop
 - **Florence-2-large is the best overall model** (CER 0.061, 1.05s, IoU 0.76, τ = 1.00), the best balance of accuracy, speed, and bounding box quality. Bbox quality is dominant (100% block recall on all 25 images). At 2.0 GB VRAM, fits comfortably on any GPU.
 - **GOT-OCR2.0 is #3 by CER** (0.088) at 2.53s, dramatically better than the previously reported 4.32 (single-image evaluation bug). Text-only, no bbox output.
 - **SmolDocling is the best structured-output model** (CER 0.107 + DocTags bboxes, τ = 1.00), well suited to the essay feedback pipeline, though localization is coarse (IoU 0.24).
-- **Nemotron's speed is unmatched** (0.07s, 301× baseline) but handwriting CER of 0.214 keeps it out of the top tier. Bbox IoU corrected to 0.28 (was 0.29 with double-conversion bug).
+- **Nemotron's speed is unmatched** (0.07s, 239× baseline) but handwriting CER of 0.214 keeps it out of the top tier. Bbox IoU corrected to 0.28 (was 0.29 with double-conversion bug).
 - **PaddleOCR PP-DocLayout-L is the best layout detector tested** (0.07s, τ = 0.92), dramatically better reading order than DocLayoutYOLO (τ = -0.17). Detects 3-9 regions per page with meaningful class labels. Runs in the same Docker image as PaddleOCR-VL.
 - **DocLayoutYOLO** provides basic layout detection on Blackwell (0.10s/image), but τ = -0.17 confirms region-level detection cannot resolve line-level reading order.
 - **Reading order is trivially perfect for line-level models** (τ = 1.00 for Florence-2, SmolDocling): IAM forms are single-column, so any top-to-bottom sort matches GT. For region-level detectors (DocLayoutYOLO), τ is informative (-0.17). Multi-column/unruled reading order remains untested, see Phase 5.
@@ -1071,7 +1071,7 @@ output = model.predict("image.png", batch_size=1, layout_nms=True)
 | Metric | Value | Notes |
 |---|---|---|
 | Model | `nvidia/nemotron-ocr-v2` (v2_english) | 54M params: detector (RegNetX-8GF) + recognizer (Transformer) + relational model |
-| Avg latency | 0.09 s (full form) / 0.07 s (cropped) | **301× faster than cloud baseline.** Confirmed across all 25 curated images. |
+| Avg latency | 0.09 s (full form) / 0.07 s (cropped) | **239× faster than cloud baseline.** Confirmed across all 25 curated images. |
 | VRAM peak | 0.6 GB | Smallest footprint; 20× headroom |
 | CER (normalized) | 1.17 (full form, printed text) / 0.214 (cropped handwriting) | Recognizer trained on printed documents, handwriting CER improved from previously reported 0.74 (single-image bug) |
 | WER (normalized) | 1.24 / 0.523 (cropped) | Same printed-document bias |
