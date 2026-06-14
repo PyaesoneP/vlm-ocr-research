@@ -548,35 +548,22 @@ See `scripts/generate_ground_truth.py` for the generation code and `scripts/crop
 | **Florence-2-large** | - | **0.061** | **0.76** (line) | **1.00** | 1.05s (text) / 1.49s (bbox) | **Best overall model** (accuracy + speed + line bboxes). 2.0 GB VRAM. PaddleOCR-VL has better CER (0.045) but 30× slower. Word-level IoU is 0.176 (line bboxes only, see word-level table). |
 | **PaddleOCR-VL-1.6** | - | **0.045** | block-level† | block-level† | 31.94s avg (3.7-61.9s) | #4 by CER. Beats the <5% CER target. SOTA doc VLM (96.3% OmniDocBench), built-in layout + bboxes + structure. Bimodal latency: ~4s for short text, ~30-62s for long text (12 GB VRAM limit triggers WDDM sysmem fallback). Docker-only on Blackwell. |
 | **Google Doc AI** (cloud) | 0.08 | **0.095** (line) / **0.108** (word) | **0.58** (line) / **0.611** (word) | **0.91** | 2.19s (line) / 3.6s (word) | Cloud baseline. Word-level CER 0.108, WER 0.315, word IoU 0.611. Beaten by Qwen VLMs on both CER (0.035) and word IoU (0.72). |
-| **Hunyuan VL** (~4B, manual) | - | **0.015** | - | - | ~5-10s (chat) | **#1 by CER** (5-image manual eval via lmarena). Text-only, no bbox/API access. Confirms competitive performance but not automatable. |
 | **SmolDocling-256M** | 1.47 | 0.107 | 0.24 | 1.00 | 5.37s | Best structured output (DocTags + bboxes), but weak localization (coarse blocks). |
 | **Nemotron OCR v2** | 1.17 | 0.214 | 0.28 | 0.89 | 0.07s | Fastest (239× baseline). Recognizer struggles with handwriting (CER 0.214) but detector localizes ~40% of line-level blocks. Reading order τ informative (0.89, not uniformly 1.0). |
-| **GOT-OCR2.0** | 2.93 | 0.088 | ‡ | - | 2.53s | **#3 local model by CER.** Previously misreported as 4.32 (single-image bug). No bbox output. |
-| **Hunyuan VL** (~4B) | - | **0.015** | - | - | ~5-10s (chat) | **#1 by CER overall** (5-image manual eval via lmarena). Text-only, no bbox/API. Beats Qwen3-VL-4B (0.022). Manual only — not automatable. |
+| **GOT-OCR2.0** | 2.93 | 0.088 | ‡ | - | 2.53s | No bbox output. |
 | **PaddleOCR PP-DocLayout-L** (layout only) | - | - | 0.08 † | **0.92** | **0.07s** | **Best layout detector tested.** 3-9 regions per full-form page (text, header, paragraph_title). Solid reading order (τ = 0.92) vs DocLayoutYOLO's τ = -0.17. Runs in the PaddleOCR Docker image alongside PaddleOCR-VL. |
 | **DocLayoutYOLO** (layout only) | - | - | 0.12 † | -0.17 | 0.10s | Layout detection only (no OCR). Region-level blocks cannot resolve line-level reading order (τ = -0.17). Runs on Blackwell without PaddlePaddle. |
 
-† All layout-detector IoU scores reflect region-level vs line-level GT granularity mismatch, not detection failure. PD-DocLayout-L detects 3-9 regions (τ = 0.92), DocLayoutYOLO detects 1-3 regions (τ = -0.17).
+† All layout-detector IoU scores reflect region-level vs line-level GT granularity mismatch, not detection failure. PD-DocLayout-L detects 3-9 regions (τ = 0.92), DocLayoutYOLO detects 1-3 regions (τ = -0.17). PaddleOCR-VL outputs document-level blocks (1 per cropped image). See [Model Bounding Box Generation Methods](#model-bounding-box-generation-methods) for details.
 ‡ GOT-OCR2.0 has no native bbox output in any mode, excluded from IoU comparison.
-† PaddleOCR-VL outputs document-level blocks (1 per cropped image covering the entire handwritten region). Correct document structure but cannot be scored against line-level GT, see [PaddleOCR-VL Layout Output Format](#paddleocr-vl-layout-output-format).
-
-† Bboxes from DocLayoutYOLO layout detection: 1-3 region-level blocks per page scored against 8-11 line-level GT lines. The low IoU reflects this granularity mismatch, not detection failure. See `scripts/eval_bbox_reading_order.py doclayout_yolo`.
-‡ GOT-OCR2.0 has no native bbox output in any mode, excluded from IoU comparison.
-† PaddleOCR-VL outputs document-level blocks (1 per cropped image covering the entire handwritten region). Correct document structure but cannot be scored against line-level GT, see [PaddleOCR-VL Layout Output Format](#paddleocr-vl-layout-output-format).
 
 **Key findings:**
 
-- **PaddleOCR-VL-1.6 is the #1 model by CER** (0.045), beating the <5% CER target and 26% better than Florence-2-large (0.061). However, latency is bimodal (3.7-61.9s, avg 31.94s) due to 12 GB VRAM constraint causing WDDM sysmem fallback on long-text images. On a GPU with ≥16 GB VRAM, expect sub-5s latency on all images. Evaluated via standalone `scripts/bench_paddleocr_handwritten.py` (Docker, data-only mount, see [PaddleOCR-VL Docker Workflow](#paddleocr-vl-docker-workflow)).
-- **Florence-2-large is the best overall model** (CER 0.061, 1.05s, IoU 0.76, τ = 1.00), the best balance of accuracy, speed, and bounding box quality. Bbox quality is dominant (100% block recall on all 25 images). At 2.0 GB VRAM, fits comfortably on any GPU.
-- **GOT-OCR2.0 is #3 by CER** (0.088) at 2.53s, dramatically better than the previously reported 4.32 (single-image evaluation bug). Text-only, no bbox output.
-- **SmolDocling is the best structured-output model** (CER 0.107 + DocTags bboxes, τ = 1.00), well suited to the essay feedback pipeline, though localization is coarse (IoU 0.24).
-- **Nemotron's speed is unmatched** (0.07s, 239× baseline) but handwriting CER of 0.214 keeps it out of the top tier. Bbox IoU corrected to 0.28 (was 0.29 with double-conversion bug).
-- **PaddleOCR PP-DocLayout-L is the best layout detector tested** (0.07s, τ = 0.92), dramatically better reading order than DocLayoutYOLO (τ = -0.17). Detects 3-9 regions per page with meaningful class labels. Runs in the same Docker image as PaddleOCR-VL.
-- **DocLayoutYOLO** provides basic layout detection on Blackwell (0.10s/image), but τ = -0.17 confirms region-level detection cannot resolve line-level reading order.
-- **Reading order is trivially perfect for line-level models** (τ = 1.00 for Florence-2, SmolDocling): IAM forms are single-column, so any top-to-bottom sort matches GT. For region-level detectors (DocLayoutYOLO), τ is informative (-0.17). Multi-column/unruled reading order remains untested, see Phase 5.
-- **Florence-2-base (230M)** is the speed-optimized fallback: CER 0.187 at 1.2s.
-- **Cropping reduced latency for all models** (smaller image = fewer vision tokens to process).
-
+- **Florence-2-large is the best overall model** for deployment speed/accuracy balance (CER 0.061, 1.05s, IoU 0.76, τ = 1.00). However, see [Status at a Glance](#status-at-a-glance) for current rankings — Phase 3 models (Hunyuan, Qwen VLMs, PaddleOCR-VL) all have better CER at higher latency.
+- **PaddleOCR-VL-1.6** (CER 0.045) was the first model to beat the <5% CER target. Bimodal latency (3.7-61.9s) due to 12 GB VRAM WDDM sysmem fallback.
+- **GOT-OCR2.0** (CER 0.088) at 2.53s, dramatically better than previously reported 4.32. Text-only.
+- **Nemotron's speed is unmatched** (0.07s, 239× baseline) but handwriting CER 0.214.
+- **Reading order is trivially perfect for line-level models** on single-column IAM forms (τ = 1.00). Multi-column/unruled reading order remains untested (Phase 5).
 See `scripts/crop_handwritten.py` and `scripts/eval_handwritten.py` for the methodology.
 
 #### Model Bounding Box Generation Methods
@@ -712,7 +699,7 @@ authoritative cropped-handwriting dataset (25 images, `ground_truth_handwritten.
 | 7 | TrOCR (base + large) | 0.3B / 0.6B | `candidates/trocr/eval.py` | Exists, needs path update | IAM-finetuned, line-level only. Heuristic line detector may need CRAFT fallback on cropped images. |
 | 8 | Qwen3-VL-4B-Instruct | 4B | `candidates/qwen3_vl/eval.py` | **BUG: wrong model class** | Fix `Qwen3VLForConditionalGeneration` → `AutoModelForImageTextToText`. BF16 fits 12 GB (~8 GB). |
 | 9 | Qwen3-VL-8B-Instruct (INT4) | 8B | same as #8 | **BLOCKED** | bitsandbytes lacks Blackwell sm_120 kernels. Cloud API fallback noted. |
-| 10 | Hunyuan VL | ~4B | none | **Manual only** | No API/HF access; lmarena chat only. Manual transcription of 5-10 images. |
+| 10 | Hunyuan VL | ~4B | none | **Manual only → Complete** | No API/HF access; lmarena chat only. 5-image eval done: CER 0.015 (#1 overall). |
 | 11 | EasyOCR | ~50M | `candidates/baselines/eval.py` | Exists, needs path update | `easyocr.Reader(["en"])` already implemented. |
 | 12 | docTR | varies | `candidates/baselines/eval.py` | **Needs new function** | `doctr.models.ocr_predictor(pretrained=True)`. PyTorch backend. |
 | 13 | Tesseract 5 | N/A | `candidates/baselines/eval.py` | Exists, needs path update | `pytesseract.image_to_data()` already implemented. |
@@ -729,19 +716,20 @@ authoritative cropped-handwriting dataset (25 images, `ground_truth_handwritten.
 
 | Candidate | Handwriting CER | WER | Latency (cropped) | VRAM | Bbox | Notes |
 |---|---|---|---|---|---|---|
-| **Qwen3-VL-4B** | **0.022** | 0.054 | 14.00s | 9.6 GB | Line-level (parsed) | **#1 model by CER.** Beats <5% target by 2.3×. Prompt-based OCR with inline bbox parsing. Fixed model class bug (`AutoModelForImageTextToText`). |
+| **Hunyuan VL** | **0.015** | — | ~5-10s (chat) | N/A (cloud) | Text-only | **#1 by CER overall.** 5-image manual eval via lmarena. No bbox output. Manual only — not automatable. |
+| **Qwen3-VL-4B** | **0.022** | 0.054 | 14.00s | 9.6 GB | Line-level (parsed) | **#1 automatable by CER.** Prompt-based OCR with inline bbox parsing. Fixed model class bug. |
 | **TrOCR-large** | **0.244** | 0.506 | 1.35s | 2.2 GB | Heuristic (10 lines) | IAM-finetuned, line-level model. Heuristic vertical-projection detector. |
 | **docTR** | **0.272** | 0.757 | 1.09s | ~1 GB | Word-level (native) | db_resnet50 + crnn_vgg16_bn. Word-level bboxes, moderate accuracy on handwriting. |
 | **TrOCR-base** | **0.380** | 0.681 | 1.22s | ~1.5 GB | Heuristic (10 lines) | Smaller variant, ~50% worse CER than large. |
 | **Tesseract 5** | **0.439** | 0.862 | 0.50s | N/A (CPU) | Word-level (native) | Traditional OCR engine. Not designed for handwriting. |
 | **EasyOCR** | **0.628** | 1.086 | 0.88s | ~0.5 GB | Word-level (native) | CRNN-based. Struggles with handwriting (roadmap feature). |
-| **Qwen3-VL-8B-INT4** | BLOCKED | BLOCKED | BLOCKED | — | — | bitsandbytes lacks Blackwell sm_120 kernels. |
-| **Hunyuan VL** | *manual* | *manual* | *manual* | — | — | lmarena chat only, no API access. |
+| **Qwen3-VL-8B-INT4** | BLOCKED | BLOCKED | BLOCKED | — | — | bitsandbytes lacks Blackwell sm_120 kernels. Evaluated via HF novita API in word-level eval (CER 0.035, IoU 0.722). |
 
-*For comparison — Tier 1 leaders: PaddleOCR-VL-1.6 (CER 0.045), Florence-2-large (CER 0.061), GOT-OCR2.0 (CER 0.088).*
+*> For reference: PaddleOCR-VL-1.6 (CER 0.045), Florence-2-large (CER 0.061), GOT-OCR2.0 (CER 0.088) — see handwriting-only table for full rankings.*
 
 **Key findings:**
-- **Qwen3-VL-4B is the new #1 model by CER (0.022)** — 2.1× better than PaddleOCR-VL-1.6 (0.045) and 2.8× better than Florence-2-large (0.061). Prompt-based OCR with inline bbox parsing. However, at 14.0s/page and 9.6 GB VRAM, it's 13× slower than Florence-2-large (1.05s). The corrected model class (`AutoModelForImageTextToText`) and bbox-stripped text parsing were critical — the initial run with bbox tokens in the text produced a misleading CER of 0.597.
+- **Hunyuan VL is the #1 model by CER (0.015)** — manual evaluation only (5 images via lmarena), beats Qwen3-VL-4B (0.022). Text-only, no bbox. Not automatable.
+- **Qwen3-VL-4B is the #1 automatable model by CER (0.022)** — 2.1× better than PaddleOCR-VL-1.6 (0.045). Prompt-based OCR with inline bbox parsing. However, at 14.0s/page and 9.6 GB VRAM, it's 13× slower than Florence-2-large (1.05s). The corrected model class (`AutoModelForImageTextToText`) and bbox-stripped text parsing were critical — the initial run with bbox tokens in the text produced a misleading CER of 0.597.
 - **No other Tier-2 model competes with Tier-1 on handwriting.** TrOCR-large (CER 0.244) is 11× worse than Qwen3-VL-4B.
 - **Florence-2-large remains best overall** for deployment (CER 0.061, 1.05s, IoU 0.76, 2.0 GB VRAM) — the best accuracy/speed balance.
 - **TrOCR-large > TrOCR-base** (0.244 vs 0.380): the larger model is worth the extra VRAM.
