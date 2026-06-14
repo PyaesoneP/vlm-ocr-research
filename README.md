@@ -40,21 +40,38 @@ Empirical evaluation of open-source OCR models and Vision-Language Models (VLMs)
 
 ## Status at a Glance
 
-**Phase 3 is complete, all 12 candidates (Tier 1 + Tier 2) evaluated.**
+**Phase 3 complete — 13/13 candidates evaluated.** Cloud baseline beaten on every metric.
 
-| | Headline result |
-|---|---|
-| **Most accurate (line)** | **Hunyuan VL**: CER **0.015** (5 images, manual via lmarena). Beats Qwen3-VL-4B (0.022) and <5% target by 3.3×. Text-only, no bbox output. |
-| **Best overall** | **Florence-2-large**: CER 0.061, **1.05s**/page, bbox IoU **0.76**, reading order τ = 1.00, 2.0 GB VRAM |
-| **#1 accuracy** | **PaddleOCR-VL-1.6**: CER 0.045 (beats <5% target), WER 0.085. Avg 31.94s (bimodal 3.7-61.9s on 12 GB VRAM; Docker-only on Blackwell). Built-in layout + bboxes + structure. |
-| **#3 local model** | **GOT-OCR2.0**: CER 0.088, 2.53s/page, text-only (no bbox output) |
-| **Cloud reference** | Google Doc AI: CER 0.095 (full-form), CER **0.108** word-level, word IoU **0.611**, 3.6s/image. Beaten by Qwen VLMs on both CER (0.035) and word IoU (0.72). |
-| **Fastest model** | Nemotron OCR v2: 0.07s/page (239× faster than end-to-end baseline), CER 0.214 (not competitive on accuracy) |
-| **Latency target** | Met for Stage 1: Florence-2-large transcribes in 1.05s vs the 16.7s end-to-end baseline. Stage 2 (error detection, currently Gemini at 12.4s) is now the dominant open problem |
-| **Accuracy target** | Achieved: Qwen3-VL-8B word-level CER **0.035** and 4B line-level CER **0.022** both beat the <5% CER target (PaddleOCR-VL-1.6 at 0.045, Florence-2-large at 0.061) |
-| **Word-level bbox (4B)** | **Qwen3-VL-4B**: Word IoU **0.718**, τ = **1.000**, CER **0.049**, WER **0.242**. 1891 words, ~80s/image (local). Vizes at `benchmark/visualizations/qwen3vl_4b_wordlevel/`. |
-| **Word-level bbox (8B)** | **Qwen3-VL-8B** (API): Word IoU **0.722**, CER **0.035**, WER **0.223**. 1891 words, 26.8s/image (API). **Best word-level accuracy.** Vizes at `benchmark/visualizations/qwen3vl_8b_wordlevel/`. |
-| **Word IoU leader** | **Tesseract 5**: Word IoU **0.812** (best bbox precision), but CER 0.443 (unusable). **Qwen VLMs** have best CER/IoU balance: CER 0.035-0.049 with IoU 0.72. Traditional OCRs (EasyOCR 0.60, docTR 0.58) have moderate IoU, poor CER. Full table in [Word-Level IoU Comparison](#word-level-iou-cross-model-comparison-2026-06-14). |
+### Handwriting CER Leaderboard
+
+| # | Model | CER | Type | Notes |
+|---|---|---|---|---|
+| 1 | **Hunyuan VL** | **0.015** | Text-only | Manual (lmarena), 5 images |
+| 2 | **Qwen3-VL-4B** | **0.022** | Line bbox | Local, 14s/image, 9.6 GB VRAM |
+| 3 | **Qwen3-VL-8B** | **0.035** | Word bbox | API (novita), 27s/image |
+| 4 | **PaddleOCR-VL-1.6** | **0.045** | Layout bbox | Docker-only on Blackwell, 32s |
+| 5 | **Florence-2-large** | **0.061** | Line bbox | 1.05s/image, 2.0 GB VRAM |
+| 6 | GOT-OCR2.0 | 0.088 | Text-only | 2.5s/image |
+| 7 | Google Doc AI | 0.108 | Word bbox | Cloud, 3.6s/image |
+
+### Word-Level IoU (7 models, 1891 GT words)
+
+| Model | Word IoU | CER | Notes |
+|---|---|---|---|
+| Tesseract 5 | **0.812** | 0.443 | Best bbox precision, unusable CER |
+| **Qwen3-VL-8B** | **0.722** | **0.035** | Best CER/IoU balance |
+| Qwen3-VL-4B | 0.718 | 0.049 | Local, ~80s/image |
+| Google Doc AI | 0.611 | 0.108 | Cloud baseline |
+| EasyOCR | 0.597 | 0.625 | |
+| docTR | 0.581 | 0.275 | |
+| Florence-2-large | 0.176* | 0.061 | Line bboxes only |
+
+### Verdict
+
+- **Best automatable model:** Qwen3-VL-8B (CER 0.035 + word IoU 0.722 via API; 4B runs locally at CER 0.049 + IoU 0.718)
+- **Best overall speed/accuracy:** Florence-2-large (CER 0.061 @ 1.05s, but line bboxes only)
+- **Cloud baseline beaten:** Doc AI loses on both CER (0.108 vs 0.035) and word IoU (0.611 vs 0.722)
+- **Stage 2 (error detection) is now the bottleneck** — OCR is solved; Gemini at 12.4s is the open problem
 
 > **2026-06-12, Evaluation bug fixes applied.** A code review identified several metric bugs (τ always 1.0, single-image CERs, Nemotron bbox double-conversion, missing crop-offset transform). All numbers above reflect corrected evaluations on the full 25-image dataset. See commit history for details.
 
