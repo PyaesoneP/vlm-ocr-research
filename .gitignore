@@ -12,6 +12,9 @@ build/
 venv/
 env/
 .venv_paddleocr/
+.venv_locateanything/
+.venv_vllm_locateanything/
+.venv_vllm_locateanything_py311/
 
 # Environment secrets
 .env
@@ -22,6 +25,18 @@ env/
 
 # Benchmark results (generated)
 benchmark/results/*.json
+
+# Benchmark visualizations: keep curated samples, ignore full generated dumps
+benchmark/visualizations/locateanything_wordlevel/*
+!benchmark/visualizations/locateanything_wordlevel/a04-039_bboxes.png
+!benchmark/visualizations/locateanything_wordlevel/b06-045_bboxes.png
+!benchmark/visualizations/locateanything_wordlevel/c02-017_bboxes.png
+!benchmark/visualizations/locateanything_wordlevel/f07-069_bboxes.png
+!benchmark/visualizations/locateanything_wordlevel/r02-117_bboxes.png
+
+# Generated demo media
+demo/frames/
+demo/*.mp4
 
 # Model cache (downloaded from HuggingFace / external sources)
 models/
@@ -50,9 +65,6 @@ benchmark/test_dataset/dataset_manifest.json
 benchmark/test_dataset/*.tgz
 benchmark/test_dataset/*.tar.gz
 benchmark/test_dataset/*.zip
-
-# Keep AGENTS.md tracked (copilot config)
-
 
 # Keep AGENTS.md tracked (copilot config)
 !AGENTS.md
