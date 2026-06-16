@@ -12,6 +12,7 @@ Usage (from appropriate environment):
     python scripts/eval_wordlevel_iou.py doctr
     python scripts/eval_wordlevel_iou.py florence2_large   # conda activate florencetf
     python scripts/eval_wordlevel_iou.py paddleocr_vl       # source .venv_paddleocr/bin/activate
+    python scripts/eval_wordlevel_iou.py locateanything     # source .venv_locateanything/bin/activate
 """
 
 from __future__ import annotations
@@ -30,6 +31,13 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from benchmark.metrics import compute_cer_normalized, compute_wer_normalized
+
+try:
+    import torch
+    HAS_TORCH = True
+except ImportError:
+    torch = None  # type: ignore
+    HAS_TORCH = False
 
 # ---------------------------------------------------------------------------
 # Paths
@@ -67,6 +75,16 @@ CANDIDATE_CONFIG = {
         "module": "candidates.paddleocr_vl.eval",
         "fn_name": "inference_fn",
         "candidate": "paddleocr_vl_wordlevel",
+    },
+    "locateanything": {
+        "module": "candidates.locateanything.eval",
+        "fn_name": "inference_fn",
+        "candidate": "locateanything_wordlevel",
+        "notes": (
+            "NVLabs Eagle Embodied / LocateAnything-3B. Stage 1 text-localization "
+            "candidate; CER/WER are secondary and only computed when output labels "
+            "look like actual transcribed words."
+        ),
     },
 }
 
@@ -186,16 +204,40 @@ def draw_bboxes(img_path: str, pred_blocks: list[dict], gt_words: list[dict], ou
     img.save(out_path)
 
 
+def reset_gpu_memory() -> None:
+    if HAS_TORCH and torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        torch.cuda.reset_peak_memory_stats()
+
+
+def get_peak_vram_mb() -> int:
+    if HAS_TORCH and torch.cuda.is_available():
+        return int(torch.cuda.max_memory_allocated(0) // (1024 * 1024))
+    return 0
+
+
+def synchronize_gpu() -> None:
+    if HAS_TORCH and torch.cuda.is_available():
+        torch.cuda.synchronize()
+
+
 # ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 def main():
-    if len(sys.argv) < 2:
+    import argparse
+
+    parser = argparse.ArgumentParser(description="Evaluate word-level OCR/localization metrics.")
+    parser.add_argument("model_name", help=f"Model name: {', '.join(CANDIDATE_CONFIG.keys())}")
+    parser.add_argument("--limit", type=int, default=None, help="Limit number of images for smoke tests.")
+    args = parser.parse_args()
+
+    if not args.model_name:
         print("Usage: python scripts/eval_wordlevel_iou.py <model_name>")
         print("Available:", ", ".join(CANDIDATE_CONFIG.keys()))
         sys.exit(1)
 
-    model_name = sys.argv[1]
+    model_name = args.model_name
     if model_name not in CANDIDATE_CONFIG:
         print(f"Unknown model '{model_name}'. Available: {', '.join(CANDIDATE_CONFIG.keys())}")
         sys.exit(1)
@@ -219,6 +261,11 @@ def main():
     images = sorted([
         str(p) for p in HANDWRITTEN_DIR.glob("*.png") if p.suffix.lower() == ".png"
     ])
+    if args.limit is not None:
+        if args.limit <= 0:
+            print("--limit must be positive")
+            sys.exit(1)
+        images = images[:args.limit]
     if not images:
         print(f"No images in {HANDWRITTEN_DIR}")
         sys.exit(1)
@@ -227,12 +274,13 @@ def main():
     viz_dir = VIZ_BASE / f"{candidate_id}"
     viz_dir.mkdir(parents=True, exist_ok=True)
 
-    print(f"Evaluating {candidate_id} word-level IoU on {len(images)} images...")
-    print()
+    print(f"Evaluating {candidate_id} word-level IoU on {len(images)} images...", flush=True)
+    print(flush=True)
 
     results = []
     cer_vals, wer_vals, iou_vals, tau_vals = [], [], [], []
     latencies = []
+    vram_peaks = []
 
     for idx, img_path in enumerate(images):
         img_name = Path(img_path).name
@@ -240,27 +288,38 @@ def main():
         gt_words = gt_entry.get("words", [])
 
         # Run inference
+        print(f"[{idx+1:2d}/{len(images)}] {img_name}: starting inference...", flush=True)
+        reset_gpu_memory()
+        synchronize_gpu()
         t0 = time.perf_counter()
         try:
             output = inference_fn(img_path)
         except Exception as e:
-            print(f"[{idx+1:2d}/{len(images)}] {img_name}: ERROR: {e}")
+            print(f"[{idx+1:2d}/{len(images)}] {img_name}: ERROR: {e}", flush=True)
             continue
+        synchronize_gpu()
         elapsed = time.perf_counter() - t0
         latencies.append(elapsed)
+        vram_peak_mb = get_peak_vram_mb()
+        vram_peaks.append(vram_peak_mb)
 
         blocks = output.get("blocks", [])
         text = output.get("text", "")
+        text_is_transcription = output.get("text_is_transcription", True)
 
         # Compute metrics
         gt_text = gt_entry.get("text", "")
-        cer = compute_cer_normalized(text, gt_text) if gt_text else 0.0
-        wer = compute_wer_normalized(text, gt_text) if gt_text else 0.0
+        if text_is_transcription and gt_text:
+            cer = compute_cer_normalized(text, gt_text)
+            wer = compute_wer_normalized(text, gt_text)
+            cer_vals.append(cer)
+            wer_vals.append(wer)
+        else:
+            cer = None
+            wer = None
         iou_info = compute_word_iou(blocks, gt_words)
         tau = compute_kendall_tau(blocks, gt_words)
 
-        cer_vals.append(cer)
-        wer_vals.append(wer)
         iou_vals.append(iou_info["mean_iou"])
         tau_vals.append(tau)
 
@@ -271,8 +330,9 @@ def main():
         result = {
             "image": img_name,
             "text": text,
-            "cer": round(cer, 4),
-            "wer": round(wer, 4),
+            "text_is_transcription": bool(text_is_transcription),
+            "cer": round(cer, 4) if cer is not None else None,
+            "wer": round(wer, 4) if wer is not None else None,
             "word_iou": round(iou_info["mean_iou"], 4),
             "iou_matched": iou_info["matched"],
             "iou_gt_words": iou_info["gt_count"],
@@ -281,41 +341,52 @@ def main():
             "iou_precision": round(iou_info["precision"], 4),
             "kendall_tau": round(tau, 4),
             "latency_s": round(elapsed, 2),
+            "vram_peak_mb": vram_peak_mb,
         }
+        if "raw_answer" in output:
+            result["raw_answer"] = output["raw_answer"]
         results.append(result)
 
+        cer_text = f"{cer:.4f}" if cer is not None else "n/a"
+        wer_text = f"{wer:.4f}" if wer is not None else "n/a"
         print(f"[{idx+1:2d}/{len(images)}] {img_name}: "
-              f"CER={cer:.4f} WER={wer:.4f} IoU={iou_info['mean_iou']:.3f} "
+              f"CER={cer_text} WER={wer_text} IoU={iou_info['mean_iou']:.3f} "
               f"τ={tau:.3f} words={iou_info['pred_count']} "
-              f"latency={elapsed:.1f}s")
+              f"latency={elapsed:.1f}s vram={vram_peak_mb}MB", flush=True)
 
     # Aggregate
-    avg_cer = sum(cer_vals) / len(cer_vals) if cer_vals else 0
-    avg_wer = sum(wer_vals) / len(wer_vals) if wer_vals else 0
+    avg_cer = sum(cer_vals) / len(cer_vals) if cer_vals else None
+    avg_wer = sum(wer_vals) / len(wer_vals) if wer_vals else None
     avg_iou = sum(iou_vals) / len(iou_vals) if iou_vals else 0
     avg_tau = sum(tau_vals) / len(tau_vals) if tau_vals else 0
     avg_lat = sum(latencies) / len(latencies) if latencies else 0
+    peak_vram = max(vram_peaks) if vram_peaks else 0
 
     output = {
         "candidate": candidate_id,
         "timestamp": time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "notes": cfg.get("notes", ""),
         "images": results,
         "aggregate": {
-            "cer": round(avg_cer, 4),
-            "wer": round(avg_wer, 4),
+            "cer": round(avg_cer, 4) if avg_cer is not None else None,
+            "wer": round(avg_wer, 4) if avg_wer is not None else None,
             "word_iou": round(avg_iou, 4),
             "kendall_tau": round(avg_tau, 4),
             "latency_avg_s": round(avg_lat, 2),
+            "vram_peak_mb": peak_vram,
             "num_images": len(results),
+            "transcription_images": len(cer_vals),
         },
     }
 
     out_path = RESULTS_DIR / f"{candidate_id}_handwritten.json"
     out_path.write_text(json.dumps(output, indent=2))
-    print(f"\nSaved to {out_path}")
-    print(f"Aggregate: CER={avg_cer:.4f} WER={avg_wer:.4f} IoU={avg_iou:.3f} "
-          f"τ={avg_tau:.3f} Latency={avg_lat:.1f}s")
-    print(f"Visualizations: {viz_dir}/")
+    print(f"\nSaved to {out_path}", flush=True)
+    cer_text = f"{avg_cer:.4f}" if avg_cer is not None else "n/a"
+    wer_text = f"{avg_wer:.4f}" if avg_wer is not None else "n/a"
+    print(f"Aggregate: CER={cer_text} WER={wer_text} IoU={avg_iou:.3f} "
+          f"τ={avg_tau:.3f} Latency={avg_lat:.1f}s VRAM={peak_vram}MB", flush=True)
+    print(f"Visualizations: {viz_dir}/", flush=True)
 
 
 if __name__ == "__main__":
