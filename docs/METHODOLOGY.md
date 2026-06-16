@@ -116,6 +116,14 @@ Secondary criteria: setup complexity, inference speed, license, and community su
 
 **Risk**: Requires bitsandbytes INT4 quantization, which is currently incompatible with Blackwell (sm_120) GPUs. This candidate is blocked until bitsandbytes adds Blackwell support. For deployment (larger GPU or cloud), BF16 is preferred.
 
+### 9. LocateAnything-3B / NVLabs Eagle Embodied (3B params)
+
+**Why**: NVIDIA's LocateAnything is a visual-grounding model from the Eagle Embodied work, designed for fast, high-quality box and point localization with Parallel Box Decoding. It explicitly supports scene text detection, document layout grounding, and OCR localization, so it is a strong Stage 1 localization candidate even if it is not a full handwriting transcription model.
+
+**Key capability**: Text localization via normalized `<box><x1><y1><x2><y2></box>` outputs in `[0,1000]`, with hybrid decoding as the default speed/accuracy tradeoff. The research integration evaluates word IoU, recall/precision, reading order, latency, and VRAM against `ground_truth_wordlevel.json`.
+
+**Risk**: The public task template is detection-oriented (`Detect all the text in box format.`), so output labels may be generic or missing. CER/WER are therefore secondary and only valid when `<ref>...</ref>` labels contain actual transcribed words. The model is released under an NVIDIA non-commercial research license, and its dependency stack (`transformers==4.57.1`, `numpy==1.25.0`, `Pillow==11.1.0`) requires a separate environment from the main project.
+
 ### 10. Hunyuan VL (~4B params)
 
 **Why**: Tencent's vision-language model with strong performance on document understanding benchmarks. Multi-resolution architecture handles varied image sizes well -- particularly relevant for handwritten essays with inconsistent text scaling. Available in multiple sizes with the ~4B variant fitting within 12 GB.

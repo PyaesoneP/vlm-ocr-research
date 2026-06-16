@@ -1,15 +1,18 @@
 # ============================================================================
 # VLM-OCR Research — Dependency Manifest
 # ============================================================================
-# This project uses THREE separate Python environments because:
+# This project uses multiple separate Python environments because:
 #   - Nemotron OCR v2 compiles a C++ CUDA extension (needs conda `aiml` env)
 #   - Florence-2 requires transformers 4.40.0 (needs conda `florencetf` env)
-#   - All other models run in the main `.venv` with transformers 5.x
+#   - PaddleOCR-VL needs PaddlePaddle's CUDA stack
+#   - LocateAnything-3B needs transformers 4.57.1 / numpy 1.25
+#   - Most other models run in the main `.venv` with transformers 5.x
 #
 # Per-environment install files:
 #   pip install -r requirements.txt          # .venv (main)
 #   pip install -r requirements-aiml.txt      # conda activate aiml first
 #   pip install -r requirements-florencetf.txt # conda activate florencetf first
+#   pip install -r requirements-locateanything.txt # .venv_locateanything
 # ============================================================================
 
 # ---------------------------------------------------------------------------

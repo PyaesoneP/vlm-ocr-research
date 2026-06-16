@@ -21,6 +21,7 @@ Empirical evaluation of open-source OCR and vision-language models for a handwri
   - [Environments](#environments)
   - [PaddleOCR-VL on Blackwell (Docker)](#paddleocr-vl-on-blackwell-docker)
   - [MonkeyOCR GPU setup](#monkeyocr-gpu-setup)
+  - [LocateAnything-3B setup](#locateanything-3b-setup)
   - [Cloud baseline](#cloud-baseline)
 - [How the metrics are computed](#how-the-metrics-are-computed)
 - [Roadmap](#roadmap)
@@ -32,7 +33,7 @@ Empirical evaluation of open-source OCR and vision-language models for a handwri
 
 ## TL;DR
 
-**13/13 candidates evaluated. The cloud baseline is beaten on every metric.** The authoritative metric is handwriting CER on XML-cropped images (see [the confound](#the-confound-read-before-any-number) for why full-form numbers don't count).
+**14/14 candidates evaluated. The cloud baseline is beaten on every metric.** The authoritative metric is handwriting CER on XML-cropped images (see [the confound](#the-confound-read-before-any-number) for why full-form numbers don't count).
 
 | Verdict | Model | CER | Notes |
 |---|---|---|---|
@@ -111,12 +112,13 @@ Per-word IoU against 1891 IAM XML words, greedy spatial match at IoU ≥ 0.05.
 | **Qwen3-VL-4B** | **0.718** | 0.049 | 1.000 | ~80s | prompted |
 | Google Doc AI | 0.611 | 0.108 | - | 3.6s | native (cloud) |
 | EasyOCR | 0.597 | 0.625 | 0.760 | 1.1s | native |
+| LocateAnything-3B | 0.592 | 0.722 | 0.176 | 12.6s | prompted word boxes |
 | docTR | 0.581 | 0.275 | 0.999 | 1.2s | native |
 | Florence-2-large | 0.176\* | 0.091 | 1.000 | 1.7s | line-level only |
 
 \* Florence-2 emits ~10 line boxes per page, so word-granularity IoU collapses; its line-vs-line IoU is 0.76. PaddleOCR-VL outputs block-level boxes, so word IoU isn't meaningful for it.
 
-Takeaways: **Tesseract wins on box precision but is unusable for reading. Qwen3-VL is the only approach delivering both accurate transcription and usable word localization.** Reading order is effectively solved for single-column forms (τ > 0.99 for all but EasyOCR), multi-column/unruled ordering is untested and is the focus of [Phase 5](#roadmap). For Stage 2 error boxes, Tesseract or Qwen are the only viable candidates.
+Takeaways: **Tesseract wins on box precision but is unusable for reading. Qwen3-VL is the only approach delivering both accurate transcription and usable word localization.** LocateAnything-3B is now measured: its adaptive word-box prompt reaches EasyOCR/docTR-tier localization (IoU 0.592) but the text labels are not transcription-quality, so it remains a localization candidate rather than an OCR replacement. Reading order is effectively solved for single-column forms (τ > 0.99 for all but EasyOCR), multi-column/unruled ordering is untested and is the focus of [Phase 5](#roadmap). For Stage 2 error boxes, Tesseract, Qwen, and LocateAnything-as-localizer are the candidates worth testing.
 
 ### Qualitative comparison
 
@@ -167,7 +169,7 @@ Stage 2 — Error detection + feedback (LLM/VLM)
 
 ### Environments
 
-Four Python environments are required because of conflicting CUDA / transformers / PaddlePaddle versions.
+Five Python environments are required because of conflicting CUDA / transformers / PaddlePaddle versions.
 
 | Env | Type | PyTorch / CUDA | Used for |
 |---|---|---|---|
@@ -175,12 +177,14 @@ Four Python environments are required because of conflicting CUDA / transformers
 | `aiml` | conda | 2.12.0+cu130 / 13.0 | Nemotron OCR v2 (CUDA toolkit must match PyTorch for the C++ extension build) |
 | `florencetf` | conda | 2.11.0+cu130 / 13.0 | Florence-2 (needs transformers 4.40.0, incompatible with 5.x) |
 | `.venv_paddleocr` | venv | PaddlePaddle 3.4.0+ / 12.9 | PaddleOCR-VL (bundles its own NCCL/cuBLAS, conflicts with PyTorch's CUDA 13.0) |
+| `.venv_locateanything` | venv | CUDA-matched PyTorch / transformers 4.57.1 | LocateAnything-3B / NVLabs Eagle Embodied text localization |
 
 ```bash
 source .venv/bin/activate          # most models
 conda activate aiml                # Nemotron OCR v2
 conda activate florencetf          # Florence-2
 source .venv_paddleocr/bin/activate # PaddleOCR-VL (native path — broken on Blackwell, see below)
+source .venv_locateanything/bin/activate # LocateAnything-3B
 ```
 
 Blackwell (sm_120) is unsupported by stable PyTorch; this project uses 2.11.0+cu130. transformers is pinned at 5.8.1 (needed for SmolDocling's `AutoModelForMultimodalLM`).
@@ -240,6 +244,46 @@ curl -s http://localhost:8080/health   # → {"status":"ok"}
 
 `-ngl 99` offloads all layers; `--mmproj-offload` puts the vision projector on GPU (critical for encoding speed). At `-c 4096` the image tokens don't fit and output truncates.
 
+### LocateAnything-3B setup
+
+LocateAnything-3B (NVLabs Eagle Embodied) is evaluated as a **Stage 1 text-localization candidate**, not as a direct handwriting transcription replacement. The public task is scene text detection / grounding, so CER/WER are reported only if the model emits actual text labels in `<ref>...</ref>` spans. Primary metrics are word IoU, recall/precision, reading-order τ, latency, and VRAM.
+
+It needs an isolated environment because the released stack requires `transformers==4.57.1`, `numpy==1.25.0`, and `Pillow==11.1.0`.
+
+```bash
+# Python 3.11 is required for the pinned numpy==1.25.0 wheel.
+/home/pyaes/.pyenv/versions/3.11.14/bin/python -m venv .venv_locateanything
+source .venv_locateanything/bin/activate
+pip install --upgrade pip
+
+# Install CUDA-matched PyTorch first. On this Blackwell setup, use the
+# same torch/CUDA family as the other working environments.
+pip install torch==2.11.0 torchvision==0.26.0
+
+# Then install the LocateAnything stack:
+pip install -r requirements-locateanything.txt
+
+# Smoke test one cropped handwriting image:
+python candidates/locateanything/eval.py benchmark/test_dataset/handwritten/a04-039.png
+
+# CPU fallback is intentionally disabled for benchmarks. For a slow parser-only
+# smoke test on CPU, opt in explicitly:
+LOCATEANYTHING_ALLOW_CPU=1 python candidates/locateanything/eval.py benchmark/test_dataset/handwritten/a04-039.png
+
+# Full word-level localization benchmark:
+LOCATEANYTHING_MAX_IMAGE_SIDE=1024 LOCATEANYTHING_MAX_NEW_TOKENS=2048 \
+  python scripts/eval_wordlevel_iou.py locateanything
+```
+
+Outputs:
+
+- `benchmark/results/locateanything_wordlevel_handwritten.json`
+- `benchmark/visualizations/locateanything_wordlevel/`
+
+The model is under NVIDIA's non-commercial research license. Do not add it to the CER leaderboard unless the benchmark confirms transcription-quality labels; otherwise compare it only in the word-level localization table.
+
+On 12 GB VRAM, full-resolution pages OOM in the vision encoder unless optimized attention is available. The candidate resizes inference images to `LOCATEANYTHING_MAX_IMAGE_SIDE` (default 1024) and maps predicted boxes back to original image coordinates before scoring. It also uses an explicit word-level prompt, then retries the broader scene-text prompt when the first pass emits fewer than `LOCATEANYTHING_MIN_WORD_BOXES` boxes (default 20). Current measured result: word IoU 0.592, CER 0.722, τ 0.176, 12.6s/image, 11.9 GB peak VRAM.
+
 ### Cloud baseline
 
 **16.7s end-to-end** (Doc AI 2.8s + Gemini 3.5 Flash 12.4s). `gemini-3.5-flash` is a preview model available only in the `global` region on Vertex AI (`asia-southeast1` returns 404). Document AI runs in `asia-southeast1` via a regional endpoint.
@@ -288,7 +332,7 @@ The ratio reveals the *type* of error:
 |---|---|---|
 | 1: Setup & baseline | Completed | Environments, IAM dataset (1,539 forms, 25 curated), 16.7s baseline, harness + metrics. 27/27 validation checks pass. |
 | 2: Tier-1 evaluation | 6/6 Completed| Surfaced the [printed-text confound](#the-confound-read-before-any-number); established cropped-handwriting as the authoritative protocol. |
-| 3: Tier-2 evaluation | 13/13 Completed | Full leaderboard above. Hunyuan #1 CER (manual); Qwen3-VL-8B best automatable. |
+| 3: Tier-2 evaluation | 14/14 Completed | Full leaderboard above. Hunyuan #1 CER (manual); Qwen3-VL-8B best automatable. |
 | 4: Pipeline assembly | Pending | Best Stage 1 + Stage 2 combos. One end-to-end VLM vs. OCR + small LLM? Latency breakdown. |
 | 5: Reading-order deep-dive | Pending | The hard case: unruled/multi-column. Nemotron relational model, PP-StructureV3, heuristics, VLM prompting. τ vs. manual annotation. |
 | 6: Error-detection accuracy | Pending | Per error type (capitalization, spelling, grammar, punctuation, structural): P/R/F1 + error-box IoU. |
