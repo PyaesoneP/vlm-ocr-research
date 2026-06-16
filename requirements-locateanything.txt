@@ -1,0 +1,38 @@
+# ============================================================================
+# LocateAnything / NVLabs Eagle Embodied environment
+# ============================================================================
+# Use this in an isolated environment:
+#
+#   /home/pyaes/.pyenv/versions/3.11.14/bin/python -m venv .venv_locateanything
+#   source .venv_locateanything/bin/activate
+#   pip install --upgrade pip
+#   pip install torch==2.11.0 torchvision==0.26.0
+#   pip install -r requirements-locateanything.txt
+#
+# Python 3.11 is required for the pinned numpy==1.25.0 wheel. PyTorch must
+# match the local CUDA stack. This repo's Blackwell setup uses torch
+# 2.11.0+cu130 in other environments; install the matching torch wheel before
+# this file as appropriate for the machine.
+#
+# Upstream reference:
+#   https://huggingface.co/nvidia/LocateAnything-3B
+# ============================================================================
+
+# Core runtime from the LocateAnything model card.
+opencv-python-headless==4.11.0.86
+transformers==4.57.1
+numpy==1.25.0
+Pillow==11.1.0
+peft>=0.12.0
+torchvision
+decord==0.6.0
+lmdb==1.7.5
+
+# Common HF/runtime dependencies.
+accelerate>=1.5.2
+huggingface_hub>=0.30.0
+safetensors>=0.5.0
+tokenizers==0.22.0
+
+# Evaluation utilities used by scripts/eval_wordlevel_iou.py.
+scipy>=1.14.0

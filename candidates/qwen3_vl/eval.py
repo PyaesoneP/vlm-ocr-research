@@ -33,8 +33,9 @@ from candidates import run_candidate
 MODEL_ID = "Qwen/Qwen3-VL-4B-Instruct"
 CANDIDATE_NAME = "qwen3_vl_4b"
 TEST_DATASET = PROJECT_ROOT / "benchmark" / "test_dataset"
-GROUND_TRUTH = TEST_DATASET / "ground_truth.json"
-LOAD_IN_4BIT = False  # Set True for 8B model on 12 GB VRAM
+HANDWRITTEN_DIR = TEST_DATASET / "handwritten"
+GROUND_TRUTH = TEST_DATASET / "ground_truth_handwritten.json"
+LOAD_IN_4BIT = False  # Set True for 8B model on 12 GB VRAM; blocked by bitsandbytes on Blackwell sm_120
 
 
 # ---------------------------------------------------------------------------
@@ -52,24 +53,14 @@ def inference_fn(image_path: str) -> dict:
     import time
     import torch
     from PIL import Image
-    from transformers import Qwen3VLForConditionalGeneration, AutoProcessor
+    from transformers import AutoModelForImageTextToText, AutoProcessor
 
     if not hasattr(inference_fn, "_model"):
         print(f"[{CANDIDATE_NAME}] Loading {MODEL_ID} ...")
-
-        load_kwargs = {
-            "dtype": "auto",
-            "device_map": "auto",
-        }
-        if LOAD_IN_4BIT:
-            from transformers import BitsAndBytesConfig
-            load_kwargs["quantization_config"] = BitsAndBytesConfig(
-                load_in_4bit=True,
-                bnb_4bit_compute_dtype=torch.bfloat16,
-            )
-
-        inference_fn._model = Qwen3VLForConditionalGeneration.from_pretrained(
-            MODEL_ID, **load_kwargs
+        # Correct API per https://github.com/QwenLM/Qwen3-VL:
+        # AutoModelForImageTextToText (NOT Qwen3VLForConditionalGeneration)
+        inference_fn._model = AutoModelForImageTextToText.from_pretrained(
+            MODEL_ID, dtype="auto", device_map="auto"
         )
         inference_fn._processor = AutoProcessor.from_pretrained(MODEL_ID, use_fast=True)
         print(f"[{CANDIDATE_NAME}] Model loaded.")
@@ -126,9 +117,50 @@ def inference_fn(image_path: str) -> dict:
         torch.cuda.synchronize()
     elapsed = time.perf_counter() - t0
 
+    # --- Parse inline bbox annotations from VLM response ---
+    # Qwen3-VL outputs coordinates in 0-999 normalized bin space.
+    # Denormalize to pixel coordinates using the actual image dimensions.
+    import re
+    bbox_pattern = re.compile(r'\[(\d+),\s*(\d+),\s*(\d+),\s*(\d+)\]\s*')
+    blocks = []
+    clean_lines = []
+    img_w, img_h = image.size
+    for line in ocr_text.split('\n'):
+        line = line.strip()
+        if not line:
+            continue
+        match = bbox_pattern.match(line)
+        if match:
+            bx1, by1, bx2, by2 = map(int, match.groups())
+            # Denormalize from 0-999 bin space to pixel coordinates
+            x1 = int(bx1 / 999 * img_w)
+            y1 = int(by1 / 999 * img_h)
+            x2 = int(bx2 / 999 * img_w)
+            y2 = int(by2 / 999 * img_h)
+            # Ensure x1<x2, y1<y2 (model sometimes reverses order)
+            if x1 > x2: x1, x2 = x2, x1
+            if y1 > y2: y1, y2 = y2, y1
+            text = line[match.end():].strip()
+            if text:
+                blocks.append({
+                    "bbox": [x1, y1, x2, y2],
+                    "text": text,
+                    "confidence": 1.0,
+                })
+                clean_lines.append(text)
+        else:
+            # Line without bbox — keep as-is
+            clean_lines.append(line)
+            blocks.append({
+                "bbox": [0, 0, 0, 0],
+                "text": line,
+                "confidence": 1.0,
+            })
+    clean_text = "\n".join(clean_lines) if clean_lines else ocr_text
+
     return {
-        "text": ocr_text,
-        "blocks": [],   # TODO: parse structured bbox output from VLM response
+        "text": clean_text,
+        "blocks": blocks,
         "stage1_latency": elapsed,
     }
 
@@ -138,21 +170,24 @@ def inference_fn(image_path: str) -> dict:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
+    # Use handwritten (cropped) images — authoritative handwriting-only evaluation
+    img_dir = HANDWRITTEN_DIR if HANDWRITTEN_DIR.exists() else TEST_DATASET / "curated"
     images = sorted([
-        str(p) for p in (TEST_DATASET / "curated").glob("*")
+        str(p) for p in img_dir.glob("*")
         if p.suffix.lower() in {".jpg", ".jpeg", ".png"}
     ])
 
     if not images:
-        print(f"No test images in {TEST_DATASET}. Add handwritten essay samples.")
+        print(f"No test images in {img_dir}. Add handwritten essay samples.")
         sys.exit(1)
 
     quant_note = " (INT4)" if LOAD_IN_4BIT else ""
+    gt_path = GROUND_TRUTH if GROUND_TRUTH.exists() else None
     result = run_candidate(
         candidate_name=CANDIDATE_NAME,
         inference_fn=inference_fn,
         test_images=images,
-        ground_truth=GROUND_TRUTH if GROUND_TRUTH.exists() else None,
+        ground_truth=gt_path,
         notes=f"Qwen3-VL-4B-Instruct{quant_note} — latest Qwen VLM with expanded OCR.",
     )
 

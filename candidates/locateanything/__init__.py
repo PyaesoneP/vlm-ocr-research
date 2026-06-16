@@ -1,0 +1,1 @@
+"""LocateAnything candidate package."""

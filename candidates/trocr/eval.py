@@ -15,6 +15,7 @@ Usage:
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -27,11 +28,17 @@ from candidates import run_candidate
 # Configuration
 # ---------------------------------------------------------------------------
 
-# Switch between base and large by changing MODEL_ID
-MODEL_ID = "microsoft/trocr-large-handwritten"
-CANDIDATE_NAME = "trocr_large_handwritten"
+# Switch between base and large by changing MODEL_ID or setting TROCR_MODEL env var
+_TROCR_VARIANT = os.environ.get("TROCR_MODEL", "large")
+if _TROCR_VARIANT == "base":
+    MODEL_ID = "microsoft/trocr-base-handwritten"
+    CANDIDATE_NAME = "trocr_base_handwritten"
+else:
+    MODEL_ID = "microsoft/trocr-large-handwritten"
+    CANDIDATE_NAME = "trocr_large_handwritten"
 TEST_DATASET = PROJECT_ROOT / "benchmark" / "test_dataset"
-GROUND_TRUTH = TEST_DATASET / "ground_truth.json"
+HANDWRITTEN_DIR = TEST_DATASET / "handwritten"
+GROUND_TRUTH = TEST_DATASET / "ground_truth_handwritten.json"
 
 
 # ---------------------------------------------------------------------------
@@ -124,6 +131,8 @@ def _detect_text_lines(
 
     Returns list of (x1, y1, x2, y2) bounding boxes.
     """
+    import numpy as np
+
     # Binarize
     binary = (gray < 128).astype(np.uint8) * 255
 
@@ -159,20 +168,23 @@ def _detect_text_lines(
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
+    # Use handwritten (cropped) images — authoritative handwriting-only evaluation
+    img_dir = HANDWRITTEN_DIR if HANDWRITTEN_DIR.exists() else TEST_DATASET / "curated"
     images = sorted([
-        str(p) for p in (TEST_DATASET / "curated").glob("*")
+        str(p) for p in img_dir.glob("*")
         if p.suffix.lower() in {".jpg", ".jpeg", ".png"}
     ])
 
     if not images:
-        print(f"No test images in {TEST_DATASET}. Add handwritten essay samples.")
+        print(f"No test images in {img_dir}. Add handwritten essay samples.")
         sys.exit(1)
 
+    gt_path = GROUND_TRUTH if GROUND_TRUTH.exists() else None
     result = run_candidate(
         candidate_name=CANDIDATE_NAME,
         inference_fn=inference_fn,
         test_images=images,
-        ground_truth=GROUND_TRUTH if GROUND_TRUTH.exists() else None,
+        ground_truth=gt_path,
         notes="TrOCR-large fine-tuned on IAM handwriting dataset.",
     )
 

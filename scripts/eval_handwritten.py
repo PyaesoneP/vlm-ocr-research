@@ -36,6 +36,7 @@ HANDWRITTEN_GT = PROJECT_ROOT / "benchmark" / "test_dataset" / "ground_truth_han
 RESULTS_DIR = PROJECT_ROOT / "benchmark" / "results"
 
 CANDIDATE_CONFIG = {
+    # --- Tier 1 (Phase 2) ---
     "smoldocling": {
         "module": "candidates.smoldocling.eval",
         "notes": "SmolDocling-256M on cropped handwritten region. "
@@ -64,6 +65,36 @@ CANDIDATE_CONFIG = {
         "module": "candidates.paddleocr_vl.eval",
         "notes": "PaddleOCR-VL-1.6 on cropped handwritten region. "
                  "Requires `source .venv_paddleocr/bin/activate` and LD_LIBRARY_PATH=/usr/lib/wsl/lib.",
+    },
+    # --- Tier 2 (Phase 3) ---
+    "trocr_large": {
+        "module": "candidates.trocr.eval",
+        "notes": "TrOCR-large (0.6B) IAM-finetuned on cropped handwritten region.",
+    },
+    "trocr_base": {
+        "module": "candidates.trocr.eval",
+        "env": {"TROCR_MODEL": "base"},
+        "notes": "TrOCR-base (0.3B) IAM-finetuned on cropped handwritten region.",
+    },
+    "qwen3_vl_4b": {
+        "module": "candidates.qwen3_vl.eval",
+        "notes": "Qwen3-VL-4B-Instruct on cropped handwritten region. "
+                 "Correct API: AutoModelForImageTextToText (fixed 2026-06-14).",
+    },
+    "easyocr": {
+        "module": "candidates.baselines.eval",
+        "fn_name": "_easyocr_inference",
+        "notes": "EasyOCR on cropped handwritten region.",
+    },
+    "tesseract": {
+        "module": "candidates.baselines.eval",
+        "fn_name": "_tesseract_inference",
+        "notes": "Tesseract 5 on cropped handwritten region.",
+    },
+    "doctr": {
+        "module": "candidates.baselines.eval",
+        "fn_name": "_doctr_inference",
+        "notes": "docTR (PyTorch backend) on cropped handwritten region.",
     },
 }
 
@@ -112,16 +143,22 @@ def eval_candidate(name: str) -> None:
             print("  Start: cd /tmp/llama-b9596 && ./llama-server --hf-repo ... --ctx-size 8192 --image-min-tokens 1024")
             sys.exit(1)
 
+    # Set env vars before import (e.g., TROCR_MODEL=base for trocr_base variant)
+    for env_key, env_val in config.get("env", {}).items():
+        os.environ[env_key] = env_val
+
     # Import the candidate's inference_fn
     module = importlib.import_module(config["module"])
+    fn_name = config.get("fn_name", "inference_fn")
+    inference_fn = getattr(module, fn_name)
 
     result = run_candidate(
         candidate_name=f"{name}_handwritten",
-        inference_fn=module.inference_fn,
+        inference_fn=inference_fn,
         test_images=images,
         ground_truth=HANDWRITTEN_GT if HANDWRITTEN_GT.exists() else None,
         num_warmup=1,
-        num_runs=len(images),
+        num_runs=1,   # Single pass: per-image CER (consistent with Phase 2 methodology)
         notes=config["notes"],
     )
 
