@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 from typing import Callable
 
+from pipeline.adjudication import adjudicate_stage2_errors
 from pipeline.contracts import PipelineOutput
 from pipeline.localization import bbox_from_word_indices
 from pipeline.parsing import ParseResult, parse_model_json
@@ -171,6 +172,7 @@ class TwoStageStrategy:
                 else STAGE2_CONTRACT_V2_SCHEMA
             ),
         )
+        adjudication_changes = adjudicate_stage2_errors(parsed.errors, ocr_output.boxes)
         _normalize_error_bboxes_from_indices(parsed, ocr_output)
         stage2 = latency + repair_latency
         return PipelineOutput(
@@ -191,6 +193,7 @@ class TwoStageStrategy:
             metadata={
                 "mode": "two_stage",
                 "stage2_prompt_mode": self.stage2_prompt_mode,
+                "stage2_adjudication_changes": adjudication_changes,
                 "ocr_strategy": ocr_output.strategy_name,
                 **ocr_output.metadata,
             },

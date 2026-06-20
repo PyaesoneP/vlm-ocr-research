@@ -5,6 +5,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from pipeline.adjudication import adjudicate_stage2_errors
 from pipeline.contracts import ErrorFinding, PipelineOutput, TextBox
 from pipeline.localization import bbox_from_word_indices
 from pipeline.metrics import NOT_APPLICABLE, compute_truthfulness_metrics, evaluate_phase4_output
@@ -78,6 +79,71 @@ class Phase4PipelineTests(unittest.TestCase):
         ]
         self.assertEqual(bbox_from_word_indices(boxes, [0, 1]), [10, 10, 50, 22])
         self.assertEqual(bbox_from_word_indices(boxes, [9]), [0, 0, 0, 0])
+
+    def test_stage2_adjudication_expands_known_grammar_span(self) -> None:
+        boxes = [
+            TextBox(index=0, bbox=[0, 0, 40, 20], text="We"),
+            TextBox(index=1, bbox=[45, 0, 100, 20], text="should"),
+            TextBox(index=2, bbox=[105, 0, 125, 20], text="of"),
+            TextBox(index=3, bbox=[130, 0, 170, 20], text="left"),
+        ]
+        errors = [
+            ErrorFinding(
+                type="spelling",
+                bbox=[105, 0, 125, 20],
+                description="Use have.",
+                correction="have",
+                evidence_text="of",
+                word_indices=[2],
+            )
+        ]
+
+        changes = adjudicate_stage2_errors(errors, boxes)
+
+        self.assertTrue(changes)
+        self.assertEqual(errors[0].type, "grammar")
+        self.assertEqual(errors[0].word_indices, [1, 2])
+        self.assertEqual(errors[0].evidence_text, "should of")
+        self.assertEqual(errors[0].correction, "should have")
+        self.assertEqual(errors[0].bbox, [45, 0, 125, 20])
+
+    def test_stage2_adjudication_adds_candidates_and_drops_overreach(self) -> None:
+        words = [
+            "My", "brother", "and", "me", "are", "going", "They", "lives",
+            "near", "the", "park", "We", "go", "hiking",
+        ]
+        boxes = [
+            TextBox(index=i, bbox=[i * 10, 0, i * 10 + 8, 10], text=word)
+            for i, word in enumerate(words)
+        ]
+        errors = [
+            ErrorFinding(
+                type="spelling",
+                bbox=boxes[7].bbox,
+                description="Agreement.",
+                correction="live",
+                evidence_text="lives",
+                word_indices=[7],
+            ),
+            ErrorFinding(
+                type="spelling",
+                bbox=boxes[13].bbox,
+                description="Awkward form.",
+                correction="hike",
+                evidence_text="hiking",
+                word_indices=[13],
+            ),
+        ]
+
+        changes = adjudicate_stage2_errors(errors, boxes)
+
+        self.assertIn("dropped_overreach:hiking->hike", changes)
+        self.assertEqual([(error.type, error.word_indices) for error in errors], [
+            ("grammar", [7]),
+            ("grammar", [3]),
+        ])
+        self.assertEqual(errors[1].evidence_text, "me")
+        self.assertEqual(errors[1].correction, "I")
 
     def test_parse_qwen_word_response_accepts_boxes_only(self) -> None:
         try:
