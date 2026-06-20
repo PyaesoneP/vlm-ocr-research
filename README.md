@@ -43,7 +43,7 @@ Empirical evaluation of open-source OCR and vision-language models for a handwri
 | **Lowest observed CER** | Hunyuan VL | 0.015 | Manual-only (lmarena, 5 images). No API/HF access, no bbox. Not automatable. |
 | **Cloud OCR baseline** | Google Doc AI | 0.108 (word) | Beaten on Stage 1 CER (→0.035) and word IoU (0.611 → 0.722). |
 
-**Current bottleneck:** clean OCR/localization is strong, but Phase 4 found that truthful OCR is the gate for error detection. The Stage 1 transcript must preserve what the student actually wrote (`bred`, `minuts`, `forgoten`) instead of normalizing it to the intended correction.
+**Current bottleneck:** clean OCR/localization is strong, but the reviewed 20-page Phase 4 pass shows two remaining gates: Stage 1 still must preserve what the student actually wrote (`bred`, `minuts`, `forgoten`), and the local Qwen Stage 2 grader is not yet reliable even when given reviewed source text and boxes.
 
 ---
 
@@ -272,9 +272,57 @@ Bootstrap commands once raw images and `source_texts.md` exist:
 python scripts/report_realworld_alignment.py
 ```
 
-Current real-world status: `realworld_writing_errors.json` has 20 pages, 10 clean / 10 positive, 21 intended errors, Tesseract draft boxes under `draft_words`, and auto-aligned source-word boxes under `words`. All entries are still marked `auto_aligned_needs_review`; review the overlays in `benchmark/visualizations/realworld_aligned_words/` before treating word-IoU or error-box IoU as authoritative.
+Current real-world status: `realworld_writing_errors.json` has 20 pages, 10 clean / 10 positive, 21 intended errors, Tesseract draft boxes under `draft_words`, and manually reviewed source-word boxes under `words`. All 20 pages and all 21 errors are marked `annotation_status: "manual_reviewed"`; `scripts/validate_realworld_dataset.py` verifies word indices, error anchors, union bboxes, image bounds, and dataset counts.
 
-First real-world Qwen Stage 2 probe (`rw_11.jpg`, source text + auto-aligned words): valid JSON, `error_text_f1=1.00`, `error_detection_f1=0.667`, `error_box_iou=0.942`. Qwen found all three spelling errors, but one error bbox landed on the wrong line, so detection and localization should be reported separately.
+Reviewed annotation checks:
+
+```bash
+.venv/bin/python scripts/visualize_realworld_draft_boxes.py --field words
+.venv/bin/python scripts/report_realworld_alignment.py --limit 120
+.venv/bin/python scripts/validate_realworld_dataset.py
+```
+
+Validator result: `Validation passed: 20 pages, 20 manually reviewed, 21 errors.`
+
+#### Reviewed 20-page Phase 4 pass
+
+This pass is local-only: no cloud/API sources, no Docker-only sources, no paid calls. Results are saved in:
+
+- `benchmark/results/phase4_realworld_stage1_all_live_20image.json`
+- `benchmark/results/phase4_realworld_mixed_best_20image.json`
+- `benchmark/results/phase4_realworld_single_qwen_20image.json`
+- overlays: `benchmark/visualizations/phase4_realworld_mixed_best_20image/`
+
+Full 20-page **Stage 1 truthfulness matrix**:
+
+| Live Stage 1 source | Status | Verbatim CER | Evidence preserved | Correction leaks | Word IoU | Avg Stage 1 latency |
+|---|---|---:|---:|---:|---:|---:|
+| Qwen3-VL-4B verbatim word OCR | ran | 0.014 | 12/21 | 7 | 0.801 | 30.7s |
+| Qwen3-VL-4B normal word OCR | ran | 0.015 | 10/21 | 10 | 0.798 | 37.9s |
+| Tesseract live word OCR | ran | 0.338 | 5/21 | 1 | **0.827** | **0.3s** |
+| docTR live word OCR | ran | 0.200 | 4/21 | 2 | 0.669 | 1.2s |
+| EasyOCR live word OCR | ran | 0.648 | 0/21 | 0 | 0.682 | 6.6s |
+| Florence-2 / GOT-OCR2.0 / SmolDocling / TrOCR | failed in active `.venv` | n/a | 0/21 | 0 | 0.000 | 0.0s |
+| Nemotron / PaddleOCR-VL / MonkeyOCR | requires alt env, Docker, or server | n/a | 0/21 | 0 | 0.000 | 0.0s |
+
+Interpretation: Qwen verbatim is the best current local text source, but it still preserves only 12/21 intended erroneous spans. Tesseract remains the best box-only source on the reviewed annotations, but its transcript is too noisy for grading.
+
+Focused 20-page **full-pipeline matrix**:
+
+| Full pipeline strategy | Verbatim CER | Evidence preserved | Correction leaks | Word IoU | Valid JSON | Error text F1 | Error detection F1 | Error-box IoU | False positives | Avg latency |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Source text + reviewed boxes -> Qwen grader | 0.000 | 21/21 | 0 | 1.000 | 1.00 | 0.120 | 0.053 | 0.322 | 7 | 21.9s |
+| Qwen verbatim + Qwen boxes -> Qwen grader | 0.014 | 12/21 | 7 | 0.801 | 1.00 | 0.044 | 0.017 | 0.085 | 8 | 56.1s |
+| Qwen verbatim + Tesseract boxes -> Qwen grader | 0.014 | 12/21 | 7 | 0.827 | 1.00 | 0.044 | 0.022 | 0.073 | 0 | 71.0s |
+| Qwen normal + Tesseract boxes -> Qwen grader | 0.015 | 10/21 | 10 | 0.827 | 1.00 | 0.000 | 0.000 | 0.000 | 0 | 78.5s |
+| docTR + Tesseract boxes -> Qwen grader | 0.200 | 4/21 | 2 | 0.827 | 1.00 | 0.000 | 0.000 | 0.000 | 0 | 31.1s |
+| Tesseract + Tesseract boxes -> Qwen grader | 0.338 | 5/21 | 1 | 0.827 | 1.00 | 0.000 | 0.000 | 0.000 | 0 | 45.4s |
+
+Single-pass Qwen diagnostic (`benchmark/results/phase4_realworld_single_qwen_20image.json`): CER 0.098, WER 0.126, evidence preserved 8/21, correction leaks 13, word IoU 0.206, valid JSON 0.90, error text F1 0.130, error detection F1 0.081, false positives 18, average latency 66.4s. It is not a viable replacement for the two-stage path yet.
+
+**Phase 4 decision:** truthful OCR is still unsolved, and the current local Qwen Stage 2 grader is also insufficient. The source-text upper bound preserves all evidence and uses reviewed boxes, yet still reaches only 0.053 error-detection F1 with seven false positives. Do not advance to a final architecture on these numbers. The best carry-forward Stage 1 component is Qwen3-VL-4B verbatim word OCR; the best box-only source is Tesseract word boxes. The next work should tighten the Stage 2 contract/prompt and add an image-evidence verification path before rerunning the mixed matrix.
+
+Earlier single-page Qwen Stage 2 probe (`rw_11.jpg`, source text + draft-aligned words): valid JSON, `error_text_f1=1.00`, `error_detection_f1=0.667`, `error_box_iou=0.942`. Qwen found all three spelling errors, but one error bbox landed on the wrong line. The reviewed 20-page pass supersedes this as the authoritative Phase 4 signal.
 
 Five-page real-world full-pipeline smoke (`rw_1`, `rw_2`, `rw_11`, `rw_12`, `rw_13`; two clean, three positive) is saved in `benchmark/results/phase4_realworld_full_pipeline_5image.json`.
 
@@ -284,7 +332,7 @@ Five-page real-world full-pipeline smoke (`rw_1`, `rw_2`, `rw_11`, `rw_12`, `rw_
 | Tesseract live OCR/boxes -> Qwen grader | 0.324 | 0.902 | 0.900 | 1.00 | 0.000 | 0.000 | 0 | 39.4s |
 | Qwen live OCR/boxes -> Qwen grader | 0.029 | 0.107 | 0.720 | 1.00 | 0.000 | 0.000 | 0 | 57.5s |
 
-Interpretation: Qwen live OCR is much better than Tesseract for transcription, and Tesseract gives strong box overlap on these provisional auto-aligned boxes. However, the full two-stage pipelines missed the intentional errors because the OCR transcription often normalized the handwritten mistakes into corrected words before the grader saw them. The source-text probe shows the grader can catch errors when the evidence text is preserved; the full-pipeline result shows Phase 4 still needs either an OCR mode that preserves misspellings, a grader that compares image evidence, or an explicit observed-vs-corrected text contract. The single-pass arm is not reliable yet: two of five responses were invalid/truncated and word localization was poor.
+Interpretation from this earlier smoke: Qwen live OCR was much better than Tesseract for transcription, and Tesseract gave strong box overlap on the then-provisional auto-aligned boxes. However, the full two-stage pipelines missed the intentional errors because the OCR transcription often normalized the handwritten mistakes into corrected words before the grader saw them. The reviewed 20-page pass above keeps that finding and adds a second one: the current local Qwen grader is weak even with perfect source text.
 
 Useful real-world full-pipeline commands:
 
@@ -357,56 +405,46 @@ The failed rows are useful: they mean the active `.venv` did not run those model
   --output benchmark/results/phase4_realworld_stage1_all_live_attempt_1image.json
 ```
 
-#### Phase 4 resume plan
+#### Phase 4 next plan
 
-Next work should turn the current smoke results into an architecture decision. The highest-priority issue is still Stage 1 truthfulness: the OCR transcript must preserve the student's actual written evidence, because Stage 2 cannot catch errors that Stage 1 has already corrected away.
+The annotation-first pass is complete: all 20 real-world pages are reviewed, the full local Stage 1 truthfulness matrix has run, the focused two-stage matrix has run, and single-pass Qwen has been retested. Phase 4 should not advance to a final architecture yet.
 
 Current stopping point:
 
-- Best current local Stage 1 candidate: `qwen3vl_4b_verbatim_word_ocr`.
-- Best current box-only source: Tesseract word boxes, but its transcription is too noisy for grading.
-- Most useful artifact to continue from: `benchmark/results/phase4_realworld_live_matrix_5image.json`.
-- Most useful diagnostic artifact: `benchmark/results/phase4_realworld_stage1_all_live_attempt_1image.json`.
-- Do not treat word IoU or error-box IoU as final until `auto_aligned_needs_review` boxes are reviewed.
+- Best current local Stage 1 text source: `qwen3vl_4b_verbatim_word_ocr`, but it preserves only 12/21 erroneous spans.
+- Best current box-only source: Tesseract word boxes, with reviewed real-world word IoU 0.827.
+- Main blocker: the local Qwen Stage 2 grader misses most errors even when given source text and reviewed boxes.
+- Most useful artifacts to continue from: `benchmark/results/phase4_realworld_mixed_best_20image.json`, `benchmark/results/phase4_realworld_stage1_all_live_20image.json`, and `benchmark/visualizations/phase4_realworld_mixed_best_20image/`.
 - Do not use IAM Phase 2/3 artifacts as substitutes for real-world Stage 1 truthfulness.
 
 Recommended order:
 
-1. Review/fix the real-world word annotations.
-   - Current `words` boxes are still `auto_aligned_needs_review`.
-   - Inspect `benchmark/visualizations/realworld_aligned_words/`.
-   - Fix bad word boxes and `word_indices` for the 20 real-world pages before trusting word IoU or error-box IoU as authoritative.
+1. Tighten Stage 2 before broadening the architecture matrix.
+   - Require exact `evidence_text` copied from the provided word list.
+   - Require each returned error bbox to be the union of referenced `word_indices`.
+   - Penalize or reject invented punctuation/capitalization errors on clean pages.
+   - Add an explicit image-evidence check for cases where Stage 1 text may have normalized the handwriting.
 
-2. Run the full 20-page Stage 1 truthfulness matrix.
-   - Use `--stage1-only` first so OCR truthfulness is isolated from Qwen grader latency.
-   - Primary metrics: `verbatim_cer`, `verbatim_wer`, `evidence_preserved_rate`, `correction_leak_total`, and `word_iou`.
+2. Add a Stage 2-only regression set.
+   - Use reviewed source text and reviewed boxes as fixed inputs.
+   - Track valid JSON, error text F1, error detection F1, error-box IoU, false positives, and latency.
+   - Keep this independent of Stage 1 so grader prompt work has a fast feedback loop.
 
-```bash
-.venv/bin/python scripts/benchmark_phase4.py --dataset realworld --max-images 0 \
-  --text-sources all_live_local --box-sources same_stage1_boxes \
-  --stage1-only --continue-on-error \
-  --output benchmark/results/phase4_realworld_stage1_all_live_20image.json
-```
+3. Rerun the focused full-pipeline matrix only after the Stage 2-only upper bound improves.
+   - Primary rows: source text + reviewed boxes, Qwen verbatim + Qwen boxes, Qwen verbatim + Tesseract boxes, Qwen normal + Tesseract boxes, and Tesseract + Tesseract boxes.
+   - Advance a two-stage architecture only if source-text upper bound and Qwen-verbatim rows both improve substantially.
 
-3. Get missing live Stage 1 candidates running one environment at a time.
+4. Retest single-VLM end-to-end only as a diagnostic.
+   - Current single Qwen has valid JSON 0.90, word IoU 0.206, 18 false positives, and only 8/21 evidence spans preserved.
+   - It should not advance unless it becomes valid, faster, evidence-preserving, and comparable on localization.
+
+5. Get missing live Stage 1 candidates running one environment at a time.
    - Florence-2: run from `florencetf` / ensure local HF cache is available.
    - GOT-OCR2.0, SmolDocling, TrOCR: ensure local HF processor/model cache or allow a deliberate download setup step.
    - Nemotron OCR v2: run from `aiml`.
    - PaddleOCR-VL: use the Docker path, not the broken native `.venv_paddleocr` path.
    - MonkeyOCR: start the local llama.cpp server before the probe.
    - Cloud/manual/API sources stay gated: estimate cost and get explicit approval before live Doc AI, Gemini, Qwen3-VL-8B API, or Hunyuan runs.
-
-4. Mix the best text source with the best box source.
-   - Likely candidates: Qwen verbatim text + Qwen boxes, Qwen verbatim text + Tesseract boxes, docTR text + Tesseract boxes, and Qwen normal + Tesseract boxes as a control.
-   - This answers whether a slightly noisy but truthful OCR source beats a fluent normalizing VLM for downstream error detection.
-
-5. Tighten Stage 2 after Stage 1 evidence is preserved.
-   - The source-text probe proves Qwen can catch errors when evidence survives.
-   - Next prompt work should reduce false punctuation/capitalization calls, require exact `evidence_text`, and avoid invented errors.
-
-6. Retest single-VLM end-to-end only after the two-stage evidence-preserving path is stable.
-   - Current single Qwen has invalid/truncated responses and poor word localization.
-   - A future single-pass arm should use the same verbatim contract as Stage 1 and advance only if it is valid, faster, and comparable on evidence preservation plus localization.
 
 ---
 
@@ -578,7 +616,7 @@ The ratio reveals the *type* of error:
 | 1: Setup & baseline | Completed | Environments, IAM dataset (1,539 forms, 25 curated), 16.7s baseline, harness + metrics. 27/27 validation checks pass. |
 | 2: Tier-1 evaluation | 6/6 Completed| Surfaced the [printed-text confound](#the-confound-read-before-any-number); established cropped-handwriting as the authoritative protocol. |
 | 3: Tier-2 evaluation | 14/14 Completed | Full leaderboard above. Hunyuan #1 CER (manual); Qwen3-VL-8B best automatable. |
-| 4: Pipeline assembly | In progress | Mixed text-source / box-source / grader matrix implemented; 5-image real-world matrix and all-live Stage 1 availability probe complete. Current focus: truthful OCR that preserves student mistakes. |
+| 4: Pipeline assembly | In progress | Reviewed 20-page real-world annotations, full local Stage 1 truthfulness matrix, focused two-stage matrix, and single-pass diagnostic complete. Current focus: Stage 2 reliability plus evidence-preserving OCR. |
 | 5: Reading-order deep-dive | Pending | The hard case: unruled/multi-column. Nemotron relational model, PP-StructureV3, heuristics, VLM prompting. τ vs. manual annotation. |
 | 6: Error-detection accuracy | Pending | Per error type (capitalization, spelling, grammar, punctuation, structural): P/R/F1 + error-box IoU. |
 | 7: Auditability | Pending | Per-word crops vs. annotated overlay vs. side-by-side JSON: storage, verifiability, complexity. |

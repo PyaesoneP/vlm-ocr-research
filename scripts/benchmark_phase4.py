@@ -1415,10 +1415,10 @@ def main() -> None:
         },
         "notes": [
             "IAM handwritten crops have no intentional writing errors; error F1/IoU are not_applicable there.",
-            "Real-world handwritten error results are provisional while annotation_status is auto_aligned_needs_review.",
+            "Real-world handwritten error localization is authoritative only for entries marked annotation_status=manual_reviewed.",
             "Phase 4 is a mix-and-match architecture benchmark: saved Stage 1 text artifacts can be paired with separate word-box sources and Stage 2 graders.",
             "Most historical word-level result artifacts store metrics, not per-word coordinates, so box sources are explicit in each strategy name.",
-            "Localization is evaluated as word_iou against ground_truth_wordlevel.json.",
+            "Localization is evaluated as word_iou against the active dataset word annotations.",
             "Positive controls are schema/behavior probes, not a writing-error leaderboard.",
             "Cloud strategies are disabled unless explicitly requested with approval and a cost estimate.",
             "For the real-world full-matrix run, use live Stage 1 sources; IAM Phase 2/3 artifacts are not substitutes for real-world OCR evidence.",
