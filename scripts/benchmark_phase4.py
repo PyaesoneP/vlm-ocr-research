@@ -1111,7 +1111,14 @@ def build_strategies(args: argparse.Namespace) -> list[SinglePassStrategy | TwoS
         if args.stage1_only:
             strategies.append(Stage1OnlyStrategy(f"stage1__{spec.text_source}__{spec.box_source}", ocr_call))
         else:
-            strategies.append(TwoStageStrategy(strategy_name_from_spec(spec), ocr_call, model_call))
+            strategies.append(
+                TwoStageStrategy(
+                    strategy_name_from_spec(spec),
+                    ocr_call,
+                    model_call,
+                    stage2_prompt_mode=args.stage2_prompt_mode,
+                )
+            )
 
     return strategies
 
@@ -1322,6 +1329,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model-id", default=QWEN_MODEL_ID)
     parser.add_argument("--max-new-tokens", type=int, default=4096)
     parser.add_argument("--grader-max-new-tokens", type=int, default=768)
+    parser.add_argument(
+        "--stage2-prompt-mode",
+        default="baseline",
+        choices=["baseline", "contract_v2", "contract_v3", "image_verify", "image_verify_v3"],
+        help="Prompt contract used by two-stage Stage 2 graders.",
+    )
     parser.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE_DIR)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument("--refresh-cache", action="store_true")
