@@ -291,6 +291,9 @@ This pass is local-only: no cloud/API sources, no Docker-only sources, no paid c
 - `benchmark/results/phase4_realworld_stage1_all_live_20image.json`
 - `benchmark/results/phase4_realworld_mixed_best_20image.json`
 - `benchmark/results/phase4_realworld_single_qwen_20image.json`
+- `benchmark/results/phase4_stage2_source_text_qwen_contract_v2.json`
+- `benchmark/results/phase4_stage2_source_text_qwen_contract_v3.json`
+- `benchmark/results/phase4_stage2_source_text_qwen_image_verify_v3.json`
 - overlays: `benchmark/visualizations/phase4_realworld_mixed_best_20image/`
 
 Full 20-page **Stage 1 truthfulness matrix**:
@@ -320,7 +323,35 @@ Focused 20-page **full-pipeline matrix**:
 
 Single-pass Qwen diagnostic (`benchmark/results/phase4_realworld_single_qwen_20image.json`): CER 0.098, WER 0.126, evidence preserved 8/21, correction leaks 13, word IoU 0.206, valid JSON 0.90, error text F1 0.130, error detection F1 0.081, false positives 18, average latency 66.4s. It is not a viable replacement for the two-stage path yet.
 
-**Phase 4 decision:** truthful OCR is still unsolved, and the current local Qwen Stage 2 grader is also insufficient. The source-text upper bound preserves all evidence and uses reviewed boxes, yet still reaches only 0.053 error-detection F1 with seven false positives. Do not advance to a final architecture on these numbers. The best carry-forward Stage 1 component is Qwen3-VL-4B verbatim word OCR; the best box-only source is Tesseract word boxes. The next work should tighten the Stage 2 contract/prompt and add an image-evidence verification path before rerunning the mixed matrix.
+Stage 2-only recovery loop, with reviewed source text + reviewed boxes fixed as input:
+
+| Stage 2 grader mode | Valid JSON | Error text F1 | Error detection F1 | Error-box IoU | Clean-page false positives | Contract bbox exact | Avg latency |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Original two-stage prompt | 1.00 | 0.120 | 0.053 | 0.322 | 7 | n/a | 21.9s |
+| `contract_v2` | 1.00 | 0.517 | 0.417 | 0.819 | 0 | 0.889 | 8.4s |
+| `image_verify` | 1.00 | 0.550 | 0.450 | 0.819 | 0 | 0.895 | 8.1s |
+| `contract_v3` | 1.00 | 0.550 | **0.500** | **0.922** | 0 | **1.000** | 9.2s |
+| `image_verify_v3` | 1.00 | **0.640** | 0.492 | **0.922** | 0 | **1.000** | 9.1s |
+
+The recovery loop added `scripts/benchmark_phase4_stage2.py`, `scripts/audit_phase4_stage2.py`, stricter Stage 2 prompt modes, and deterministic error-bbox normalization from returned `word_indices`. The stricter contract fixes the worst failure from the original prompt: clean pages now stay clean, evidence text is copied exactly, every returned error is anchored to word indices, and bboxes are derived from reviewed word boxes instead of copied coordinates.
+
+Remaining Stage 2 failures are now narrower. `contract_v3` audit: 12/21 errors matched, 1 missed, 8 wrong type. `image_verify_v3` audit: 12/21 matched, 1 missed, 6 wrong type, 2 bbox/span mismatches. The image-aware prompt improved text-level matching but did not beat text-only `contract_v3` on detection F1.
+
+Stage 2-only commands:
+
+```bash
+.venv/bin/python scripts/benchmark_phase4_stage2.py \
+  --prompt-modes contract_v3 image_verify_v3 \
+  --include-raw --continue-on-error \
+  --output benchmark/results/phase4_stage2_source_text_qwen_contract_compare.json
+
+.venv/bin/python scripts/audit_phase4_stage2.py \
+  --result benchmark/results/phase4_stage2_source_text_qwen_contract_v3.json \
+  --strategy stage2_source_text__contract_v3__qwen3vl_4b_grader \
+  --output benchmark/results/phase4_stage2_source_text_qwen_contract_v3_audit.json
+```
+
+**Phase 4 decision:** truthful OCR is still unsolved, and Stage 2 is only partially recovered. The Stage 2 source-text upper bound improved from `error_detection_f1=0.053` to `0.500`, but it is still below the `0.75` gate. Do not advance to a final architecture yet. The best carry-forward Stage 1 component remains Qwen3-VL-4B verbatim word OCR; the best box-only source remains Tesseract word boxes. The next work should add a Stage 2 adjudication/normalization pass for error type and span selection before rerunning the full mixed matrix.
 
 Earlier single-page Qwen Stage 2 probe (`rw_11.jpg`, source text + draft-aligned words): valid JSON, `error_text_f1=1.00`, `error_detection_f1=0.667`, `error_box_iou=0.942`. Qwen found all three spelling errors, but one error bbox landed on the wrong line. The reviewed 20-page pass supersedes this as the authoritative Phase 4 signal.
 
@@ -407,44 +438,65 @@ The failed rows are useful: they mean the active `.venv` did not run those model
 
 #### Phase 4 next plan
 
-The annotation-first pass is complete: all 20 real-world pages are reviewed, the full local Stage 1 truthfulness matrix has run, the focused two-stage matrix has run, and single-pass Qwen has been retested. Phase 4 should not advance to a final architecture yet.
+The annotation-first pass is complete, and the first Stage 2 recovery loop has now run. Phase 4 should still **pause architecture broadening**: the reviewed source-text upper bound improved substantially, but `error_detection_f1=0.500` is not enough to justify a final architecture. No Stage 1 pairing can beat a weak source-text upper bound.
 
 Current stopping point:
 
 - Best current local Stage 1 text source: `qwen3vl_4b_verbatim_word_ocr`, but it preserves only 12/21 erroneous spans.
 - Best current box-only source: Tesseract word boxes, with reviewed real-world word IoU 0.827.
-- Main blocker: the local Qwen Stage 2 grader misses most errors even when given source text and reviewed boxes.
-- Most useful artifacts to continue from: `benchmark/results/phase4_realworld_mixed_best_20image.json`, `benchmark/results/phase4_realworld_stage1_all_live_20image.json`, and `benchmark/visualizations/phase4_realworld_mixed_best_20image/`.
+- Best current Stage 2 source-text mode: `contract_v3`, with valid JSON 1.00, clean-page false positives 0, exact bbox union 1.00, and error-detection F1 0.500.
+- `image_verify_v3` improves error text F1 to 0.640, but detection F1 is 0.492 because it still anchors or types some errors incorrectly.
+- Main blocker: local Qwen still misclassifies grammar/capitalization as spelling and sometimes anchors only part of a multiword grammar error.
+- Most useful artifacts to continue from: `benchmark/results/phase4_stage2_source_text_qwen_contract_v3.json`, `benchmark/results/phase4_stage2_source_text_qwen_contract_v3_audit.json`, `benchmark/results/phase4_stage2_source_text_qwen_image_verify_v3.json`, and `benchmark/results/phase4_realworld_stage1_all_live_20image.json`.
+- Single-pass Qwen is diagnostic only: valid JSON 0.90, word IoU 0.206, false positives 18, evidence preserved 8/21.
 - Do not use IAM Phase 2/3 artifacts as substitutes for real-world Stage 1 truthfulness.
 
 Recommended order:
 
-1. Tighten Stage 2 before broadening the architecture matrix.
-   - Require exact `evidence_text` copied from the provided word list.
-   - Require each returned error bbox to be the union of referenced `word_indices`.
-   - Penalize or reject invented punctuation/capitalization errors on clean pages.
-   - Add an explicit image-evidence check for cases where Stage 1 text may have normalized the handwriting.
+1. Add Stage 2 adjudication after the model response.
+   - Normalize bboxes from `word_indices` before scoring; this is now implemented.
+   - Add a deterministic type/span adjudicator for obvious cases: capitalization-only corrections, multiword grammar spans, subject-verb agreement, pronoun case, repeated words, `should of` -> `should have`, and `atleast` -> `at least`.
+   - Keep adjudication rule-based and auditable; do not read ground-truth labels at inference time.
 
-2. Add a Stage 2-only regression set.
-   - Use reviewed source text and reviewed boxes as fixed inputs.
-   - Track valid JSON, error text F1, error detection F1, error-box IoU, false positives, and latency.
-   - Keep this independent of Stage 1 so grader prompt work has a fast feedback loop.
+2. Add a candidate-review Stage 2 mode.
+   - First pass proposes candidate spans and corrections.
+   - Second pass classifies each candidate into the allowed taxonomy or rejects it.
+   - Score this as another Stage 2-only source-text run before touching Stage 1.
 
-3. Rerun the focused full-pipeline matrix only after the Stage 2-only upper bound improves.
+3. Improve multiword span selection.
+   - Current failures include anchoring only `of` instead of `should of`, only `hour` instead of `took us hour`, and typing grammar corrections as spelling.
+   - Require the model or adjudicator to expand to adjacent words when the correction phrase needs them.
+
+4. Retest Stage 2-only until the source-text upper bound clears the gates.
+   - Stage 2 source-text upper bound: `valid_json_rate = 1.00`.
+   - Stage 2 source-text upper bound: `error_detection_f1 >= 0.75`.
+   - Clean pages: `false_positive_total <= 2` across the 10 clean pages.
+   - Error localization: `error_box_iou >= 0.60` when using reviewed boxes.
+   - Latency: record it, but do not optimize latency until the grader is behaviorally correct.
+
+5. Rerun the focused full-pipeline matrix only after the Stage 2-only upper bound clears the gate.
    - Primary rows: source text + reviewed boxes, Qwen verbatim + Qwen boxes, Qwen verbatim + Tesseract boxes, Qwen normal + Tesseract boxes, and Tesseract + Tesseract boxes.
    - Advance a two-stage architecture only if source-text upper bound and Qwen-verbatim rows both improve substantially.
 
-4. Retest single-VLM end-to-end only as a diagnostic.
+6. Retest single-VLM end-to-end only as a diagnostic.
    - Current single Qwen has valid JSON 0.90, word IoU 0.206, 18 false positives, and only 8/21 evidence spans preserved.
    - It should not advance unless it becomes valid, faster, evidence-preserving, and comparable on localization.
 
-5. Get missing live Stage 1 candidates running one environment at a time.
+7. Get missing live Stage 1 candidates running one environment at a time, after the Stage 2 source-text upper bound is healthy.
    - Florence-2: run from `florencetf` / ensure local HF cache is available.
    - GOT-OCR2.0, SmolDocling, TrOCR: ensure local HF processor/model cache or allow a deliberate download setup step.
    - Nemotron OCR v2: run from `aiml`.
    - PaddleOCR-VL: use the Docker path, not the broken native `.venv_paddleocr` path.
    - MonkeyOCR: start the local llama.cpp server before the probe.
    - Cloud/manual/API sources stay gated: estimate cost and get explicit approval before live Doc AI, Gemini, Qwen3-VL-8B API, or Hunyuan runs.
+
+Do **not** do next:
+
+- Do not broaden the Stage 1 model matrix before the Stage 2 upper bound improves.
+- Do not run cloud/API graders without an explicit cost estimate and approval.
+- Do not treat single-pass Qwen as an architecture candidate until its JSON validity and localization recover.
+- Do not optimize latency while the source-text upper bound is below the error-detection target.
+- Do not treat prompt-only gains as enough unless the audited error taxonomy improves, not just aggregate text F1.
 
 ---
 

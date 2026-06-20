@@ -7,9 +7,11 @@ from pathlib import Path
 from typing import Callable
 
 from pipeline.contracts import PipelineOutput
+from pipeline.localization import bbox_from_word_indices
 from pipeline.parsing import ParseResult, parse_model_json
 from pipeline.prompts import (
     SINGLE_PASS_SCHEMA,
+    STAGE2_CONTRACT_V2_SCHEMA,
     STAGE2_SCHEMA,
     build_repair_prompt,
     build_single_pass_prompt,
@@ -124,10 +126,18 @@ class SinglePassStrategy:
 class TwoStageStrategy:
     """Stage 1 OCR/localization followed by a separate grading prompt."""
 
-    def __init__(self, name: str, ocr_call: OcrCall, grader_call: ModelCall):
+    def __init__(
+        self,
+        name: str,
+        ocr_call: OcrCall,
+        grader_call: ModelCall,
+        *,
+        stage2_prompt_mode: str = "baseline",
+    ):
         self.name = name
         self.ocr_call = ocr_call
         self.grader_call = grader_call
+        self.stage2_prompt_mode = stage2_prompt_mode
 
     def run(self, image_path: str | Path) -> PipelineOutput:
         path = Path(image_path)
@@ -142,7 +152,11 @@ class TwoStageStrategy:
         image_path: str | Path | None = None,
     ) -> PipelineOutput:
         path = Path(image_path) if image_path is not None else None
-        prompt = build_stage2_prompt(ocr_output.text, ocr_output.boxes)
+        prompt = build_stage2_prompt(
+            ocr_output.text,
+            ocr_output.boxes,
+            mode=self.stage2_prompt_mode,
+        )
         raw_obj, latency = _timed(self.grader_call, prompt, path)
         raw = str(raw_obj)
         parsed, final_raw, repair_attempted, repair_succeeded, repair_latency = _parse_with_repair(
@@ -151,8 +165,13 @@ class TwoStageStrategy:
             image_path=path,
             image_size=_image_size(path),
             require_text=False,
-            repair_schema=STAGE2_SCHEMA,
+            repair_schema=(
+                STAGE2_SCHEMA
+                if self.stage2_prompt_mode == "baseline"
+                else STAGE2_CONTRACT_V2_SCHEMA
+            ),
         )
+        _normalize_error_bboxes_from_indices(parsed, ocr_output)
         stage2 = latency + repair_latency
         return PipelineOutput(
             strategy_name=self.name,
@@ -171,6 +190,7 @@ class TwoStageStrategy:
             notes=parsed.problems,
             metadata={
                 "mode": "two_stage",
+                "stage2_prompt_mode": self.stage2_prompt_mode,
                 "ocr_strategy": ocr_output.strategy_name,
                 **ocr_output.metadata,
             },
@@ -197,3 +217,16 @@ class TwoStageStrategy:
             output.stage1_latency = measured_stage1
             output.total_latency = measured_stage1
         return output
+
+
+def _normalize_error_bboxes_from_indices(
+    parsed: ParseResult,
+    ocr_output: PipelineOutput,
+) -> None:
+    """Use `word_indices` as the source of truth for Stage 2 error boxes."""
+    for error in parsed.errors:
+        if not error.word_indices:
+            continue
+        bbox = bbox_from_word_indices(ocr_output.boxes, error.word_indices)
+        if bbox != [0, 0, 0, 0]:
+            error.bbox = bbox
