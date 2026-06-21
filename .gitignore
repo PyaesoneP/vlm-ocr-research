@@ -46,6 +46,7 @@ demo/*.mp4
 # Model cache (downloaded from HuggingFace / external sources)
 models/
 .cache/
+.hf_cache/
 
 # OS junk
 .DS_Store
