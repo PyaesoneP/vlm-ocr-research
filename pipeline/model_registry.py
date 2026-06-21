@@ -63,6 +63,20 @@ STAGE1_MODEL_REGISTRY: dict[str, Stage1ModelSpec] = {
         automated_matrix=True,
         notes="Prompted to preserve the student's actual errors instead of normalizing them.",
     ),
+    "qwen3vl_4b_crop_verified_word_ocr": Stage1ModelSpec(
+        name="qwen3vl_4b_crop_verified_word_ocr",
+        display_name="Qwen3-VL-4B crop-verified word OCR",
+        family="vlm",
+        source_kind="live_local",
+        can_localize=True,
+        box_granularity="word",
+        prompted=True,
+        automated_matrix=False,
+        notes=(
+            "Starts from Qwen verbatim word OCR, then rereads suspicious word crops "
+            "and only replaces individual tokens with high-confidence crop evidence."
+        ),
+    ),
     "qwen3vl_4b_wordlevel": Stage1ModelSpec(
         name="qwen3vl_4b_wordlevel",
         display_name="Qwen3-VL-4B word-level artifact",

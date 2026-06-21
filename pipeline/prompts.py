@@ -79,6 +79,16 @@ VERBATIM_WORD_OCR_PROMPT = (
     "Preserve reading order. Do not output explanations."
 )
 
+CROP_VERBATIM_WORD_PROMPT = (
+    "You are checking one small crop from a handwritten student page.\n"
+    "Copy only the visible handwritten word or short adjacent phrase in this crop.\n"
+    "Do not correct spelling, grammar, capitalization, homophones, repeated words, or fused words.\n"
+    "If the crop says 'bred', return 'bred', not 'bread'. If it says 'forgoten', return 'forgoten'.\n"
+    "Return only valid JSON with this schema:\n"
+    '{"observed_text": "exact visible text", "confidence": "high|medium|low"}\n'
+    "Use confidence high only when the crop is clear and the letters are visible."
+)
+
 
 def build_single_pass_prompt() -> str:
     """Prompt a VLM to do OCR, localization, error detection, and feedback."""

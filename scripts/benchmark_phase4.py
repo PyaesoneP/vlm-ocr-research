@@ -28,6 +28,7 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
+from pipeline.alignment import align_text_boxes_to_geometry, text_similarity
 from pipeline.contracts import PipelineOutput, TextBox
 from pipeline.metrics import aggregate_phase4_metrics, evaluate_phase4_output
 from pipeline.model_registry import (
@@ -35,7 +36,7 @@ from pipeline.model_registry import (
     live_local_text_sources,
     registry_metadata,
 )
-from pipeline.prompts import VERBATIM_WORD_OCR_PROMPT
+from pipeline.prompts import CROP_VERBATIM_WORD_PROMPT, VERBATIM_WORD_OCR_PROMPT
 from pipeline.strategies import SinglePassStrategy, TwoStageStrategy
 
 
@@ -64,6 +65,7 @@ TEXT_SOURCE_ALIASES = {"all_live_local", "all_automated_artifacts", "all_availab
 TEXT_SOURCE_CHOICES = set(STAGE1_TEXT_SOURCES) | LIVE_STAGE1_TEXT_SOURCES | TEXT_SOURCE_ALIASES
 
 STAGE1_BOX_SOURCES = {
+    "aligned_tesseract_word_boxes",
     "qwen3vl_4b_word_boxes",
     "realworld_aligned_words",
     "same_stage1_boxes",
@@ -98,6 +100,44 @@ QWEN_WORD_OCR_PROMPT = (
 )
 
 QWEN_VERBATIM_WORD_CACHE_KEY = "qwen3vl_4b_verbatim_word"
+QWEN_CROP_VERIFIED_WORD_CACHE_KEY = "qwen3vl_4b_crop_verified_word_v2"
+
+COMMON_NORMALIZATION_TARGETS = {
+    "alot",
+    "atleast",
+    "beautiful",
+    "bread",
+    "came",
+    "floor",
+    "forgotten",
+    "interesting",
+    "minutes",
+    "received",
+    "should",
+    "their",
+    "there",
+    "thursday",
+    "umbrella",
+    "until",
+    "usually",
+    "weather",
+    "which",
+}
+
+ERROR_PATTERN_WORDS = {
+    "bred",
+    "forgoten",
+    "minuts",
+    "umbrela",
+    "wether",
+    "beutiful",
+    "untill",
+    "usualy",
+    "wich",
+    "intresting",
+    "flor",
+    "recieved",
+}
 
 CANDIDATE_LIVE_OCR_MODULES = {
     "florence2_live_region_ocr": "candidates.florence2.eval",
@@ -365,6 +405,160 @@ def run_qwen_word_ocr(
     return parsed
 
 
+def _compact_text(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "", str(text).lower())
+
+
+def _simple_bbox_iou(left: list[int], right: list[int]) -> float:
+    if len(left) != 4 or len(right) != 4:
+        return 0.0
+    lx1, ly1, lx2, ly2 = left
+    rx1, ry1, rx2, ry2 = right
+    ix1 = max(lx1, rx1)
+    iy1 = max(ly1, ry1)
+    ix2 = min(lx2, rx2)
+    iy2 = min(ly2, ry2)
+    inter = max(0, ix2 - ix1) * max(0, iy2 - iy1)
+    left_area = max(0, lx2 - lx1) * max(0, ly2 - ly1)
+    right_area = max(0, rx2 - rx1) * max(0, ry2 - ry1)
+    union = left_area + right_area - inter
+    return inter / union if union else 0.0
+
+
+def parse_crop_verifier_response(raw: str) -> dict[str, str]:
+    """Parse the small-crop verifier response into observed text + confidence."""
+    text = raw.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE).strip()
+        text = re.sub(r"\s*```$", "", text).strip()
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        first_line = next((line.strip() for line in text.splitlines() if line.strip()), "")
+        return {
+            "observed_text": first_line.strip("\"' "),
+            "confidence": "medium" if first_line else "low",
+        }
+    return {
+        "observed_text": str(data.get("observed_text", data.get("text", ""))).strip(),
+        "confidence": str(data.get("confidence", "low")).strip().lower(),
+    }
+
+
+def crop_text_box(
+    image_path: Path,
+    bbox: list[int],
+    out_path: Path,
+    *,
+    padding: int = 12,
+) -> Path:
+    from PIL import Image
+
+    with Image.open(image_path) as image:
+        width, height = image.size
+        x1, y1, x2, y2 = bbox[:4]
+        x1 = max(0, int(x1) - padding)
+        y1 = max(0, int(y1) - padding)
+        x2 = min(width, int(x2) + padding)
+        y2 = min(height, int(y2) + padding)
+        if x2 <= x1 or y2 <= y1:
+            raise ValueError(f"Invalid crop bbox for {image_path.name}: {bbox}")
+        out_path.parent.mkdir(parents=True, exist_ok=True)
+        image.crop((x1, y1, x2, y2)).save(out_path)
+    return out_path
+
+
+def suspicious_word_indices(
+    base_boxes: list[TextBox],
+    *,
+    normal_boxes: list[TextBox] | None = None,
+    geometry_boxes: list[TextBox] | None = None,
+) -> dict[int, list[str]]:
+    """Choose word boxes worth crop-rereading without using ground-truth labels."""
+    reasons: dict[int, list[str]] = {}
+
+    def add(index: int, reason: str) -> None:
+        if 0 <= index < len(base_boxes):
+            reasons.setdefault(index, [])
+            if reason not in reasons[index]:
+                reasons[index].append(reason)
+
+    for index, box in enumerate(base_boxes):
+        compact = _compact_text(box.text)
+        if not compact:
+            continue
+        if compact in COMMON_NORMALIZATION_TARGETS:
+            add(index, "normalization_target")
+        if compact in ERROR_PATTERN_WORDS:
+            add(index, "known_error_pattern")
+        if compact in {"of", "the"}:
+            left = _compact_text(base_boxes[index - 1].text) if index > 0 else ""
+            right = _compact_text(base_boxes[index + 1].text) if index + 1 < len(base_boxes) else ""
+            if (left, compact) in {("should", "of")} or compact == right:
+                add(index, "grammar_pattern")
+
+    if normal_boxes:
+        for index, box in enumerate(base_boxes):
+            best_normal = None
+            best_iou = 0.0
+            for normal in normal_boxes:
+                iou = _simple_bbox_iou(box.bbox, normal.bbox)
+                if iou > best_iou:
+                    best_iou = iou
+                    best_normal = normal
+            if best_normal is None or best_iou < 0.05:
+                continue
+            normal_text = best_normal.text
+            if _compact_text(box.text) and _compact_text(normal_text):
+                if text_similarity(box.text, normal_text) < 0.98:
+                    add(index, "qwen_normal_verbatim_disagreement")
+
+    if geometry_boxes:
+        for index, box in enumerate(base_boxes):
+            best_geometry = None
+            best_iou = 0.0
+            for geometry in geometry_boxes:
+                iou = _simple_bbox_iou(box.bbox, geometry.bbox)
+                if iou > best_iou:
+                    best_iou = iou
+                    best_geometry = geometry
+            if best_geometry is None or best_iou < 0.05:
+                continue
+            geometry_text = best_geometry.text
+            box_compact = _compact_text(box.text)
+            geometry_compact = _compact_text(geometry_text)
+            correction_prone = (
+                box_compact in COMMON_NORMALIZATION_TARGETS
+                or box_compact in ERROR_PATTERN_WORDS
+                or geometry_compact in ERROR_PATTERN_WORDS
+            )
+            if box_compact and geometry_compact and correction_prone:
+                if text_similarity(box.text, geometry_text) < 0.98:
+                    add(index, "geometry_text_disagreement")
+
+    return reasons
+
+
+def should_accept_crop_replacement(original: str, verified: str, confidence: str) -> bool:
+    verified = verified.strip()
+    original_compact = _compact_text(original)
+    verified_compact = _compact_text(verified)
+    if confidence != "high":
+        return False
+    if not verified_compact or verified_compact == original_compact:
+        return False
+    if len(verified.split()) > 3:
+        return False
+    if len(verified_compact) > max(24, len(original_compact) + 8):
+        return False
+    if len(verified_compact) < max(1, len(original_compact) - 4):
+        return False
+    return (
+        original_compact in COMMON_NORMALIZATION_TARGETS
+        and verified_compact in ERROR_PATTERN_WORDS
+    )
+
+
 def run_tesseract_word_boxes(image_path: Path) -> dict[str, Any]:
     t0 = time.perf_counter()
     try:
@@ -524,6 +718,123 @@ def tesseract_word_box_output(
     output.metadata.update({
         "box_source": "tesseract_word_boxes",
         "box_latency_s": output.stage1_latency,
+    })
+    return output
+
+
+def crop_verified_qwen_word_output(
+    image_path: Path,
+    adapter: Qwen3VLAdapter,
+    args: argparse.Namespace,
+) -> PipelineOutput:
+    """Run Qwen verbatim OCR, then reread suspicious word crops conservatively."""
+
+    def compute(path: Path) -> dict[str, Any]:
+        t0 = time.perf_counter()
+        base_output = qwen_word_box_output(
+            path,
+            adapter,
+            args,
+            prompt=VERBATIM_WORD_OCR_PROMPT,
+            cache_key=QWEN_VERBATIM_WORD_CACHE_KEY,
+            strategy_name="qwen3vl_4b_verbatim_word_ocr",
+        )
+        normal_output = qwen_word_box_output(
+            path,
+            adapter,
+            args,
+            cache_key="qwen3vl_4b_word",
+            strategy_name="qwen3vl_4b_live_word_ocr",
+        )
+        geometry_output = tesseract_word_box_output(path, args)
+        suspicion = suspicious_word_indices(
+            base_output.boxes,
+            normal_boxes=normal_output.boxes,
+            geometry_boxes=geometry_output.boxes,
+        )
+
+        boxes = [
+            TextBox(
+                bbox=list(box.bbox),
+                text=box.text,
+                confidence=box.confidence,
+                reading_order=box.reading_order,
+                index=i,
+                source=box.source or "qwen3vl_4b_crop_verified_word_ocr",
+            )
+            for i, box in enumerate(base_output.boxes)
+        ]
+        replacements = []
+        rejected = []
+        crop_dir = args.cache_dir / "crop_verified_words" / path.stem
+        for index in sorted(suspicion):
+            if index >= len(boxes):
+                continue
+            box = boxes[index]
+            if not box.bbox or box.bbox == [0, 0, 0, 0]:
+                rejected.append({
+                    "index": index,
+                    "original_text": box.text,
+                    "reasons": suspicion[index],
+                    "reject_reason": "missing_bbox",
+                })
+                continue
+            crop_path = crop_text_box(path, box.bbox, crop_dir / f"{index:03d}.png")
+            raw = adapter.generate(CROP_VERBATIM_WORD_PROMPT, crop_path, max_new_tokens=64)
+            parsed = parse_crop_verifier_response(raw)
+            verified = parsed["observed_text"]
+            confidence = parsed["confidence"]
+            record = {
+                "index": index,
+                "bbox": list(box.bbox),
+                "original_text": box.text,
+                "verified_text": verified,
+                "confidence": confidence,
+                "reasons": suspicion[index],
+                "crop_path": str(crop_path.relative_to(PROJECT_ROOT)),
+                "raw_response": raw,
+            }
+            if should_accept_crop_replacement(box.text, verified, confidence):
+                box.text = verified
+                box.source = "qwen3vl_4b_crop_verified_word_ocr"
+                replacements.append(record)
+            else:
+                record["reject_reason"] = "not_high_confidence_or_not_plausible"
+                rejected.append(record)
+
+        return {
+            "text": " ".join(box.text for box in boxes if box.text),
+            "blocks": [box.to_dict() for box in boxes],
+            "stage1_latency": time.perf_counter() - t0,
+            "_base_cache_key": QWEN_VERBATIM_WORD_CACHE_KEY,
+            "_normal_cache_key": "qwen3vl_4b_word",
+            "_geometry_cache_key": "tesseract_word_boxes",
+            "_crop_verified_candidates": len(suspicion),
+            "_crop_verified_replacements": replacements,
+            "_crop_verified_rejected": rejected,
+            "_crop_verified_candidate_reasons": {str(k): v for k, v in suspicion.items()},
+            "_stage1_composition": "qwen_verbatim_plus_high_confidence_crop_rereads",
+        }
+
+    data = cached_stage1(
+        args.cache_dir,
+        QWEN_CROP_VERIFIED_WORD_CACHE_KEY,
+        image_path,
+        args.refresh_cache,
+        compute,
+    )
+    output = PipelineOutput.from_ocr_dict(
+        data,
+        strategy_name="qwen3vl_4b_crop_verified_word_ocr",
+        image=image_path,
+    )
+    output.metadata.update({
+        "text_source": "qwen3vl_4b_crop_verified_word_ocr",
+        "box_source": "qwen3vl_4b_crop_verified_word_ocr",
+        "stage1_composition": "qwen_verbatim_plus_high_confidence_crop_rereads",
+        "stage1_latency_policy": "cached full-page qwen + tesseract + crop verifier latency",
+        "verbatim_prompt": True,
+        "crop_verified": True,
     })
     return output
 
@@ -725,6 +1036,15 @@ def make_live_ocr_call(
 
         return ocr_call
 
+    if text_source == "qwen3vl_4b_crop_verified_word_ocr":
+        if adapter is None:
+            raise RuntimeError("qwen3vl_4b_crop_verified_word_ocr requires the local Qwen adapter")
+
+        def ocr_call(image_path: Path) -> PipelineOutput:
+            return crop_verified_qwen_word_output(image_path, adapter, args)
+
+        return ocr_call
+
     if text_source in {"easyocr_live_word_ocr", "doctr_live_word_ocr"}:
         return lambda image_path: baseline_live_word_output(
             image_path,
@@ -751,6 +1071,36 @@ def make_composed_ocr_call(
         live_call = make_live_ocr_call(spec.text_source, args, adapter)
         if spec.box_source == "same_stage1_boxes":
             return live_call
+
+        if spec.box_source == "aligned_tesseract_word_boxes":
+            def ocr_call(image_path: Path) -> PipelineOutput:
+                text_output = live_call(image_path)
+                geometry_output = tesseract_word_box_output(image_path, args)
+                aligned_boxes, alignment_stats = align_text_boxes_to_geometry(
+                    text_output.boxes,
+                    geometry_output.boxes,
+                )
+                stage1_latency = text_output.stage1_latency + geometry_output.stage1_latency
+                metadata = {
+                    **text_output.metadata,
+                    **geometry_output.metadata,
+                    "text_source": spec.text_source,
+                    "box_source": spec.box_source,
+                    "stage1_composition": "live_text_plus_aligned_tesseract_geometry",
+                    "stage1_latency_policy": "live_text_latency_s + tesseract_box_latency_s",
+                    **alignment_stats,
+                }
+                return PipelineOutput(
+                    strategy_name=f"{spec.text_source}__{spec.box_source}",
+                    image=image_path.name,
+                    text=text_output.text,
+                    boxes=aligned_boxes,
+                    stage1_latency=stage1_latency,
+                    total_latency=stage1_latency,
+                    metadata=metadata,
+                )
+
+            return ocr_call
 
         box_call = make_box_call(spec.box_source, args, adapter)
 
@@ -972,6 +1322,8 @@ def parse_two_stage_strategy_name(name: str) -> TwoStageSpec:
         raise ValueError(f"Unknown Stage 1 box source: {box_source}")
     if box_source == "same_stage1_boxes" and not is_live_text_source(text_source):
         raise ValueError("same_stage1_boxes requires a live Stage 1 text source")
+    if box_source == "aligned_tesseract_word_boxes" and not is_live_text_source(text_source):
+        raise ValueError("aligned_tesseract_word_boxes requires a live Stage 1 text source with word boxes")
     if grader not in LOCAL_GRADERS:
         raise ValueError(f"Unknown grader: {grader}")
     return TwoStageSpec(text_source=text_source, box_source=box_source, grader=grader)
@@ -1041,7 +1393,11 @@ def qwen_adapter_needed(args: argparse.Namespace, specs: list[TwoStageSpec], end
         return False
     if args.stage1_only:
         return any(
-            spec.text_source in {"qwen3vl_4b_live_word_ocr", "qwen3vl_4b_verbatim_word_ocr"}
+            spec.text_source in {
+                "qwen3vl_4b_live_word_ocr",
+                "qwen3vl_4b_verbatim_word_ocr",
+                "qwen3vl_4b_crop_verified_word_ocr",
+            }
             or spec.box_source == "qwen3vl_4b_word_boxes"
             for spec in specs
         )
@@ -1049,7 +1405,14 @@ def qwen_adapter_needed(args: argparse.Namespace, specs: list[TwoStageSpec], end
         return True
     if any(spec.grader == "qwen3vl_4b_grader" for spec in specs):
         return True
-    if any(spec.text_source in {"qwen3vl_4b_live_word_ocr", "qwen3vl_4b_verbatim_word_ocr"} for spec in specs):
+    if any(
+        spec.text_source in {
+            "qwen3vl_4b_live_word_ocr",
+            "qwen3vl_4b_verbatim_word_ocr",
+            "qwen3vl_4b_crop_verified_word_ocr",
+        }
+        for spec in specs
+    ):
         return True
     return any(spec.box_source == "qwen3vl_4b_word_boxes" for spec in specs)
 

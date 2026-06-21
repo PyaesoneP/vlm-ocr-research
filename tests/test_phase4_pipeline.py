@@ -6,6 +6,7 @@ import unittest
 from pathlib import Path
 
 from pipeline.adjudication import adjudicate_stage2_errors
+from pipeline.alignment import align_text_boxes_to_geometry, text_similarity
 from pipeline.contracts import ErrorFinding, PipelineOutput, TextBox
 from pipeline.localization import bbox_from_word_indices
 from pipeline.metrics import NOT_APPLICABLE, compute_truthfulness_metrics, evaluate_phase4_output
@@ -14,9 +15,12 @@ from pipeline.parsing import parse_model_json
 from pipeline.strategies import SinglePassStrategy, TwoStageStrategy
 from scripts.benchmark_phase4 import (
     LIVE_STAGE1_TEXT_SOURCES,
+    parse_crop_verifier_response,
     parse_qwen_word_response,
     parse_two_stage_strategy_name,
     select_images,
+    should_accept_crop_replacement,
+    suspicious_word_indices,
 )
 
 
@@ -184,6 +188,88 @@ class Phase4PipelineTests(unittest.TestCase):
 
         self.assertEqual(spec.text_source, "qwen3vl_4b_verbatim_word_ocr")
         self.assertEqual(spec.box_source, "same_stage1_boxes")
+
+    def test_crop_verified_stage1_strategy_is_available(self) -> None:
+        spec = parse_two_stage_strategy_name(
+            "two_stage__qwen3vl_4b_crop_verified_word_ocr__same_stage1_boxes__qwen3vl_4b_grader"
+        )
+
+        self.assertEqual(spec.text_source, "qwen3vl_4b_crop_verified_word_ocr")
+        self.assertEqual(spec.box_source, "same_stage1_boxes")
+        self.assertIn("qwen3vl_4b_crop_verified_word_ocr", LIVE_STAGE1_TEXT_SOURCES)
+
+    def test_crop_verifier_response_parser_and_acceptance(self) -> None:
+        parsed = parse_crop_verifier_response(
+            '{"observed_text": "forgoten", "confidence": "high"}'
+        )
+
+        self.assertEqual(parsed["observed_text"], "forgoten")
+        self.assertEqual(parsed["confidence"], "high")
+        self.assertTrue(should_accept_crop_replacement("forgotten", "forgoten", "high"))
+        self.assertTrue(should_accept_crop_replacement("minutes", "minuts", "high"))
+        self.assertFalse(should_accept_crop_replacement("forgotten", "forgoten", "medium"))
+        self.assertFalse(should_accept_crop_replacement("forgotten", "forgotten", "high"))
+        self.assertFalse(should_accept_crop_replacement("bred", "bored", "high"))
+        self.assertFalse(should_accept_crop_replacement("minuts", "minutes", "high"))
+        self.assertFalse(should_accept_crop_replacement("forgotten", "a whole rewritten sentence", "high"))
+
+    def test_suspicious_word_indices_find_normalization_and_disagreement(self) -> None:
+        base = [
+            TextBox(index=0, bbox=[0, 0, 10, 10], text="I"),
+            TextBox(index=1, bbox=[12, 0, 50, 10], text="forgotten"),
+            TextBox(index=2, bbox=[52, 0, 90, 10], text="minuts"),
+        ]
+        normal = [
+            TextBox(index=0, bbox=[0, 0, 10, 10], text="I"),
+            TextBox(index=1, bbox=[12, 0, 50, 10], text="forgotten"),
+            TextBox(index=2, bbox=[52, 0, 90, 10], text="minutes"),
+        ]
+
+        reasons = suspicious_word_indices(base, normal_boxes=normal)
+
+        self.assertIn(1, reasons)
+        self.assertIn("normalization_target", reasons[1])
+        self.assertIn(2, reasons)
+        self.assertIn("known_error_pattern", reasons[2])
+        self.assertIn("qwen_normal_verbatim_disagreement", reasons[2])
+
+    def test_aligned_tesseract_box_strategy_is_available_for_live_text(self) -> None:
+        spec = parse_two_stage_strategy_name(
+            "two_stage__qwen3vl_4b_verbatim_word_ocr__aligned_tesseract_word_boxes__qwen3vl_4b_grader"
+        )
+
+        self.assertEqual(spec.text_source, "qwen3vl_4b_verbatim_word_ocr")
+        self.assertEqual(spec.box_source, "aligned_tesseract_word_boxes")
+
+    def test_aligned_tesseract_box_strategy_requires_live_text(self) -> None:
+        with self.assertRaisesRegex(ValueError, "requires a live Stage 1 text source"):
+            parse_two_stage_strategy_name(
+                "two_stage__realworld_source_text__aligned_tesseract_word_boxes__qwen3vl_4b_grader"
+            )
+
+    def test_align_text_boxes_keeps_text_and_borrows_geometry(self) -> None:
+        text_boxes = [
+            TextBox(index=0, bbox=[10, 10, 50, 30], text="I", source="qwen"),
+            TextBox(index=1, bbox=[60, 10, 140, 30], text="street", source="qwen"),
+            TextBox(index=2, bbox=[150, 10, 230, 30], text="forgoten", source="qwen"),
+        ]
+        geometry_boxes = [
+            TextBox(index=0, bbox=[12, 12, 48, 32], text="T", source="tesseract"),
+            TextBox(index=1, bbox=[62, 12, 82, 32], text="s", source="tesseract"),
+            TextBox(index=2, bbox=[84, 12, 144, 32], text="treet", source="tesseract"),
+            TextBox(index=3, bbox=[152, 12, 232, 32], text="forgotten", source="tesseract"),
+        ]
+
+        aligned, stats = align_text_boxes_to_geometry(text_boxes, geometry_boxes)
+
+        self.assertEqual([box.text for box in aligned], ["I", "street", "forgoten"])
+        self.assertEqual(aligned[0].bbox, [12, 12, 48, 32])
+        self.assertEqual(aligned[1].bbox, [62, 12, 144, 32])
+        self.assertEqual(aligned[2].bbox, [152, 12, 232, 32])
+        self.assertEqual(stats["alignment_matched"], 3)
+        self.assertEqual(stats["alignment_multi_geometry_matches"], 1)
+        self.assertEqual(stats["alignment_fallback"], 0)
+        self.assertGreater(text_similarity("street", "s treet"), 0.95)
 
     def test_stage1_registry_covers_non_qwen_models(self) -> None:
         for name in ["paddleocr_vl", "florence2_large_wordlevel", "doctr_live_word_ocr", "easyocr_live_word_ocr", "hunyuan_vl_manual"]:
