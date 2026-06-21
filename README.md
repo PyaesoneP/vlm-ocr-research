@@ -298,6 +298,7 @@ This pass is local-only: no cloud/API sources, no Docker-only sources, no paid c
 - `benchmark/results/phase4_stage2_source_text_qwen_image_verify_v3.json`
 - `benchmark/results/phase4_stage1_truthfulness_audit.json`
 - `benchmark/results/phase4_realworld_stage1_qwen_crop_verified_20image.json`
+- `benchmark/results/phase4_realworld_stage1_missing_candidates_summary.json`
 - overlays: `benchmark/visualizations/phase4_realworld_mixed_best_20image/`
 - overlays: `benchmark/visualizations/phase4_realworld_mixed_best_20image_adjudicated/`
 
@@ -366,6 +367,48 @@ Full 20-page crop-verified Stage 1 result:
 | Qwen crop-verified v2 | 0.014 | 13/21 | 6 | 0.801 | 34 | 1 | 12.2s | Failed |
 
 The verifier accepted only one replacement: `forgotten` -> `forgoten` on `rw_11`. It correctly rejected harmful high-confidence crop reads such as `bred.` -> `bored.` and `minuts.` -> `minutes`, but the overall gate did not move enough: evidence preservation improved by only one span and correction leaks remain too high. Do not rerun Stage 2 from this source yet.
+
+Missing Stage 1 candidate pass:
+
+The remaining registered local/alt-env/server/Docker candidates were smoke-tested on `rw_11.jpg`, then run Stage-1-only on all 20 reviewed real-world pages after their environment path was available. No cloud/API/manual source was invoked. Results are summarized in `benchmark/results/phase4_realworld_stage1_missing_candidates_summary.json`.
+
+| Candidate | Environment | CER | Evidence preserved | Correction leaks | Word IoU | Avg Stage 1 latency | Decision |
+|---|---|---:|---:|---:|---:|---:|---|
+| GOT-OCR2.0 | `.venv` | 0.052 | 10/21 | 7 | 0.000 | 1.5s | Do not promote: good CER, but still normalizes too many errors and has no boxes. |
+| Florence-2-large | `florencetf` | 0.079 | 11/21 | 8 | 0.216 | 1.1s | Do not promote: fast, but below Qwen/crop-verified truthfulness and only region/line boxes. |
+| PaddleOCR-VL | Docker | 0.046 | 8/21 | 11 | 0.008 | 24.4s | Do not promote: accurate-looking OCR but too correction-prone on the error set. |
+| Nemotron OCR v2 | `aiml` | 0.165 | 9/21 | **1** | 0.071 | 0.4s | Keep as a diagnostic truthfulness contrast, but not a pipeline source. |
+| MonkeyOCR | local llama.cpp server | 0.363 | 7/21 | 12 | 0.000 | 3.3s | Do not promote: live and fast, but text is not accurate enough here. |
+| TrOCR-large | `.venv` | 0.232 | 6/21 | 7 | 0.174 | 0.9s | Do not promote. |
+| SmolDocling-256M | `.venv` | 2.926 | 6/21 | 13 | 0.133 | 7.2s | Do not promote: hallucination/repetition dominates. |
+| TrOCR-base | `.venv` | 0.289 | 4/21 | 5 | 0.174 | 0.7s | Do not promote. |
+
+Interpretation: this closes the missing-candidate gap for the local-only Phase 4 pass. None clears the promotion gates (`>13/21` evidence preserved, or leaks `<6` with CER `<=0.10`, or useful geometry with at least `12/21` evidence spans). The carry-forward Stage 1 source remains Qwen crop-verified/verbatim, and the next useful work is still targeted truthfulness recovery plus text/box alignment, not broadening the Stage 1 matrix.
+
+```bash
+.venv/bin/python scripts/report_phase4_stage1_missing_candidates.py \
+  --preflight-status /tmp/phase4_missing_candidates_no_preflight.json \
+  --output benchmark/results/phase4_realworld_stage1_missing_candidates_summary.json \
+  --inputs \
+    benchmark/results/phase4_realworld_stage1_florence2_rw11.json \
+    benchmark/results/phase4_realworld_stage1_florence2_20image.json \
+    benchmark/results/phase4_realworld_stage1_got_ocr2_rw11.json \
+    benchmark/results/phase4_realworld_stage1_got_ocr2_20image.json \
+    benchmark/results/phase4_realworld_stage1_smoldocling_rw11.json \
+    benchmark/results/phase4_realworld_stage1_smoldocling_20image.json \
+    benchmark/results/phase4_realworld_stage1_trocr_base_rw11.json \
+    benchmark/results/phase4_realworld_stage1_trocr_base_20image.json \
+    benchmark/results/phase4_realworld_stage1_trocr_large_rw11.json \
+    benchmark/results/phase4_realworld_stage1_trocr_large_20image.json \
+    benchmark/results/phase4_realworld_stage1_nemotron_rw11.json \
+    benchmark/results/phase4_realworld_stage1_nemotron_20image.json \
+    benchmark/results/phase4_realworld_stage1_monkeyocr_rw11.json \
+    benchmark/results/phase4_realworld_stage1_monkeyocr_20image.json \
+    benchmark/results/phase4_realworld_stage1_paddleocr_vl_rw11.json \
+    benchmark/results/phase4_realworld_stage1_paddleocr_vl_20image.json
+```
+
+`scripts/bench_paddleocr_realworld_phase4.py` is the Docker-safe PaddleOCR-VL path. It writes Phase 4 cache files under `pipeline_output/phase4_cache/paddleocr_vl_live_ocr/` without importing the project inside the Paddle container.
 
 Focused 20-page **full-pipeline matrix** with the original Stage 2 prompt:
 
@@ -537,6 +580,7 @@ Current stopping point:
 - Best current actual full-pipeline row: Qwen verbatim text + Qwen boxes + `contract_v3` adjudication, with `error_detection_f1=0.585`, `error_box_iou=0.711`, and 5 false positives.
 - Aligned Tesseract geometry improves Qwen-verbatim Stage 1 word IoU from 0.801 to 0.813 while keeping the Qwen evidence text, but it does not improve evidence preservation.
 - Tesseract word boxes are not enough by themselves despite word IoU 0.827: mixed Tesseract-box rows collapse to `error_detection_f1=0.133` because Stage 2 receives Tesseract word labels/tokenization instead of Qwen's evidence text.
+- Missing local/alt-env/server/Docker Stage 1 candidates have now run on the 20-page real-world set. None clears the promotion gates; GOT-OCR2.0, Florence-2, PaddleOCR-VL, Nemotron, MonkeyOCR, SmolDocling, and TrOCR should not be added to the focused full-pipeline matrix yet.
 - Most useful artifacts to continue from: `benchmark/results/phase4_realworld_stage1_qwen_crop_verified_20image.json`, `benchmark/results/phase4_stage1_truthfulness_audit.json`, `benchmark/results/phase4_realworld_mixed_best_20image_adjudicated.json`, `benchmark/results/phase4_realworld_mixed_best_20image_adjudicated_qwen_verbatim_audit.json`, `benchmark/results/phase4_realworld_stage1_qwen_verbatim_aligned_tesseract_20image.json`, `benchmark/results/phase4_stage2_source_text_qwen_contract_v3_adjudicated.json`, and `benchmark/results/phase4_realworld_stage1_all_live_20image.json`.
 - Single-pass Qwen is diagnostic only: valid JSON 0.90, word IoU 0.206, false positives 18, evidence preserved 8/21.
 - Do not use IAM Phase 2/3 artifacts as substitutes for real-world Stage 1 truthfulness.
@@ -571,12 +615,10 @@ Recommended order:
    - Current single Qwen has valid JSON 0.90, word IoU 0.206, 18 false positives, and only 8/21 evidence spans preserved.
    - It should not advance unless it becomes valid, faster, evidence-preserving, and comparable on localization.
 
-7. Get missing live Stage 1 candidates running one environment at a time, after the Qwen-verbatim evidence-preservation path is understood.
-   - Florence-2: run from `florencetf` / ensure local HF cache is available.
-   - GOT-OCR2.0, SmolDocling, TrOCR: ensure local HF processor/model cache or allow a deliberate download setup step.
-   - Nemotron OCR v2: run from `aiml`.
-   - PaddleOCR-VL: use the Docker path, not the broken native `.venv_paddleocr` path.
-   - MonkeyOCR: start the local llama.cpp server before the probe.
+7. Keep missing Stage 1 candidates out of the next full-pipeline pass unless their Stage 1 contract changes.
+   - The local-only missing-candidate pass is complete and no candidate was promoted.
+   - Nemotron is the most interesting diagnostic contrast because it has only one correction leak, but its CER and geometry are not strong enough for Stage 2.
+   - PaddleOCR-VL and GOT-OCR2.0 have strong-looking CER but leak too many corrections, so they are poor truthfulness sources for this task.
    - Cloud/manual/API sources stay gated: estimate cost and get explicit approval before live Doc AI, Gemini, Qwen3-VL-8B API, or Hunyuan runs.
 
 Do **not** do next:
