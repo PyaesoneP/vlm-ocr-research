@@ -102,6 +102,7 @@ QWEN_WORD_OCR_PROMPT = (
 QWEN_VERBATIM_WORD_CACHE_KEY = "qwen3vl_4b_verbatim_word"
 QWEN_CROP_VERIFIED_WORD_CACHE_KEY = "qwen3vl_4b_crop_verified_word_v2"
 QWEN_CONTRASTIVE_CROP_VERIFIED_WORD_CACHE_KEY = "qwen3vl_4b_contrastive_crop_verified_word_v4"
+QWEN_ALTERNATIVE_LATTICE_WORD_CACHE_KEY = "qwen3vl_4b_alternative_lattice_word_v1"
 
 COMMON_NORMALIZATION_TARGETS = {
     "alot",
@@ -773,6 +774,45 @@ def contrastive_candidates_for_box(
     return candidates[:5]
 
 
+def word_alternatives_for_box(
+    index: int,
+    box: TextBox,
+    reasons: list[str],
+    *,
+    normal_boxes: list[TextBox] | None = None,
+    geometry_boxes: list[TextBox] | None = None,
+) -> dict[str, Any] | None:
+    """Build a compact alternatives payload for one canonical OCR word."""
+    canonical_compact = _compact_text(box.text)
+    alternatives = []
+    seen: set[str] = set()
+    for candidate in contrastive_candidates_for_box(
+        box,
+        normal_boxes=normal_boxes,
+        geometry_boxes=geometry_boxes,
+    ):
+        if candidate["compact"] == canonical_compact or candidate["compact"] in seen:
+            continue
+        seen.add(candidate["compact"])
+        sources = list(candidate.get("sources", []))
+        alternatives.append({
+            "observed_text": candidate["text"],
+            "sources": sources,
+            "supported_by_ocr": any(source != "generic_lexical_neighbor" for source in sources),
+            "edit_distance": edit_distance_compact(canonical_compact, candidate["compact"]),
+            "ious": [round(float(iou), 3) for iou in candidate.get("ious", [])],
+        })
+    if not alternatives:
+        return None
+    return {
+        "index": index,
+        "canonical_text": box.text,
+        "bbox": list(box.bbox),
+        "reasons": reasons,
+        "alternatives": alternatives,
+    }
+
+
 def selected_contrastive_candidate(
     parsed: dict[str, str],
     candidates: list[dict[str, Any]],
@@ -1308,6 +1348,106 @@ def contrastive_crop_verified_qwen_word_output(
     return output
 
 
+def alternative_lattice_qwen_word_output(
+    image_path: Path,
+    adapter: Qwen3VLAdapter,
+    args: argparse.Namespace,
+) -> PipelineOutput:
+    """Run Qwen verbatim OCR and attach candidate alternatives without replacing text."""
+    cache_key = f"{QWEN_ALTERNATIVE_LATTICE_WORD_CACHE_KEY}_max{args.lattice_max_words}"
+
+    def compute(path: Path) -> dict[str, Any]:
+        t0 = time.perf_counter()
+        base_output = qwen_word_box_output(
+            path,
+            adapter,
+            args,
+            prompt=VERBATIM_WORD_OCR_PROMPT,
+            cache_key=QWEN_VERBATIM_WORD_CACHE_KEY,
+            strategy_name="qwen3vl_4b_verbatim_word_ocr",
+        )
+        normal_output = qwen_word_box_output(
+            path,
+            adapter,
+            args,
+            cache_key="qwen3vl_4b_word",
+            strategy_name="qwen3vl_4b_live_word_ocr",
+        )
+        geometry_output = tesseract_word_box_output(path, args)
+        suspicion = generic_suspicious_word_indices(
+            base_output.boxes,
+            normal_boxes=normal_output.boxes,
+            geometry_boxes=geometry_output.boxes,
+        )
+        selected_suspicion, skipped_suspicion = select_contrastive_suspicion(
+            suspicion,
+            args.lattice_max_words,
+        )
+
+        alternatives = []
+        for index, reasons in sorted(selected_suspicion.items()):
+            if index >= len(base_output.boxes):
+                continue
+            item = word_alternatives_for_box(
+                index,
+                base_output.boxes[index],
+                reasons,
+                normal_boxes=normal_output.boxes,
+                geometry_boxes=geometry_output.boxes,
+            )
+            if item is not None:
+                alternatives.append(item)
+
+        return {
+            "text": base_output.text,
+            "blocks": [box.to_dict() for box in base_output.boxes],
+            "stage1_latency": time.perf_counter() - t0,
+            "_base_cache_key": QWEN_VERBATIM_WORD_CACHE_KEY,
+            "_normal_cache_key": "qwen3vl_4b_word",
+            "_geometry_cache_key": "tesseract_word_boxes",
+            "_lattice_cache_key": cache_key,
+            "_lattice_candidates": len(suspicion),
+            "_lattice_included": len(alternatives),
+            "_lattice_max_words": args.lattice_max_words,
+            "_lattice_skipped": [
+                {
+                    "index": index,
+                    "canonical_text": base_output.boxes[index].text if index < len(base_output.boxes) else "",
+                    "reasons": reasons,
+                    "skip_reason": "lattice_max_words_budget",
+                }
+                for index, reasons in sorted(skipped_suspicion.items())
+            ],
+            "_word_alternatives": alternatives,
+            "_stage1_composition": "qwen_verbatim_plus_alternative_lattice",
+        }
+
+    data = cached_stage1(
+        args.cache_dir,
+        cache_key,
+        image_path,
+        args.refresh_cache,
+        compute,
+    )
+    output = PipelineOutput.from_ocr_dict(
+        data,
+        strategy_name="qwen3vl_4b_alternative_lattice_word_ocr",
+        image=image_path,
+    )
+    output.metadata.update({
+        "text_source": "qwen3vl_4b_alternative_lattice_word_ocr",
+        "box_source": "qwen3vl_4b_alternative_lattice_word_ocr",
+        "stage1_composition": "qwen_verbatim_plus_alternative_lattice",
+        "stage1_latency_policy": "cached full-page qwen + tesseract + lattice construction latency",
+        "verbatim_prompt": True,
+        "alternative_lattice": True,
+        "word_alternatives": data.get("_word_alternatives", []),
+        "word_specific_fixes_allowed": False,
+        "stage1_text_is_replaced": False,
+    })
+    return output
+
+
 def baseline_live_word_output(
     image_path: Path,
     args: argparse.Namespace,
@@ -1520,6 +1660,15 @@ def make_live_ocr_call(
 
         def ocr_call(image_path: Path) -> PipelineOutput:
             return contrastive_crop_verified_qwen_word_output(image_path, adapter, args)
+
+        return ocr_call
+
+    if text_source == "qwen3vl_4b_alternative_lattice_word_ocr":
+        if adapter is None:
+            raise RuntimeError("qwen3vl_4b_alternative_lattice_word_ocr requires the local Qwen adapter")
+
+        def ocr_call(image_path: Path) -> PipelineOutput:
+            return alternative_lattice_qwen_word_output(image_path, adapter, args)
 
         return ocr_call
 
@@ -1876,6 +2025,7 @@ def qwen_adapter_needed(args: argparse.Namespace, specs: list[TwoStageSpec], end
                 "qwen3vl_4b_verbatim_word_ocr",
                 "qwen3vl_4b_crop_verified_word_ocr",
                 "qwen3vl_4b_contrastive_crop_verified_word_ocr",
+                "qwen3vl_4b_alternative_lattice_word_ocr",
             }
             or spec.box_source == "qwen3vl_4b_word_boxes"
             for spec in specs
@@ -1890,6 +2040,7 @@ def qwen_adapter_needed(args: argparse.Namespace, specs: list[TwoStageSpec], end
             "qwen3vl_4b_verbatim_word_ocr",
             "qwen3vl_4b_crop_verified_word_ocr",
             "qwen3vl_4b_contrastive_crop_verified_word_ocr",
+            "qwen3vl_4b_alternative_lattice_word_ocr",
         }
         for spec in specs
     ):
@@ -2187,9 +2338,23 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     parser.add_argument(
+        "--lattice-max-words",
+        type=int,
+        default=12,
+        help="Maximum suspicious canonical words to include in the Stage 1 alternatives lattice.",
+    )
+    parser.add_argument(
         "--stage2-prompt-mode",
         default="baseline",
-        choices=["baseline", "contract_v2", "contract_v3", "image_verify", "image_verify_v3"],
+        choices=[
+            "baseline",
+            "contract_v2",
+            "contract_v3",
+            "contract_v3_lattice",
+            "image_verify",
+            "image_verify_v3",
+            "image_verify_v3_lattice",
+        ],
         help="Prompt contract used by two-stage Stage 2 graders.",
     )
     parser.add_argument("--cache-dir", type=Path, default=DEFAULT_CACHE_DIR)

@@ -298,7 +298,9 @@ This pass is local-only: no cloud/API sources, no Docker-only sources, no paid c
 - `benchmark/results/phase4_stage2_source_text_qwen_image_verify_v3.json`
 - `benchmark/results/phase4_stage1_truthfulness_audit.json`
 - `benchmark/results/phase4_stage1_uncertainty_signal_audit.json`
+- `benchmark/results/phase4_candidate_recall_audit.json`
 - `benchmark/results/phase4_realworld_stage1_qwen_crop_verified_20image.json`
+- `benchmark/results/phase4_realworld_stage1_qwen_alternative_lattice_20image.json`
 - `benchmark/results/phase4_realworld_stage1_qwen_contrastive_crop_verified_20image.json`
 - `benchmark/results/phase4_realworld_stage1_missing_candidates_summary.json`
 - overlays: `benchmark/visualizations/phase4_realworld_mixed_best_20image/`
@@ -386,6 +388,23 @@ Full 20-page safe-default result: CER 0.014, evidence preserved 12/21, correctio
   --stage1-only --continue-on-error --num-runs 1 \
   --strategies two_stage__qwen3vl_4b_contrastive_crop_verified_word_ocr__same_stage1_boxes__qwen3vl_4b_grader \
   --output benchmark/results/phase4_realworld_stage1_qwen_contrastive_crop_verified_rw11.json
+```
+
+The alternative-lattice source is implemented as `qwen3vl_4b_alternative_lattice_word_ocr`. It keeps Qwen verbatim text and Qwen word boxes unchanged, then attaches suspicious-word alternative readings from Qwen normal OCR, spatially aligned Tesseract text, and generic lexical neighbors for Stage 2 uncertainty reasoning. This deliberately does **not** improve Stage 1 truthfulness by itself; it gives the grader a way to consider OCR-normalized evidence without mutating the canonical word list.
+
+Full 20-page Stage 1-only result: CER 0.014, evidence preserved 12/21, correction leaks 7, word IoU 0.801, and 237 attached alternative entries across the set. Stage 2 lattice prompting is wired (`contract_v3_lattice`, `image_verify_v3_lattice`), and adjudication now preserves valid alternative evidence text while still deriving bboxes from canonical word indices. Treat it as experimental until a focused one-page rerun shows improved error recovery without new false positives.
+
+```bash
+.venv/bin/python scripts/benchmark_phase4.py --dataset realworld --max-images 0 \
+  --stage1-only --continue-on-error --num-runs 1 \
+  --strategies two_stage__qwen3vl_4b_alternative_lattice_word_ocr__same_stage1_boxes__qwen3vl_4b_grader \
+  --output benchmark/results/phase4_realworld_stage1_qwen_alternative_lattice_20image.json
+
+.venv/bin/python scripts/benchmark_phase4.py --dataset realworld --image rw_11.jpg \
+  --continue-on-error --num-runs 1 --lattice-max-words 4 --grader-max-new-tokens 384 \
+  --strategies two_stage__qwen3vl_4b_alternative_lattice_word_ocr__same_stage1_boxes__qwen3vl_4b_grader \
+  --stage2-prompt-mode contract_v3_lattice \
+  --output benchmark/results/phase4_realworld_lattice_rw11_textonly_v2.json
 ```
 
 Missing Stage 1 candidate pass:
@@ -613,40 +632,151 @@ Generalization guardrails:
 - Contrastive crop verification should use candidate strings generated from OCR alternatives and general lexical neighbors, not from ground-truth labels.
 - Prefer abstention. The verifier should leave a token unchanged unless the crop-level evidence is strong and auditable.
 
+Evidence-graph strategy:
+
+The next architecture test should stop treating Stage 1 as a single final transcript. This is better framed as **forensic transcription under asymmetric loss**:
+
+```
+image -> visual evidence graph -> grader/adjudicator
+```
+
+The objective is not ordinary CER minimization. A silent correction leak is worse than an uncertain or slightly noisy reading, so the implicit loss should weight failures roughly as:
+
+```
+correction leak >> clean corruption > geometry error
+```
+
+This matches the observed essay failures and is consistent with a 2026 handwritten math OCR study that found VLM over-correction in 42.1%-66.2% of evaluated multi-line transcriptions. The domain is different, so the rates should not be imported directly, but the mechanism is the same: stronger reasoning can override visual evidence and "fix" the student's work. Reference: [When VLMs 'Fix' Students](https://arxiv.org/html/2604.22774v1).
+
+For each canonical word, especially suspicious words, carry a compact evidence record:
+
+- canonical Qwen verbatim word and bbox
+- candidate readings from Qwen normal, Tesseract/docTR alignment, CTC beams, and carefully bounded lexical neighbors
+- source support for each alternative (`qwen_normal`, `tesseract_geometry`, `doctr_geometry`, `generic_lexical_neighbor`)
+- visual support score for each candidate, ideally from an optical-only scorer
+- geometric confidence / IoU when a candidate comes from another OCR source
+- uncertainty reasons from the general signal audit
+- optional crop path for image-aware verification
+- abstention state when the image/crop does not support a confident error claim
+
+The existing `qwen3vl_4b_alternative_lattice_word_ocr` is the first scaffold for this. It preserves the canonical Qwen verbatim word list and attaches alternatives, but it is still a list of strings plus source tags, not a real evidence lattice. Stage 2 cannot safely distinguish a visually supported misspelling from a speculative lexical neighbor until candidates are scored by pixel support.
+
+The highest-value next experiment is therefore **candidate scoring rather than candidate generation**. For each leaked or suspicious word crop, compare a small set of candidate strings and ask which string is better supported by the strokes:
+
+```
+score(candidate | crop) = length-normalized visual log probability
+```
+
+Preferred scorer: a character-level CTC handwriting recognizer with no lexicon, no word-level language model, and access to frame-level logits, so arbitrary candidate strings can be scored with CTC forward probability. PyLaia is a plausible research vehicle. The scorer does not need to generate a full transcript; it only needs to answer pairwise questions such as whether a crop visually supports `bred` more than `bread`.
+
+Fast diagnostic before CTC: use local Qwen logits to estimate an image-conditioned score minus a text-prior score:
+
+```
+visual_gain(candidate) = log P(candidate | crop prompt) - alpha * log P(candidate | blank-image prompt)
+```
+
+This is not the final recognizer, but it can test whether Qwen's visual evidence favors the erroneous form after subtracting its language prior.
+
+Minimal-pair audit:
+
+- For each current positive error, build `(visible form, normalized form)` pairs such as `bred/bread`, `minuts/minutes`, and `forgoten/forgotten`.
+- For clean controls, build matched pairs such as `bread/bred`, `minutes/minuts`, and `forgotten/forgoten`.
+- Measure error-pair preference, clean-pair preference, margin distribution, and candidate recall@K.
+- Decompose the pipeline as `trigger recall -> candidate recall@K -> selector accuracy -> grader accuracy`.
+
+First offline candidate-recall audit (`scripts/audit_phase4_candidate_recall.py`) on the current alternative lattice: canonical Qwen evidence covers 12/21 intended errors; canonical-or-candidate evidence covers 18/21; alternative candidate recall alone is 6/21, but only 3/21 are OCR-supported rather than lexical-neighbor-only. Clean matched controls are sparse (44 matching clean words), with erroneous lexical candidates appearing in 1/44 and OCR-supported erroneous candidates in 0/44. This says the next bottleneck is not only candidate generation: candidate scoring/selection must separate visually supported alternatives from speculative neighbors.
+
+```bash
+.venv/bin/python scripts/audit_phase4_candidate_recall.py \
+  --output benchmark/results/phase4_candidate_recall_audit.json
+```
+
+Selective policy:
+
+```
+SUPPORTED_CORRECT
+SUPPORTED_ERROR
+UNCERTAIN_REVIEW
+```
+
+At high visual margins, automatically grade. At moderate margins, preserve the crop and alternatives for review. At low margins, keep the primary transcript and do not claim an error. This should reduce false positives while still exposing normalized-away errors.
+
+Promotion gate for the evidence-graph path:
+
+- On the current 20-page development set, recover at least 17/21 intended evidence spans or reach full-pipeline `error_detection_f1 >= 0.75`.
+- Keep clean-page false positives <= 2.
+- Keep error-box IoU >= 0.60.
+- Preserve canonical word IoU >= 0.80.
+- Record whether each recovered error came from canonical text, OCR-supported alternative text, optical-score-supported alternative text, image-verified alternative text, or deterministic source-text adjudication.
+- Before claiming generalization, freeze the rules and score a newly written held-out set.
+
 Recommended order:
 
-1. Do not rerun Stage 2 from crop-verified Qwen yet.
+1. Freeze current geometry and the primary Qwen verbatim transcript.
+   - Geometry is already above the Phase 4 target (`error_box_iou=0.711` in the best live row).
+   - Treat further word-IoU work as secondary until evidence recovery improves.
+
+2. Label the remaining correction leaks by candidate availability.
+   - For each missed intended error, record whether the true visible form appears in Qwen verbatim, Qwen normal, Tesseract/docTR-aligned text, contrastive candidates, or lexical-neighbor candidates.
+   - This separates candidate generation failures from candidate selection failures.
+
+3. Run candidate recall@K on the existing lattice.
+   - Report recall for OCR-supported candidates separately from unsupported lexical-neighbor candidates.
+   - Do not promote lexical neighbors merely because they exist at edit distance one.
+
+4. Build the minimal-pair word/crop audit.
+   - Include all 21 current positive errors plus matched clean controls.
+   - Split any expanded dataset by writer, not by crop.
+   - Track isolated word crops and line-context crops separately.
+
+5. Test candidate scoring before adding more generation.
+   - First diagnostic: Qwen image-conditioned-minus-text-prior scoring.
+   - Main path: optical-only CTC scorer with no language model.
+   - Calibrate a conservative visual margin using clean controls.
+
+6. Promote the alternative lattice into a scored evidence graph.
+   - Keep Qwen verbatim as the canonical word list.
+   - Attach alternatives, uncertainty reasons, source support, and visual scores without replacing canonical text.
+   - Keep unsupported lexical neighbors as hypotheses to score or abstain on, not as direct Stage 2 evidence.
+
+7. Build a lattice-aware Stage 2/adjudicator probe.
+   - Stage 2 may report `evidence_text` from the canonical word or from a visually supported alternative for the same `word_indices`.
+   - Post-processing must preserve valid alternative evidence text and derive bboxes from canonical word indices.
+   - Drop no-op errors where evidence and correction are identical.
+   - Start with `rw_11` and one or two clean pages before running all 20 pages.
+
+8. Do not rerun Stage 2 from crop-verified Qwen yet.
    - The Stage 1 gate failed: 13/21 evidence preserved, 6 correction leaks, word IoU 0.801.
    - The verifier recovered only `forgoten`; it rejected 33 crop reads, including several harmful high-confidence normalizations.
    - Treat this as evidence that Qwen crop rereading still normalizes or misreads small handwriting crops.
 
-2. Audit the remaining Stage 1 misses at the image/crop level.
+9. Audit the remaining Stage 1 misses at the image/crop level.
    - Remaining failures include `umbrela`, `know`, `the the`, `beutiful`, `should of`, `took us hour`, `usualy`, `atleast`, `thursday`, and `flor`.
    - Separate true OCR normalization from benchmark-span issues where the corrected word appears elsewhere on the page.
    - For each miss, record which general uncertainty signal would have flagged it; do not record a word-specific fix as the remedy.
    - Use `scripts/audit_phase4_stage1_uncertainty_signals.py` as the starting report; treat broad signals like OCR-source disagreement as context, not sufficient replacement triggers.
    - Inspect the crop images under `pipeline_output/phase4_cache/crop_verified_words/` before changing the verifier again.
 
-3. Try a contrastive crop verifier only after the miss audit.
+10. Keep contrastive crop verification as a diagnostic branch, not the main architecture.
    - Provide the crop plus candidate strings from OCR alternatives and general lexical neighbors, such as Qwen verbatim, Qwen normal, spatially aligned Tesseract/docTR, and one `uncertain` option.
    - Force the model to choose A/B/uncertain instead of free-form rewriting.
    - Keep the same rule: only replace individual tokens, never sentences.
    - Current experimental implementation is capped to the highest-priority flagged crops. The full 20-page safe-default run did not improve Stage 1; unsupported lexical replacements can recover some errors but also create clean-page damage, so keep them diagnostic-only.
 
-4. Tighten the transcript-to-box alignment layer only if Stage 1 truthfulness improves.
+11. Tighten the transcript-to-box alignment layer only if evidence recovery improves.
    - Initial `aligned_tesseract_word_boxes` result: word IoU 0.813, evidence preservation 12/21.
    - Alignment should remain a geometry improvement layer, not a substitute for truthful OCR.
    - A future full-pipeline aligned row should be rerun after the local Qwen runtime issue is cleared.
 
-5. Rerun the focused full-pipeline matrix only after Stage 1 truthfulness improves.
-   - Primary rows: source text + reviewed boxes, Qwen verbatim + Qwen boxes, Qwen verbatim + aligned boxes, and Qwen normal as a correction-leak control.
+12. Rerun the focused full-pipeline matrix only after evidence recovery improves.
+   - Primary rows: source text + reviewed boxes, Qwen verbatim + Qwen boxes, Qwen alternative lattice/evidence graph + Qwen boxes, Qwen verbatim + aligned boxes, and Qwen normal as a correction-leak control.
    - Advance a two-stage architecture only if the live Qwen-verbatim row reaches `error_detection_f1 >= 0.75`, clean-page false positives <= 2, and error-box IoU >= 0.60.
 
-6. Retest single-VLM end-to-end only as a diagnostic.
+13. Retest single-VLM end-to-end only as a diagnostic.
    - Current single Qwen has valid JSON 0.90, word IoU 0.206, 18 false positives, and only 8/21 evidence spans preserved.
    - It should not advance unless it becomes valid, faster, evidence-preserving, and comparable on localization.
 
-7. Keep missing Stage 1 candidates out of the next full-pipeline pass unless their Stage 1 contract changes.
+14. Keep missing Stage 1 candidates out of the next full-pipeline pass unless their Stage 1 contract changes.
    - The local-only missing-candidate pass is complete and no candidate was promoted.
    - Nemotron is the most interesting diagnostic contrast because it has only one correction leak, but its CER and geometry are not strong enough for Stage 2.
    - PaddleOCR-VL and GOT-OCR2.0 have strong-looking CER but leak too many corrections, so they are poor truthfulness sources for this task.
@@ -658,6 +788,9 @@ Do **not** do next:
 - Do not run cloud/API graders without an explicit cost estimate and approval.
 - Do not treat single-pass Qwen as an architecture candidate until its JSON validity and localization recover.
 - Do not optimize latency until the full-pipeline error-detection path reaches the accuracy gate.
+- Do not optimize geometry beyond current target-passing quality until evidence recovery improves.
+- Do not generate unrestricted lexical neighbors or feed unscored neighbors into Stage 2.
+- Do not judge candidate recovery only through end-to-end F1; report trigger recall, candidate recall@K, selector accuracy, and grader accuracy separately.
 - Do not treat source-text success as end-to-end success; OCR evidence preservation still has to survive.
 
 ---

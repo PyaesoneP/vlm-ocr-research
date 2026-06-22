@@ -113,16 +113,31 @@ def build_stage2_prompt(
     boxes: list[TextBox],
     *,
     mode: str = "baseline",
+    word_alternatives: list[dict] | None = None,
 ) -> str:
     """Prompt a model to grade OCR text using known text boxes."""
     if mode == "contract_v2":
         return _build_stage2_contract_v2_prompt(text, boxes, verify_image=False)
     if mode == "contract_v3":
         return _build_stage2_contract_v3_prompt(text, boxes, verify_image=False)
+    if mode == "contract_v3_lattice":
+        return _build_stage2_contract_v3_lattice_prompt(
+            text,
+            boxes,
+            word_alternatives or [],
+            verify_image=False,
+        )
     if mode == "image_verify":
         return _build_stage2_contract_v2_prompt(text, boxes, verify_image=True)
     if mode == "image_verify_v3":
         return _build_stage2_contract_v3_prompt(text, boxes, verify_image=True)
+    if mode == "image_verify_v3_lattice":
+        return _build_stage2_contract_v3_lattice_prompt(
+            text,
+            boxes,
+            word_alternatives or [],
+            verify_image=True,
+        )
 
     return (
         "You are an English writing feedback engine for a handwritten essay pipeline.\n"
@@ -229,6 +244,66 @@ def _build_stage2_contract_v3_prompt(
         f"{text}\n\n"
         "Word list with indices and boxes:\n"
         f"{json.dumps(blocks_as_prompt_payload(boxes), ensure_ascii=False)}\n\n"
+        "JSON schema:\n"
+        f"{json.dumps(STAGE2_CONTRACT_V2_SCHEMA, indent=2)}"
+    )
+
+
+def _build_stage2_contract_v3_lattice_prompt(
+    text: str,
+    boxes: list[TextBox],
+    word_alternatives: list[dict],
+    *,
+    verify_image: bool,
+) -> str:
+    """Stage 2 contract that receives uncertainty alternatives without rewriting OCR."""
+    image_rule = (
+        "The page image is also provided. Use it to verify whether an alternative "
+        "candidate is visibly supported before returning an error from that alternative.\n"
+        if verify_image else
+        "Use only the provided transcription, word list, and OCR-supported alternatives. "
+        "Ignore alternatives that are not supported by an OCR source.\n"
+    )
+    return (
+        "You are an English writing error detector for a handwritten essay feedback pipeline.\n"
+        "Return only valid JSON. Do not wrap it in markdown. Do not include commentary.\n\n"
+        "The canonical word list is the OCR transcript. Grade the canonical words first. "
+        "Some words also include an uncertainty lattice: possible observed readings for "
+        "the same word index. Alternatives are evidence hints, not replacements.\n"
+        f"{image_rule}\n"
+        "Use exactly these error type rules:\n"
+        "- spelling: a single word is misspelled or nonstandard as written, such as bred->bread, "
+        "wether->weather, umbrela->umbrella, There->Their, beutiful->beautiful, untill->until, "
+        "wich->which, intresting->interesting, usualy->usually, or flor->floor.\n"
+        "- grammar: pronoun/case, subject-verb agreement, tense, repeated words, homophone grammar, "
+        "missing function words, or fused-word grammar, such as me->I, lives->live, know->knows, "
+        "the the->the, should of->should have, took us hour->took us an hour, come->came, "
+        "or atleast->at least. Do not label these as spelling.\n"
+        "- capitalization: a word needs uppercase/lowercase, such as thursday->Thursday. "
+        "Do not label capitalization as spelling.\n"
+        "- punctuation: punctuation only.\n"
+        "- structural: organization or paragraph-level problems only.\n\n"
+        "Hard requirements for every error:\n"
+        "1. word_indices must reference exact indices from the canonical word list.\n"
+        "2. bbox must equal the union of the bboxes for word_indices.\n"
+        "3. If the canonical word itself proves an error, use the canonical word as evidence_text "
+        "and ignore corrected-looking alternatives for that index.\n"
+        "4. Use an alternative as evidence_text only when the canonical word appears corrected "
+        "or ambiguous but the alternative is a plausible erroneous observed reading for that same index.\n"
+        "5. If evidence_text comes from an alternative, copy that alternative's observed_text exactly "
+        "and keep word_indices anchored to the canonical word's index.\n"
+        "6. Ignore unsupported lexical-neighbor alternatives unless the page image visibly supports "
+        "the alternative. If uncertain, return no error for that candidate.\n"
+        "7. Never return an error where evidence_text and correction are identical after punctuation "
+        "is stripped.\n"
+        "8. correction must be the minimal corrected word or phrase, not a full sentence rewrite.\n"
+        "9. Do not report style suggestions, awkward wording, or possible improvements as errors.\n\n"
+        "Transcription:\n"
+        f"{text}\n\n"
+        "Canonical word list with indices and boxes:\n"
+        f"{json.dumps(blocks_as_prompt_payload(boxes), ensure_ascii=False)}\n\n"
+        "Uncertainty alternatives by canonical word index:\n"
+        f"{json.dumps(word_alternatives, ensure_ascii=False)}\n\n"
         "JSON schema:\n"
         f"{json.dumps(STAGE2_CONTRACT_V2_SCHEMA, indent=2)}"
     )

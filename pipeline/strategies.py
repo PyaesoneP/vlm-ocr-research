@@ -153,10 +153,15 @@ class TwoStageStrategy:
         image_path: str | Path | None = None,
     ) -> PipelineOutput:
         path = Path(image_path) if image_path is not None else None
+        word_alternatives = ocr_output.metadata.get(
+            "word_alternatives",
+            ocr_output.metadata.get("_word_alternatives", []),
+        )
         prompt = build_stage2_prompt(
             ocr_output.text,
             ocr_output.boxes,
             mode=self.stage2_prompt_mode,
+            word_alternatives=word_alternatives,
         )
         raw_obj, latency = _timed(self.grader_call, prompt, path)
         raw = str(raw_obj)
@@ -172,7 +177,11 @@ class TwoStageStrategy:
                 else STAGE2_CONTRACT_V2_SCHEMA
             ),
         )
-        adjudication_changes = adjudicate_stage2_errors(parsed.errors, ocr_output.boxes)
+        adjudication_changes = adjudicate_stage2_errors(
+            parsed.errors,
+            ocr_output.boxes,
+            word_alternatives=word_alternatives,
+        )
         _normalize_error_bboxes_from_indices(parsed, ocr_output)
         stage2 = latency + repair_latency
         return PipelineOutput(

@@ -23,16 +23,21 @@ GRAMMAR_PAIRS = {
 def adjudicate_stage2_errors(
     errors: list[ErrorFinding],
     boxes: list[TextBox],
+    word_alternatives: list[dict] | None = None,
 ) -> list[str]:
     """Normalize high-confidence Stage 2 error type/span decisions in place."""
     changes: list[str] = []
     kept_errors: list[ErrorFinding] = []
+    alternatives_by_index = _alternatives_by_index(word_alternatives or [])
 
     for error in errors:
         if _is_uncertain_overreach(error):
             changes.append(f"dropped_overreach:{error.evidence_text}->{error.correction}")
             continue
-        changes.extend(_adjudicate_error(error, boxes))
+        changes.extend(_adjudicate_error(error, boxes, alternatives_by_index))
+        if _is_noop_error(error):
+            changes.append(f"dropped_noop:{error.evidence_text}->{error.correction}")
+            continue
         kept_errors.append(error)
 
     errors[:] = kept_errors
@@ -41,14 +46,18 @@ def adjudicate_stage2_errors(
     return changes
 
 
-def _adjudicate_error(error: ErrorFinding, boxes: list[TextBox]) -> list[str]:
+def _adjudicate_error(
+    error: ErrorFinding,
+    boxes: list[TextBox],
+    alternatives_by_index: dict[int, set[str]],
+) -> list[str]:
     changes: list[str] = []
     if not error.word_indices:
         return changes
 
     original = _snapshot(error)
     _expand_known_spans(error, boxes)
-    _normalize_evidence_from_words(error, boxes)
+    _normalize_evidence_from_words(error, boxes, alternatives_by_index)
     _normalize_type(error)
 
     if _snapshot(error) != original:
@@ -84,12 +93,18 @@ def _expand_known_spans(error: ErrorFinding, boxes: list[TextBox]) -> None:
             error.correction = "the"
 
 
-def _normalize_evidence_from_words(error: ErrorFinding, boxes: list[TextBox]) -> None:
+def _normalize_evidence_from_words(
+    error: ErrorFinding,
+    boxes: list[TextBox],
+    alternatives_by_index: dict[int, set[str]],
+) -> None:
     indices = sorted(index for index in error.word_indices if 0 <= index < len(boxes))
     if not indices:
         return
     error.word_indices = indices
-    error.evidence_text = " ".join(boxes[index].text for index in indices)
+    canonical = " ".join(boxes[index].text for index in indices)
+    if not _is_supported_alternative(error.evidence_text, indices, alternatives_by_index):
+        error.evidence_text = canonical
     bbox = bbox_from_word_indices(boxes, indices)
     if bbox != [0, 0, 0, 0]:
         error.bbox = bbox
@@ -123,6 +138,59 @@ def _is_uncertain_overreach(error: ErrorFinding) -> bool:
     if evidence.endswith("ing") and correction in {evidence[:-3], f"{evidence[:-3]}e"}:
         return True
     return False
+
+
+def _is_noop_error(error: ErrorFinding) -> bool:
+    """Drop model artifacts that mark an already-correct word as an error."""
+    if error.type == "punctuation":
+        return False
+    evidence = _plain(error.evidence_text)
+    correction = _plain(error.correction)
+    return bool(evidence and correction and evidence == correction)
+
+
+def _alternatives_by_index(word_alternatives: list[dict]) -> dict[int, set[str]]:
+    alternatives: dict[int, set[str]] = {}
+    for item in word_alternatives:
+        try:
+            index = int(item.get("index"))
+        except (TypeError, ValueError, AttributeError):
+            continue
+        values = alternatives.setdefault(index, set())
+        for alternative in item.get("alternatives", []) or []:
+            if not isinstance(alternative, dict):
+                continue
+            observed = str(alternative.get("observed_text", "")).strip()
+            if observed:
+                values.add(_norm(observed))
+                values.add(_norm(_plain(observed)))
+    return alternatives
+
+
+def _is_supported_alternative(
+    evidence_text: str,
+    indices: list[int],
+    alternatives_by_index: dict[int, set[str]],
+) -> bool:
+    if not alternatives_by_index:
+        return False
+    evidence = _norm(evidence_text)
+    evidence_plain = _norm(_plain(evidence_text))
+    if not evidence and not evidence_plain:
+        return False
+    if len(indices) == 1:
+        candidates = alternatives_by_index.get(indices[0], set())
+        return evidence in candidates or evidence_plain in candidates
+
+    # Multi-token alternatives are allowed when each returned token is supported
+    # by the corresponding canonical word index.
+    tokens = _norm(evidence_text).split()
+    if len(tokens) != len(indices):
+        return False
+    for token, index in zip(tokens, indices):
+        if token not in alternatives_by_index.get(index, set()):
+            return False
+    return True
 
 
 def _add_source_text_candidates(errors: list[ErrorFinding], boxes: list[TextBox]) -> list[str]:

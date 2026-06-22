@@ -93,6 +93,21 @@ STAGE1_MODEL_REGISTRY: dict[str, Stage1ModelSpec] = {
             "unsupported lexical-neighbor replacements are blocked by default."
         ),
     ),
+    "qwen3vl_4b_alternative_lattice_word_ocr": Stage1ModelSpec(
+        name="qwen3vl_4b_alternative_lattice_word_ocr",
+        display_name="Qwen3-VL-4B alternative-lattice word OCR",
+        family="vlm",
+        source_kind="live_local",
+        can_localize=True,
+        box_granularity="word",
+        prompted=True,
+        automated_matrix=False,
+        notes=(
+            "Keeps Qwen verbatim text and boxes unchanged, then attaches suspicious-word "
+            "alternative readings from Qwen normal, Tesseract geometry, and generic lexical "
+            "neighbors for Stage 2 uncertainty reasoning."
+        ),
+    ),
     "qwen3vl_4b_wordlevel": Stage1ModelSpec(
         name="qwen3vl_4b_wordlevel",
         display_name="Qwen3-VL-4B word-level artifact",
