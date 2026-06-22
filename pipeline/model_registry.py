@@ -77,6 +77,22 @@ STAGE1_MODEL_REGISTRY: dict[str, Stage1ModelSpec] = {
             "and only replaces individual tokens with high-confidence crop evidence."
         ),
     ),
+    "qwen3vl_4b_contrastive_crop_verified_word_ocr": Stage1ModelSpec(
+        name="qwen3vl_4b_contrastive_crop_verified_word_ocr",
+        display_name="Qwen3-VL-4B contrastive crop-verified word OCR",
+        family="vlm",
+        source_kind="live_local",
+        can_localize=True,
+        box_granularity="word",
+        prompted=True,
+        automated_matrix=False,
+        notes=(
+            "Starts from Qwen verbatim word OCR, flags tokens using general uncertainty "
+            "signals, then asks a crop-level A/B/uncertain verifier to choose among "
+            "OCR alternatives and generic lexical neighbors. Does not use word-specific fixes; "
+            "unsupported lexical-neighbor replacements are blocked by default."
+        ),
+    ),
     "qwen3vl_4b_wordlevel": Stage1ModelSpec(
         name="qwen3vl_4b_wordlevel",
         display_name="Qwen3-VL-4B word-level artifact",

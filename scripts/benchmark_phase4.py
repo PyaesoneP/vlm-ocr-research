@@ -101,6 +101,7 @@ QWEN_WORD_OCR_PROMPT = (
 
 QWEN_VERBATIM_WORD_CACHE_KEY = "qwen3vl_4b_verbatim_word"
 QWEN_CROP_VERIFIED_WORD_CACHE_KEY = "qwen3vl_4b_crop_verified_word_v2"
+QWEN_CONTRASTIVE_CROP_VERIFIED_WORD_CACHE_KEY = "qwen3vl_4b_contrastive_crop_verified_word_v4"
 
 COMMON_NORMALIZATION_TARGETS = {
     "alot",
@@ -137,6 +138,21 @@ ERROR_PATTERN_WORDS = {
     "intresting",
     "flor",
     "recieved",
+}
+
+VOWELS = set("aeiou")
+CONTRASTIVE_REASON_PRIORITY = {
+    "qwen_normal_verbatim_disagreement": 10,
+    "repeated_letter_candidate": 8,
+    "long_repeated_letter_candidate": 10,
+    "repeated_token": 9,
+    "fused_or_split_candidate": 3,
+    "geometry_text_disagreement": 1,
+    "punctuation_sensitive_token": 6,
+    "low_geometry_alignment_confidence": 4,
+    "low_normal_alignment_confidence": 4,
+    "alignment_instability": 1,
+    "long_token": 1,
 }
 
 CANDIDATE_LIVE_OCR_MODULES = {
@@ -445,6 +461,51 @@ def parse_crop_verifier_response(raw: str) -> dict[str, str]:
     }
 
 
+def build_contrastive_crop_prompt(candidates: list[dict[str, Any]]) -> str:
+    """Build an A/B/uncertain crop verifier prompt without word-specific examples."""
+    options = [
+        {
+            "label": candidate["label"],
+            "text": candidate["text"],
+        }
+        for candidate in candidates
+    ]
+    options.append({"label": "uncertain", "text": "uncertain"})
+    return (
+        "You are checking one small crop from a handwritten student page.\n"
+        "Choose which candidate exactly matches the visible handwriting in the crop.\n"
+        "Do not choose the grammatically correct option unless the letters visibly match it.\n"
+        "Do not infer the intended word from sentence context.\n"
+        "If none of the candidates clearly matches the crop, choose uncertain.\n\n"
+        "Candidates:\n"
+        f"{json.dumps(options, ensure_ascii=False, indent=2)}\n\n"
+        "Return only valid JSON with this schema:\n"
+        '{"choice": "A|B|C|uncertain", "observed_text": "chosen candidate text or empty", "confidence": "high|medium|low"}\n'
+        "Use confidence high only when the crop letters are clear."
+    )
+
+
+def parse_contrastive_crop_response(raw: str) -> dict[str, str]:
+    text = raw.strip()
+    if text.startswith("```"):
+        text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE).strip()
+        text = re.sub(r"\s*```$", "", text).strip()
+    try:
+        data = json.loads(text)
+    except json.JSONDecodeError:
+        first_line = next((line.strip() for line in text.splitlines() if line.strip()), "")
+        return {
+            "choice": first_line.strip("\"' "),
+            "observed_text": "",
+            "confidence": "medium" if first_line else "low",
+        }
+    return {
+        "choice": str(data.get("choice", "")).strip(),
+        "observed_text": str(data.get("observed_text", data.get("text", ""))).strip(),
+        "confidence": str(data.get("confidence", "low")).strip().lower(),
+    }
+
+
 def crop_text_box(
     image_path: Path,
     bbox: list[int],
@@ -537,6 +598,242 @@ def suspicious_word_indices(
                     add(index, "geometry_text_disagreement")
 
     return reasons
+
+
+def _best_overlapping_box(
+    target: TextBox,
+    candidates: list[TextBox] | None,
+    *,
+    min_iou: float = 0.05,
+) -> tuple[TextBox | None, float]:
+    if not candidates:
+        return None, 0.0
+    best = None
+    best_iou = 0.0
+    for candidate in candidates:
+        iou = _simple_bbox_iou(target.bbox, candidate.bbox)
+        if iou > best_iou:
+            best = candidate
+            best_iou = iou
+    if best_iou < min_iou:
+        return None, best_iou
+    return best, best_iou
+
+
+def generic_suspicious_word_indices(
+    base_boxes: list[TextBox],
+    *,
+    normal_boxes: list[TextBox] | None = None,
+    geometry_boxes: list[TextBox] | None = None,
+) -> dict[int, list[str]]:
+    """Choose crop-verification targets using dataset-independent uncertainty signals."""
+    reasons: dict[int, list[str]] = {}
+
+    def add(index: int, reason: str) -> None:
+        if 0 <= index < len(base_boxes):
+            reasons.setdefault(index, [])
+            if reason not in reasons[index]:
+                reasons[index].append(reason)
+
+    for index, box in enumerate(base_boxes):
+        compact = _compact_text(box.text)
+        if not compact:
+            continue
+        if any(ch in str(box.text) for ch in ".,;:!?"):
+            add(index, "punctuation_sensitive_token")
+        if index > 0 and _compact_text(base_boxes[index - 1].text) == compact:
+            add(index, "repeated_token")
+        if index + 1 < len(base_boxes) and _compact_text(base_boxes[index + 1].text) == compact:
+            add(index, "repeated_token")
+        if len(compact) >= 7:
+            add(index, "long_token")
+        if any(left == right for left, right in zip(compact, compact[1:])):
+            add(index, "repeated_letter_candidate")
+            if len(compact) >= 7:
+                add(index, "long_repeated_letter_candidate")
+
+        best_normal, normal_iou = _best_overlapping_box(box, normal_boxes)
+        if best_normal is None and normal_boxes:
+            add(index, "low_normal_alignment_confidence")
+        elif best_normal and text_similarity(box.text, best_normal.text) < 0.98:
+            add(index, "qwen_normal_verbatim_disagreement")
+
+        best_geometry, geometry_iou = _best_overlapping_box(box, geometry_boxes)
+        if best_geometry is None and geometry_boxes:
+            add(index, "low_geometry_alignment_confidence")
+        elif best_geometry and text_similarity(box.text, best_geometry.text) < 0.98:
+            add(index, "geometry_text_disagreement")
+            geometry_compact = _compact_text(best_geometry.text)
+            if geometry_compact and compact:
+                if compact in geometry_compact or geometry_compact in compact:
+                    add(index, "fused_or_split_candidate")
+
+        if normal_iou and geometry_iou and abs(normal_iou - geometry_iou) > 0.5:
+            add(index, "alignment_instability")
+
+    return reasons
+
+
+def rank_contrastive_suspicion(index: int, reasons: list[str]) -> tuple[int, int, int]:
+    """Prioritize crop rereads by general uncertainty strength, not known words."""
+    score = sum(CONTRASTIVE_REASON_PRIORITY.get(reason, 0) for reason in reasons)
+    return (score, len(reasons), -index)
+
+
+def select_contrastive_suspicion(
+    suspicion: dict[int, list[str]],
+    max_crops: int,
+) -> tuple[dict[int, list[str]], dict[int, list[str]]]:
+    """Return the suspicion subset to verify and the untested remainder."""
+    if max_crops <= 0 or len(suspicion) <= max_crops:
+        return suspicion, {}
+    ordered = sorted(
+        suspicion.items(),
+        key=lambda item: rank_contrastive_suspicion(item[0], item[1]),
+        reverse=True,
+    )
+    selected = dict(ordered[:max_crops])
+    skipped = dict(ordered[max_crops:])
+    return selected, skipped
+
+
+def lexical_neighbor_candidates(text: str, *, limit: int = 4) -> list[str]:
+    """Generate generic near-token alternatives without using ground truth."""
+    compact = _compact_text(text)
+    if len(compact) < 4 or len(compact) > 14:
+        return []
+    variants: list[str] = []
+    seen: set[str] = {compact}
+
+    def add(value: str) -> None:
+        value = _compact_text(value)
+        if len(value) >= 3 and value not in seen:
+            seen.add(value)
+            variants.append(value)
+
+    for i, (left, right) in enumerate(zip(compact, compact[1:])):
+        if left == right:
+            add(compact[:i] + compact[i + 1:])
+    for i, char in enumerate(compact):
+        if char in VOWELS:
+            add(compact[:i] + compact[i + 1:])
+    if len(compact) >= 6:
+        for i in range(1, len(compact) - 1):
+            if compact[i - 1] != compact[i + 1]:
+                swapped = compact[:i] + compact[i + 1] + compact[i] + compact[i + 2:]
+                add(swapped)
+                break
+
+    return variants[:limit]
+
+
+def contrastive_candidates_for_box(
+    box: TextBox,
+    *,
+    normal_boxes: list[TextBox] | None = None,
+    geometry_boxes: list[TextBox] | None = None,
+) -> list[dict[str, Any]]:
+    """Collect candidate strings from OCR alternatives and generic token neighbors."""
+    candidates: list[dict[str, Any]] = []
+    seen: dict[str, dict[str, Any]] = {}
+
+    def add(text: str, source: str, iou: float | None = None) -> None:
+        display_text = str(text).strip()
+        compact = _compact_text(display_text)
+        if not compact:
+            return
+        existing = seen.get(compact)
+        if existing:
+            if source not in existing["sources"]:
+                existing["sources"].append(source)
+            if iou is not None:
+                existing["ious"].append(iou)
+            return
+        label = chr(ord("A") + len(candidates))
+        item = {
+            "label": label,
+            "text": display_text,
+            "compact": compact,
+            "sources": [source],
+            "ious": [iou] if iou is not None else [],
+        }
+        seen[compact] = item
+        candidates.append(item)
+
+    add(box.text, "qwen_verbatim", 1.0)
+    best_normal, normal_iou = _best_overlapping_box(box, normal_boxes)
+    if best_normal is not None:
+        add(best_normal.text, "qwen_normal", normal_iou)
+    best_geometry, geometry_iou = _best_overlapping_box(box, geometry_boxes)
+    if best_geometry is not None:
+        add(best_geometry.text, "tesseract_geometry", geometry_iou)
+    for variant in lexical_neighbor_candidates(box.text):
+        add(variant, "generic_lexical_neighbor")
+
+    return candidates[:5]
+
+
+def selected_contrastive_candidate(
+    parsed: dict[str, str],
+    candidates: list[dict[str, Any]],
+) -> dict[str, Any] | None:
+    choice = parsed.get("choice", "").strip().lower()
+    observed = _compact_text(parsed.get("observed_text", ""))
+    for candidate in candidates:
+        if choice == candidate["label"].lower():
+            return candidate
+        if observed and observed == candidate["compact"]:
+            return candidate
+    return None
+
+
+def should_accept_contrastive_replacement(
+    original: str,
+    selected: dict[str, Any] | None,
+    confidence: str,
+    *,
+    allow_unsupported_lexical: bool = False,
+) -> bool:
+    if selected is None or confidence != "high":
+        return False
+    original_compact = _compact_text(original)
+    selected_compact = selected["compact"]
+    if not selected_compact or selected_compact == original_compact:
+        return False
+    if len(str(selected["text"]).split()) > 3:
+        return False
+    if len(selected_compact) > max(24, len(original_compact) + 8):
+        return False
+    if len(selected_compact) < max(1, len(original_compact) - 4):
+        return False
+    sources = set(selected.get("sources", []))
+    if len(sources - {"generic_lexical_neighbor"}) >= 2:
+        return True
+    if (
+        allow_unsupported_lexical
+        and "generic_lexical_neighbor" in sources
+        and edit_distance_compact(original_compact, selected_compact) <= 2
+    ):
+        return True
+    return False
+
+
+def edit_distance_compact(left: str, right: str) -> int:
+    if not left:
+        return len(right)
+    if not right:
+        return len(left)
+    previous = list(range(len(right) + 1))
+    for i, left_char in enumerate(left, 1):
+        current = [i]
+        for j, right_char in enumerate(right, 1):
+            current.append(min(
+                previous[j] + 1,
+                current[j - 1] + 1,
+                previous[j - 1] + (left_char != right_char),
+            ))
+        previous = current
+    return previous[-1]
 
 
 def should_accept_crop_replacement(original: str, verified: str, confidence: str) -> bool:
@@ -839,6 +1136,178 @@ def crop_verified_qwen_word_output(
     return output
 
 
+def contrastive_crop_verified_qwen_word_output(
+    image_path: Path,
+    adapter: Qwen3VLAdapter,
+    args: argparse.Namespace,
+) -> PipelineOutput:
+    """Run Qwen verbatim OCR, then verify generic uncertainty targets with A/B choices."""
+    lexical_mode = (
+        "unsupported_lexical"
+        if args.contrastive_allow_unsupported_lexical_replacements
+        else "supported_only"
+    )
+    cache_key = (
+        f"{QWEN_CONTRASTIVE_CROP_VERIFIED_WORD_CACHE_KEY}"
+        f"_max{args.contrastive_max_crops}_{lexical_mode}"
+    )
+
+    def compute(path: Path) -> dict[str, Any]:
+        t0 = time.perf_counter()
+        base_output = qwen_word_box_output(
+            path,
+            adapter,
+            args,
+            prompt=VERBATIM_WORD_OCR_PROMPT,
+            cache_key=QWEN_VERBATIM_WORD_CACHE_KEY,
+            strategy_name="qwen3vl_4b_verbatim_word_ocr",
+        )
+        normal_output = qwen_word_box_output(
+            path,
+            adapter,
+            args,
+            cache_key="qwen3vl_4b_word",
+            strategy_name="qwen3vl_4b_live_word_ocr",
+        )
+        geometry_output = tesseract_word_box_output(path, args)
+        suspicion = generic_suspicious_word_indices(
+            base_output.boxes,
+            normal_boxes=normal_output.boxes,
+            geometry_boxes=geometry_output.boxes,
+        )
+        selected_suspicion, skipped_suspicion = select_contrastive_suspicion(
+            suspicion,
+            args.contrastive_max_crops,
+        )
+
+        boxes = [
+            TextBox(
+                bbox=list(box.bbox),
+                text=box.text,
+                confidence=box.confidence,
+                reading_order=box.reading_order,
+                index=i,
+                source=box.source or "qwen3vl_4b_contrastive_crop_verified_word_ocr",
+            )
+            for i, box in enumerate(base_output.boxes)
+        ]
+        replacements = []
+        rejected = []
+        skipped = [
+            {
+                "index": index,
+                "original_text": boxes[index].text if index < len(boxes) else "",
+                "reasons": reasons,
+                "skip_reason": "contrastive_max_crops_budget",
+            }
+            for index, reasons in sorted(skipped_suspicion.items())
+        ]
+        crop_dir = args.cache_dir / "contrastive_crop_verified_words" / path.stem
+        for index in sorted(selected_suspicion):
+            if index >= len(boxes):
+                continue
+            box = boxes[index]
+            if not box.bbox or box.bbox == [0, 0, 0, 0]:
+                rejected.append({
+                    "index": index,
+                    "original_text": box.text,
+                    "reasons": selected_suspicion[index],
+                    "reject_reason": "missing_bbox",
+                })
+                continue
+            candidates = contrastive_candidates_for_box(
+                box,
+                normal_boxes=normal_output.boxes,
+                geometry_boxes=geometry_output.boxes,
+            )
+            if len(candidates) < 2:
+                rejected.append({
+                    "index": index,
+                    "original_text": box.text,
+                    "reasons": selected_suspicion[index],
+                    "candidates": candidates,
+                    "reject_reason": "not_enough_candidates",
+                })
+                continue
+            crop_path = crop_text_box(path, box.bbox, crop_dir / f"{index:03d}.png")
+            prompt = build_contrastive_crop_prompt(candidates)
+            raw = adapter.generate(prompt, crop_path, max_new_tokens=96)
+            parsed = parse_contrastive_crop_response(raw)
+            selected = selected_contrastive_candidate(parsed, candidates)
+            record = {
+                "index": index,
+                "bbox": list(box.bbox),
+                "original_text": box.text,
+                "selected_text": selected["text"] if selected else "",
+                "selected_label": selected["label"] if selected else parsed.get("choice", ""),
+                "confidence": parsed["confidence"],
+                "reasons": selected_suspicion[index],
+                "candidates": candidates,
+                "crop_path": str(crop_path.relative_to(PROJECT_ROOT)),
+                "raw_response": raw,
+                "parsed_response": parsed,
+            }
+            if should_accept_contrastive_replacement(
+                box.text,
+                selected,
+                parsed["confidence"],
+                allow_unsupported_lexical=args.contrastive_allow_unsupported_lexical_replacements,
+            ):
+                box.text = str(selected["text"])
+                box.source = "qwen3vl_4b_contrastive_crop_verified_word_ocr"
+                replacements.append(record)
+            else:
+                record["reject_reason"] = "not_high_confidence_or_not_supported"
+                rejected.append(record)
+
+        return {
+            "text": " ".join(box.text for box in boxes if box.text),
+            "blocks": [box.to_dict() for box in boxes],
+            "stage1_latency": time.perf_counter() - t0,
+            "_base_cache_key": QWEN_VERBATIM_WORD_CACHE_KEY,
+            "_normal_cache_key": "qwen3vl_4b_word",
+            "_geometry_cache_key": "tesseract_word_boxes",
+            "_contrastive_cache_key": cache_key,
+            "_contrastive_crop_verified_candidates": len(suspicion),
+            "_contrastive_crop_verified_tested": len(selected_suspicion),
+            "_contrastive_crop_verified_max_crops": args.contrastive_max_crops,
+            "_contrastive_allow_unsupported_lexical_replacements": (
+                args.contrastive_allow_unsupported_lexical_replacements
+            ),
+            "_contrastive_crop_verified_replacements": replacements,
+            "_contrastive_crop_verified_rejected": rejected,
+            "_contrastive_crop_verified_skipped": skipped,
+            "_contrastive_crop_verified_candidate_reasons": {str(k): v for k, v in suspicion.items()},
+            "_stage1_composition": "qwen_verbatim_plus_generic_contrastive_crop_verifier",
+        }
+
+    data = cached_stage1(
+        args.cache_dir,
+        cache_key,
+        image_path,
+        args.refresh_cache,
+        compute,
+    )
+    output = PipelineOutput.from_ocr_dict(
+        data,
+        strategy_name="qwen3vl_4b_contrastive_crop_verified_word_ocr",
+        image=image_path,
+    )
+    output.metadata.update({
+        "text_source": "qwen3vl_4b_contrastive_crop_verified_word_ocr",
+        "box_source": "qwen3vl_4b_contrastive_crop_verified_word_ocr",
+        "stage1_composition": "qwen_verbatim_plus_generic_contrastive_crop_verifier",
+        "stage1_latency_policy": "cached full-page qwen + tesseract + contrastive crop verifier latency",
+        "verbatim_prompt": True,
+        "contrastive_crop_verified": True,
+        "contrastive_allow_unsupported_lexical_replacements": (
+            args.contrastive_allow_unsupported_lexical_replacements
+        ),
+        "word_specific_fixes_allowed": False,
+    })
+    return output
+
+
 def baseline_live_word_output(
     image_path: Path,
     args: argparse.Namespace,
@@ -1042,6 +1511,15 @@ def make_live_ocr_call(
 
         def ocr_call(image_path: Path) -> PipelineOutput:
             return crop_verified_qwen_word_output(image_path, adapter, args)
+
+        return ocr_call
+
+    if text_source == "qwen3vl_4b_contrastive_crop_verified_word_ocr":
+        if adapter is None:
+            raise RuntimeError("qwen3vl_4b_contrastive_crop_verified_word_ocr requires the local Qwen adapter")
+
+        def ocr_call(image_path: Path) -> PipelineOutput:
+            return contrastive_crop_verified_qwen_word_output(image_path, adapter, args)
 
         return ocr_call
 
@@ -1397,6 +1875,7 @@ def qwen_adapter_needed(args: argparse.Namespace, specs: list[TwoStageSpec], end
                 "qwen3vl_4b_live_word_ocr",
                 "qwen3vl_4b_verbatim_word_ocr",
                 "qwen3vl_4b_crop_verified_word_ocr",
+                "qwen3vl_4b_contrastive_crop_verified_word_ocr",
             }
             or spec.box_source == "qwen3vl_4b_word_boxes"
             for spec in specs
@@ -1410,6 +1889,7 @@ def qwen_adapter_needed(args: argparse.Namespace, specs: list[TwoStageSpec], end
             "qwen3vl_4b_live_word_ocr",
             "qwen3vl_4b_verbatim_word_ocr",
             "qwen3vl_4b_crop_verified_word_ocr",
+            "qwen3vl_4b_contrastive_crop_verified_word_ocr",
         }
         for spec in specs
     ):
@@ -1692,6 +2172,20 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--model-id", default=QWEN_MODEL_ID)
     parser.add_argument("--max-new-tokens", type=int, default=4096)
     parser.add_argument("--grader-max-new-tokens", type=int, default=768)
+    parser.add_argument(
+        "--contrastive-max-crops",
+        type=int,
+        default=4,
+        help="Maximum generic contrastive crop verifier rereads per image; use 0 for all flagged crops.",
+    )
+    parser.add_argument(
+        "--contrastive-allow-unsupported-lexical-replacements",
+        action="store_true",
+        help=(
+            "Allow contrastive crop choices from generic lexical-neighbor candidates even "
+            "when no OCR source supports the replacement. Diagnostic only; default is safer."
+        ),
+    )
     parser.add_argument(
         "--stage2-prompt-mode",
         default="baseline",

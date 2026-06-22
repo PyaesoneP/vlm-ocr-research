@@ -259,7 +259,7 @@ Target schema:
 }
 ```
 
-The current probe has 10 clean pages and 10 positive pages. A larger 20 positive / 20 clean set would be a good next step before treating error-detection numbers as a proper leaderboard.
+The current probe has 10 clean pages and 10 positive pages. Treat it as a development set, not as a final generalization claim. A larger held-out 20 positive / 20 clean set would be a good next step before treating error-detection numbers as a proper leaderboard.
 
 Bootstrap commands once raw images and `source_texts.md` exist:
 
@@ -297,7 +297,9 @@ This pass is local-only: no cloud/API sources, no Docker-only sources, no paid c
 - `benchmark/results/phase4_stage2_source_text_qwen_contract_v3.json`
 - `benchmark/results/phase4_stage2_source_text_qwen_image_verify_v3.json`
 - `benchmark/results/phase4_stage1_truthfulness_audit.json`
+- `benchmark/results/phase4_stage1_uncertainty_signal_audit.json`
 - `benchmark/results/phase4_realworld_stage1_qwen_crop_verified_20image.json`
+- `benchmark/results/phase4_realworld_stage1_qwen_contrastive_crop_verified_20image.json`
 - `benchmark/results/phase4_realworld_stage1_missing_candidates_summary.json`
 - overlays: `benchmark/visualizations/phase4_realworld_mixed_best_20image/`
 - overlays: `benchmark/visualizations/phase4_realworld_mixed_best_20image_adjudicated/`
@@ -367,6 +369,24 @@ Full 20-page crop-verified Stage 1 result:
 | Qwen crop-verified v2 | 0.014 | 13/21 | 6 | 0.801 | 34 | 1 | 12.2s | Failed |
 
 The verifier accepted only one replacement: `forgotten` -> `forgoten` on `rw_11`. It correctly rejected harmful high-confidence crop reads such as `bred.` -> `bored.` and `minuts.` -> `minutes`, but the overall gate did not move enough: evidence preservation improved by only one span and correction leaks remain too high. Do not rerun Stage 2 from this source yet.
+
+The generalization-safe uncertainty audit is implemented in `scripts/audit_phase4_stage1_uncertainty_signals.py`. It does not add word-specific fixes; it checks whether each current Stage 1 miss would have been flagged by dataset-independent signals such as Qwen normal/verbatim disagreement, OCR-source disagreement, low alignment confidence, repeated or fused token shape, punctuation-sensitive tokenization, and prior crop-verifier uncertainty. On the current development set, all 8 crop-verified primary misses were caught by at least one actionable signal. This is only trigger coverage, not a replacement-quality result, and must be validated on held-out pages before promotion.
+
+```bash
+.venv/bin/python scripts/audit_phase4_stage1_uncertainty_signals.py \
+  --output benchmark/results/phase4_stage1_uncertainty_signal_audit.json
+```
+
+The experimental contrastive verifier is implemented as `qwen3vl_4b_contrastive_crop_verified_word_ocr`. It starts from cached Qwen verbatim word OCR, ranks generic uncertainty signals, and asks Qwen to choose among OCR alternatives / generic lexical neighbors / `uncertain` on only the highest-priority crops. It is capped by `--contrastive-max-crops` (default 4) to keep it an auditable verifier, not a second page-level OCR pass.
+
+Full 20-page safe-default result: CER 0.014, evidence preserved 12/21, correction leaks 7, word IoU 0.801, 0 accepted replacements, 31.9s/image. This does **not** improve over Qwen verbatim and should not be promoted. The useful finding is diagnostic: with unsupported lexical replacements temporarily allowed, the verifier recovered `forgoten` on `rw_11`, but the same mode also produced harmful clean-page edits such as `small` -> `smll`, `afternoon` -> `afternon`, and `stopped` -> `stoppd`. Therefore unsupported lexical-neighbor replacements are now blocked by default and remain diagnostic-only.
+
+```bash
+.venv/bin/python scripts/benchmark_phase4.py --dataset realworld --image rw_11.jpg \
+  --stage1-only --continue-on-error --num-runs 1 \
+  --strategies two_stage__qwen3vl_4b_contrastive_crop_verified_word_ocr__same_stage1_boxes__qwen3vl_4b_grader \
+  --output benchmark/results/phase4_realworld_stage1_qwen_contrastive_crop_verified_rw11.json
+```
 
 Missing Stage 1 candidate pass:
 
@@ -585,6 +605,14 @@ Current stopping point:
 - Single-pass Qwen is diagnostic only: valid JSON 0.90, word IoU 0.206, false positives 18, evidence preserved 8/21.
 - Do not use IAM Phase 2/3 artifacts as substitutes for real-world Stage 1 truthfulness.
 
+Generalization guardrails:
+
+- Treat the current 20-page real-world set as a development/debug set. Any Stage 1 truthfulness improvement should be frozen and then scored on a newly written held-out set before being promoted.
+- Do not add rules keyed to known target words or expected corrections from this probe (`forgoten`, `umbrela`, `should of`, etc.). Those examples are useful for diagnosis, not for production logic.
+- Suspicious-token triggers should be dataset-independent: normal/verbatim Qwen disagreement, OCR-source disagreement, low alignment confidence, repeated/fused tokens, punctuation-sensitive tokenization, and rare/non-dictionary tokens close to common words.
+- Contrastive crop verification should use candidate strings generated from OCR alternatives and general lexical neighbors, not from ground-truth labels.
+- Prefer abstention. The verifier should leave a token unchanged unless the crop-level evidence is strong and auditable.
+
 Recommended order:
 
 1. Do not rerun Stage 2 from crop-verified Qwen yet.
@@ -595,12 +623,15 @@ Recommended order:
 2. Audit the remaining Stage 1 misses at the image/crop level.
    - Remaining failures include `umbrela`, `know`, `the the`, `beutiful`, `should of`, `took us hour`, `usualy`, `atleast`, `thursday`, and `flor`.
    - Separate true OCR normalization from benchmark-span issues where the corrected word appears elsewhere on the page.
+   - For each miss, record which general uncertainty signal would have flagged it; do not record a word-specific fix as the remedy.
+   - Use `scripts/audit_phase4_stage1_uncertainty_signals.py` as the starting report; treat broad signals like OCR-source disagreement as context, not sufficient replacement triggers.
    - Inspect the crop images under `pipeline_output/phase4_cache/crop_verified_words/` before changing the verifier again.
 
 3. Try a contrastive crop verifier only after the miss audit.
-   - Provide the crop plus two candidate strings: current OCR token and suspected correction-prone alternative.
+   - Provide the crop plus candidate strings from OCR alternatives and general lexical neighbors, such as Qwen verbatim, Qwen normal, spatially aligned Tesseract/docTR, and one `uncertain` option.
    - Force the model to choose A/B/uncertain instead of free-form rewriting.
    - Keep the same rule: only replace individual tokens, never sentences.
+   - Current experimental implementation is capped to the highest-priority flagged crops. The full 20-page safe-default run did not improve Stage 1; unsupported lexical replacements can recover some errors but also create clean-page damage, so keep them diagnostic-only.
 
 4. Tighten the transcript-to-box alignment layer only if Stage 1 truthfulness improves.
    - Initial `aligned_tesseract_word_boxes` result: word IoU 0.813, evidence preservation 12/21.
