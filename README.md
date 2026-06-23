@@ -307,6 +307,12 @@ This pass is local-only: no cloud/API sources, no Docker-only sources, no paid c
 - `benchmark/results/phase4_evidence_graph_qwen_visual_gain.json`
 - `benchmark/results/phase4_realworld_evidence_graph_adjudication_augment.json`
 - `benchmark/results/phase4_realworld_evidence_graph_adjudication_replace.json`
+- `benchmark/results/phase4_inference_evidence_graph_unscored_20image.json`
+- `benchmark/results/phase4_inference_evidence_graph_qwen_visual_gain_rw11.json`
+- `benchmark/results/phase4_inference_evidence_graph_audit_unscored_20image.json`
+- `benchmark/results/phase4_inference_evidence_graph_audit_rw11.json`
+- `benchmark/results/phase4_inference_selector_failure_report_unscored_20image.json`
+- `benchmark/results/phase4_inference_selector_failure_report_rw11.json`
 - `benchmark/results/phase4_realworld_stage1_qwen_crop_verified_20image.json`
 - `benchmark/results/phase4_realworld_stage1_qwen_alternative_lattice_20image.json`
 - `benchmark/results/phase4_realworld_stage1_qwen_contrastive_crop_verified_20image.json`
@@ -710,6 +716,9 @@ First visual-gain diagnostic:
 - Current misses where Qwen visual-gain still prefers the normalized form: `know->knows`, `untill->until`, `intresting->interesting`, `atleast->at least`, and `flor->floor`.
 - `scripts/build_phase4_evidence_graph.py` converts the scored pairs into auditable evidence records with `SUPPORTED_ERROR`, `SUPPORTED_CORRECT`, and `UNCERTAIN_REVIEW` decisions. With the conservative default that phrase-shaped clean controls from single-word crops are review-only, the graph supports 16/21 positive errors, counts 0/44 clean false positives, and reaches selector F1 0.865 on this development set.
 - `scripts/apply_phase4_evidence_graph_adjudication.py` applies those supported records to an existing Phase 4 result as a diagnostic bridge. Augmenting the current Qwen-verbatim full-pipeline row improves `error_detection_f1` from 0.585 to 0.692 but keeps the existing 5 false positives. Replacing Stage 2 predictions with selector-supported evidence only reaches `error_detection_f1=0.783`, `error_box_iou=1.000`, and 0 false positives. This is **not** a production result because the current minimal pairs use development-set labels; treat it as evidence that the selector path is worth wiring to an inference-time candidate generator and optical scorer.
+- `scripts/build_phase4_inference_evidence_graph.py` is the first label-free version: it starts from the existing Stage 1 alternative lattice, crops canonical word boxes, adds bounded one-edit and phrase hypotheses, and scores canonical text against candidate alternatives without using visible/corrected labels. On the full 20-page unscored graph, 243 suspicious-word records cover 21/21 error spans and all 21 intended visible forms are present somewhere in the inference-time candidate set. This means candidate generation is no longer the immediate bottleneck on the development set.
+- `scripts/audit_phase4_inference_evidence_graph.py` audits the label-free graph against development labels after the fact. Its current decomposition says the next bottleneck is selector calibration: 13/21 visible forms are top-ranked in the unscored candidate order, 8/21 are present but not top-ranked, and no visible forms are absent.
+- `scripts/report_phase4_inference_selector_failures.py` summarizes selector failure modes. On the scored `rw_11` canary, all 3 intended error forms are present, 2/3 are top-ranked visually, and 0 are auto-supported under the conservative policy: one error is already preserved canonically (`bred`), one unsupported lexical alternative is visually preferred but blocked (`forgoten`), and one noisy unsupported neighbor outranks the canonical preserved error (`mnuts` over `minuts`). That is the next selector-policy problem in miniature.
 
 ```bash
 .venv/bin/python scripts/build_phase4_minimal_pair_dataset.py \
@@ -732,6 +741,29 @@ First visual-gain diagnostic:
 
 .venv/bin/python scripts/apply_phase4_evidence_graph_adjudication.py --mode replace \
   --output benchmark/results/phase4_realworld_evidence_graph_adjudication_replace.json
+
+.venv/bin/python scripts/build_phase4_inference_evidence_graph.py \
+  --output benchmark/results/phase4_inference_evidence_graph_unscored_20image.json
+
+.venv/bin/python scripts/build_phase4_inference_evidence_graph.py --image rw_11.jpg --score \
+  --output benchmark/results/phase4_inference_evidence_graph_qwen_visual_gain_rw11.json
+
+.venv/bin/python scripts/audit_phase4_inference_evidence_graph.py \
+  --graph benchmark/results/phase4_inference_evidence_graph_unscored_20image.json \
+  --output benchmark/results/phase4_inference_evidence_graph_audit_unscored_20image.json
+
+.venv/bin/python scripts/audit_phase4_inference_evidence_graph.py \
+  --graph benchmark/results/phase4_inference_evidence_graph_qwen_visual_gain_rw11.json \
+  --image rw_11.jpg \
+  --output benchmark/results/phase4_inference_evidence_graph_audit_rw11.json
+
+.venv/bin/python scripts/report_phase4_inference_selector_failures.py \
+  --audit benchmark/results/phase4_inference_evidence_graph_audit_unscored_20image.json \
+  --output benchmark/results/phase4_inference_selector_failure_report_unscored_20image.json
+
+.venv/bin/python scripts/report_phase4_inference_selector_failures.py \
+  --audit benchmark/results/phase4_inference_evidence_graph_audit_rw11.json \
+  --output benchmark/results/phase4_inference_selector_failure_report_rw11.json
 ```
 
 Selective policy:
@@ -781,12 +813,13 @@ Recommended order:
    - Keep Qwen verbatim as the canonical word list.
    - Attach alternatives, uncertainty reasons, source support, and visual scores without replacing canonical text.
    - Keep unsupported lexical neighbors as hypotheses to score or abstain on, not as direct Stage 2 evidence.
+   - Current label-free graph candidate recall is 21/21 on the development set, so stop widening candidate generation for now and calibrate the selector/scorer policy before a full Stage 2 rerun.
 
 7. Build a lattice-aware Stage 2/adjudicator probe.
    - Stage 2 may report `evidence_text` from the canonical word or from a visually supported alternative for the same `word_indices`.
    - Post-processing must preserve valid alternative evidence text and derive bboxes from canonical word indices.
    - Drop no-op errors where evidence and correction are identical.
-   - Start with `rw_11` and one or two clean pages before running all 20 pages.
+   - Start with `rw_11` and one or two clean pages after the selector can distinguish canonical-preserved errors, unsupported-but-useful alternatives, and noisy unsupported neighbors.
 
 8. Do not rerun Stage 2 from crop-verified Qwen yet.
    - The Stage 1 gate failed: 13/21 evidence preserved, 6 correction leaks, word IoU 0.801.
