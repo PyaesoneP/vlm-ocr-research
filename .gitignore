@@ -26,6 +26,7 @@ env/
 # Benchmark results (generated)
 benchmark/results/*.json
 pipeline_output/phase4_cache/
+pipeline_output/phase4_minimal_pairs/
 
 # Benchmark visualizations: keep curated samples, ignore full generated dumps
 benchmark/visualizations/locateanything_wordlevel/*

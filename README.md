@@ -299,6 +299,12 @@ This pass is local-only: no cloud/API sources, no Docker-only sources, no paid c
 - `benchmark/results/phase4_stage1_truthfulness_audit.json`
 - `benchmark/results/phase4_stage1_uncertainty_signal_audit.json`
 - `benchmark/results/phase4_candidate_recall_audit.json`
+- `benchmark/results/phase4_minimal_pair_dataset.json`
+- `benchmark/results/phase4_qwen_visual_gain_scores_positive21.json`
+- `benchmark/results/phase4_qwen_visual_gain_scores_clean10.json`
+- `benchmark/results/phase4_qwen_visual_gain_scores_clean44.json`
+- `benchmark/results/phase4_qwen_visual_gain_calibration.json`
+- `benchmark/results/phase4_evidence_graph_qwen_visual_gain.json`
 - `benchmark/results/phase4_realworld_stage1_qwen_crop_verified_20image.json`
 - `benchmark/results/phase4_realworld_stage1_qwen_alternative_lattice_20image.json`
 - `benchmark/results/phase4_realworld_stage1_qwen_contrastive_crop_verified_20image.json`
@@ -689,6 +695,34 @@ First offline candidate-recall audit (`scripts/audit_phase4_candidate_recall.py`
 ```bash
 .venv/bin/python scripts/audit_phase4_candidate_recall.py \
   --output benchmark/results/phase4_candidate_recall_audit.json
+```
+
+First visual-gain diagnostic:
+
+- `scripts/build_phase4_minimal_pair_dataset.py` creates 21 positive minimal pairs and 44 matched clean controls with word crops under `pipeline_output/phase4_minimal_pairs/`.
+- `scripts/score_phase4_qwen_visual_gain.py` scores each candidate with local Qwen logits using `log P(candidate | crop) - alpha * log P(candidate | blank image)`.
+- Label comparison now preserves case and word spacing while ignoring punctuation, so `thursday/Thursday` and `atleast/at least` are real comparisons rather than compact-string collisions.
+- Positive-pair result: visible erroneous form preferred on 16/21 intended errors (`selector_recall=0.762`).
+- Clean-control result: visible clean form preferred on 43/44 matched controls. The single clean failure is an invalid word-crop control (`the` vs `the the`), so calibration also reports single-token pairs separately.
+- Single-token calibration: 13/17 positive errors recovered with 0/4 single-token clean false positives (`selector_f1=0.867`). The clean single-token control count is too small for promotion, but the signal is strong enough to justify a proper optical scorer.
+- Current misses where Qwen visual-gain still prefers the normalized form: `know->knows`, `untill->until`, `intresting->interesting`, `atleast->at least`, and `flor->floor`.
+- `scripts/build_phase4_evidence_graph.py` converts the scored pairs into auditable evidence records with `SUPPORTED_ERROR`, `SUPPORTED_CORRECT`, and `UNCERTAIN_REVIEW` decisions. With the conservative default that phrase-shaped clean controls from single-word crops are review-only, the graph supports 16/21 positive errors, counts 0/44 clean false positives, and reaches selector F1 0.865 on this development set.
+
+```bash
+.venv/bin/python scripts/build_phase4_minimal_pair_dataset.py \
+  --output benchmark/results/phase4_minimal_pair_dataset.json
+
+.venv/bin/python scripts/score_phase4_qwen_visual_gain.py --split positive \
+  --candidate-mode labels --output benchmark/results/phase4_qwen_visual_gain_scores_positive21.json
+
+.venv/bin/python scripts/score_phase4_qwen_visual_gain.py --split clean_control \
+  --candidate-mode labels --output benchmark/results/phase4_qwen_visual_gain_scores_clean44.json
+
+.venv/bin/python scripts/analyze_phase4_visual_gain_calibration.py \
+  --output benchmark/results/phase4_qwen_visual_gain_calibration.json
+
+.venv/bin/python scripts/build_phase4_evidence_graph.py \
+  --output benchmark/results/phase4_evidence_graph_qwen_visual_gain.json
 ```
 
 Selective policy:
