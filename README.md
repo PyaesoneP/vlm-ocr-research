@@ -305,6 +305,8 @@ This pass is local-only: no cloud/API sources, no Docker-only sources, no paid c
 - `benchmark/results/phase4_qwen_visual_gain_scores_clean44.json`
 - `benchmark/results/phase4_qwen_visual_gain_calibration.json`
 - `benchmark/results/phase4_evidence_graph_qwen_visual_gain.json`
+- `benchmark/results/phase4_realworld_evidence_graph_adjudication_augment.json`
+- `benchmark/results/phase4_realworld_evidence_graph_adjudication_replace.json`
 - `benchmark/results/phase4_realworld_stage1_qwen_crop_verified_20image.json`
 - `benchmark/results/phase4_realworld_stage1_qwen_alternative_lattice_20image.json`
 - `benchmark/results/phase4_realworld_stage1_qwen_contrastive_crop_verified_20image.json`
@@ -707,6 +709,7 @@ First visual-gain diagnostic:
 - Single-token calibration: 13/17 positive errors recovered with 0/4 single-token clean false positives (`selector_f1=0.867`). The clean single-token control count is too small for promotion, but the signal is strong enough to justify a proper optical scorer.
 - Current misses where Qwen visual-gain still prefers the normalized form: `know->knows`, `untill->until`, `intresting->interesting`, `atleast->at least`, and `flor->floor`.
 - `scripts/build_phase4_evidence_graph.py` converts the scored pairs into auditable evidence records with `SUPPORTED_ERROR`, `SUPPORTED_CORRECT`, and `UNCERTAIN_REVIEW` decisions. With the conservative default that phrase-shaped clean controls from single-word crops are review-only, the graph supports 16/21 positive errors, counts 0/44 clean false positives, and reaches selector F1 0.865 on this development set.
+- `scripts/apply_phase4_evidence_graph_adjudication.py` applies those supported records to an existing Phase 4 result as a diagnostic bridge. Augmenting the current Qwen-verbatim full-pipeline row improves `error_detection_f1` from 0.585 to 0.692 but keeps the existing 5 false positives. Replacing Stage 2 predictions with selector-supported evidence only reaches `error_detection_f1=0.783`, `error_box_iou=1.000`, and 0 false positives. This is **not** a production result because the current minimal pairs use development-set labels; treat it as evidence that the selector path is worth wiring to an inference-time candidate generator and optical scorer.
 
 ```bash
 .venv/bin/python scripts/build_phase4_minimal_pair_dataset.py \
@@ -723,6 +726,12 @@ First visual-gain diagnostic:
 
 .venv/bin/python scripts/build_phase4_evidence_graph.py \
   --output benchmark/results/phase4_evidence_graph_qwen_visual_gain.json
+
+.venv/bin/python scripts/apply_phase4_evidence_graph_adjudication.py --mode augment \
+  --output benchmark/results/phase4_realworld_evidence_graph_adjudication_augment.json
+
+.venv/bin/python scripts/apply_phase4_evidence_graph_adjudication.py --mode replace \
+  --output benchmark/results/phase4_realworld_evidence_graph_adjudication_replace.json
 ```
 
 Selective policy:
