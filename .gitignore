@@ -25,6 +25,9 @@ env/
 
 # Benchmark results (generated)
 benchmark/results/*.json
+pipeline_output/phase4_cache/
+pipeline_output/phase4_minimal_pairs/
+pipeline_output/phase4_inference_evidence_graph/
 
 # Benchmark visualizations: keep curated samples, ignore full generated dumps
 benchmark/visualizations/locateanything_wordlevel/*
@@ -33,6 +36,10 @@ benchmark/visualizations/locateanything_wordlevel/*
 !benchmark/visualizations/locateanything_wordlevel/c02-017_bboxes.png
 !benchmark/visualizations/locateanything_wordlevel/f07-069_bboxes.png
 !benchmark/visualizations/locateanything_wordlevel/r02-117_bboxes.png
+benchmark/visualizations/realworld_draft_boxes/*
+benchmark/visualizations/realworld_aligned_words/*
+benchmark/visualizations/phase4_realworld_full_pipeline_5image/*
+benchmark/visualizations/phase4_realworld_live_matrix_5image/*
 
 # Generated demo media
 demo/frames/
@@ -41,6 +48,7 @@ demo/*.mp4
 # Model cache (downloaded from HuggingFace / external sources)
 models/
 .cache/
+.hf_cache/
 
 # OS junk
 .DS_Store
@@ -60,6 +68,10 @@ benchmark/test_dataset/*.png
 benchmark/test_dataset/curated/
 benchmark/test_dataset/iam_xml/
 benchmark/test_dataset/dataset_manifest.json
+benchmark/test_dataset/realworld_raw/*.jpg
+benchmark/test_dataset/realworld_raw/*.jpeg
+benchmark/test_dataset/realworld_raw/*.png
+!benchmark/test_dataset/realworld_raw/source_texts.md
 
 # Dataset archives
 benchmark/test_dataset/*.tgz
