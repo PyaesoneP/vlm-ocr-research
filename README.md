@@ -313,6 +313,8 @@ This pass is local-only: no cloud/API sources, no Docker-only sources, no paid c
 - `benchmark/results/phase4_inference_evidence_graph_audit_rw11.json`
 - `benchmark/results/phase4_inference_selector_failure_report_unscored_20image.json`
 - `benchmark/results/phase4_inference_selector_failure_report_rw11.json`
+- `benchmark/results/phase4_inference_evidence_graph_qwen_visual_gain_rw1_rw2_rw11.json`
+- `benchmark/results/phase4_inference_selector_policy_rw1_rw2_rw11.json`
 - `benchmark/results/phase4_realworld_stage1_qwen_crop_verified_20image.json`
 - `benchmark/results/phase4_realworld_stage1_qwen_alternative_lattice_20image.json`
 - `benchmark/results/phase4_realworld_stage1_qwen_contrastive_crop_verified_20image.json`
@@ -719,6 +721,7 @@ First visual-gain diagnostic:
 - `scripts/build_phase4_inference_evidence_graph.py` is the first label-free version: it starts from the existing Stage 1 alternative lattice, crops canonical word boxes, adds bounded one-edit and phrase hypotheses, and scores canonical text against candidate alternatives without using visible/corrected labels. On the full 20-page unscored graph, 243 suspicious-word records cover 21/21 error spans and all 21 intended visible forms are present somewhere in the inference-time candidate set. This means candidate generation is no longer the immediate bottleneck on the development set.
 - `scripts/audit_phase4_inference_evidence_graph.py` audits the label-free graph against development labels after the fact. Its current decomposition says the next bottleneck is selector calibration: 13/21 visible forms are top-ranked in the unscored candidate order, 8/21 are present but not top-ranked, and no visible forms are absent.
 - `scripts/report_phase4_inference_selector_failures.py` summarizes selector failure modes. On the scored `rw_11` canary, all 3 intended error forms are present, 2/3 are top-ranked visually, and 0 are auto-supported under the conservative policy: one error is already preserved canonically (`bred`), one unsupported lexical alternative is visually preferred but blocked (`forgoten`), and one noisy unsupported neighbor outranks the canonical preserved error (`mnuts` over `minuts`). That is the next selector-policy problem in miniature.
+- `scripts/experiment_phase4_inference_selector_policy.py` runs label-free selector policies over a scored graph, then audits against development labels after the fact. On the first scored 3-page smoke (`rw_1`, `rw_2`, `rw_11`; 34 clean records + 3 error records), strict OCR-support policy keeps clean supported alternatives at 0 but only auto-supports 1/3 error records and sends `forgoten` to review. Allowing unsupported alternatives recovers one more error-like reading but creates 6-9 clean supported alternatives on just two clean pages. Rejecting unsupported alternatives also keeps clean supported alternatives at 0, but it rejects `forgoten` along with noisy neighbors. So the next policy should not auto-promote unsupported lexical alternatives; it needs a separate review/escalation path or a stronger optical scorer.
 
 ```bash
 .venv/bin/python scripts/build_phase4_minimal_pair_dataset.py \
@@ -764,6 +767,17 @@ First visual-gain diagnostic:
 .venv/bin/python scripts/report_phase4_inference_selector_failures.py \
   --audit benchmark/results/phase4_inference_evidence_graph_audit_rw11.json \
   --output benchmark/results/phase4_inference_selector_failure_report_rw11.json
+
+.venv/bin/python scripts/build_phase4_inference_evidence_graph.py \
+  --image rw_1.jpg --image rw_2.jpg --image rw_11.jpg --score --progress-every 5 \
+  --output benchmark/results/phase4_inference_evidence_graph_qwen_visual_gain_rw1_rw2_rw11.json
+
+.venv/bin/python scripts/experiment_phase4_inference_selector_policy.py \
+  --graph benchmark/results/phase4_inference_evidence_graph_qwen_visual_gain_rw1_rw2_rw11.json \
+  --image rw_1.jpg --image rw_2.jpg --image rw_11.jpg \
+  --policy strict_ocr --policy allow_unsupported --policy reject_unsupported_when_canonical_supported \
+  --margin-threshold 0.0 --margin-threshold 0.5 \
+  --output benchmark/results/phase4_inference_selector_policy_rw1_rw2_rw11.json
 ```
 
 Selective policy:
@@ -775,6 +789,61 @@ UNCERTAIN_REVIEW
 ```
 
 At high visual margins, automatically grade. At moderate margins, preserve the crop and alternatives for review. At low margins, keep the primary transcript and do not claim an error. This should reduce false positives while still exposing normalized-away errors.
+
+Immediate next step: optical-only candidate scorer
+
+The Qwen visual-gain experiment has done its job as a diagnostic, but it should not become the production selector. It still carries a strong language prior and cannot reliably separate a useful unsupported reading such as `forgoten` from a destructive neighbor such as `mnuts`. The next implementation should evaluate a character-level CTC handwriting recognizer as a **scorer over the existing candidate set**, not as another page-level OCR engine.
+
+Planned work:
+
+1. Add a scorer interface that accepts a crop and arbitrary candidate strings.
+   - Input: crop path plus the canonical and alternative strings already stored in the inference evidence graph.
+   - Output per candidate: raw CTC log probability, character-count-normalized score, rank, margin from the runner-up, and unsupported-character status.
+   - Keep scorer output separate from policy decisions so the same cached scores can be recalibrated without rerunning the model.
+
+2. Run a small PyLaia/CTC feasibility probe before building full pipeline integration.
+   - Start with the existing 21 positive minimal pairs and 44 clean controls.
+   - Score both isolated word crops and line-context crops where available; word crops may remove useful ascender, descender, spacing, or neighboring-stroke context.
+   - Verify that the model alphabet covers punctuation, case, apostrophes, and spaces needed by the current error set.
+   - Record model/checkpoint identity, preprocessing, crop padding, resize policy, alphabet mapping, and latency.
+
+3. Calibrate only on development records, with labels used after scoring.
+   - Report positive visible-form preference, clean visible-form preference, pairwise accuracy, margin distributions, and coverage at each abstention threshold.
+   - Report single-token and phrase-shaped cases separately.
+   - Compare CTC against the current Qwen visual-gain scorer on exactly the same candidate records.
+   - Do not tune individual thresholds or preprocessing for named words.
+
+4. Integrate CTC scores into a new scored evidence-graph artifact.
+   - Preserve Qwen verbatim as the canonical transcript and preserve all canonical word indices and boxes.
+   - Attach CTC scores to existing alternatives; do not replace canonical text during Stage 1.
+   - Allow an unsupported lexical alternative to become `SUPPORTED_ALTERNATIVE_READING` only when the optical margin clears the calibrated threshold.
+   - Otherwise emit `UNCERTAIN_REVIEW`; a low score must never silently rewrite the transcript.
+
+5. Run the selector policy first on `rw_1`, `rw_2`, and `rw_11`.
+   - Required canary behavior: keep `bred` and `minuts` as canonical visible evidence, recover or review `forgoten`, and avoid promoting clean-page lexical neighbors.
+   - Then run all 20 development pages only if the canary has 0 clean supported alternatives.
+
+6. Wire the optical scorer into Stage 2 only after the selector gate passes.
+   - Stage 2 receives canonical words plus optically supported alternatives tied to the same `word_indices`.
+   - Review-only alternatives remain auditable metadata and are not automatic error claims.
+   - Rerun the focused full-pipeline matrix only after evidence recovery reaches at least 17/21 or the selector demonstrates a plausible path to `error_detection_f1 >= 0.75`.
+
+Planned artifacts:
+
+- `pipeline/optical_candidate_scorer.py`
+- `scripts/score_phase4_ctc_candidates.py`
+- `scripts/analyze_phase4_ctc_calibration.py`
+- `benchmark/results/phase4_ctc_candidate_scores_minimal_pairs.json`
+- `benchmark/results/phase4_ctc_calibration.json`
+- `benchmark/results/phase4_inference_evidence_graph_ctc_rw1_rw2_rw11.json`
+- `benchmark/results/phase4_inference_selector_policy_ctc_rw1_rw2_rw11.json`
+
+Stop conditions:
+
+- Stop the CTC branch if the checkpoint cannot score arbitrary candidate strings with a known alphabet.
+- Stop if it does not beat Qwen visual-gain on clean/error separation under the same records.
+- Stop if any threshold that recovers unsupported error forms also promotes more than 2 clean alternatives on the 20-page development set.
+- If CTC fails, keep the current conservative policy and formalize `UNCERTAIN_REVIEW` as the product path instead of adding more lexical candidate generation.
 
 Promotion gate for the evidence-graph path:
 
@@ -820,6 +889,7 @@ Recommended order:
    - Post-processing must preserve valid alternative evidence text and derive bboxes from canonical word indices.
    - Drop no-op errors where evidence and correction are identical.
    - Start with `rw_11` and one or two clean pages after the selector can distinguish canonical-preserved errors, unsupported-but-useful alternatives, and noisy unsupported neighbors.
+   - Current 3-page selector smoke says unsupported lexical alternatives are too risky to pass as automatic evidence hints; keep them as `UNCERTAIN_REVIEW` until an optical-only scorer or stronger calibration separates `forgoten` from `mnuts`.
 
 8. Do not rerun Stage 2 from crop-verified Qwen yet.
    - The Stage 1 gate failed: 13/21 evidence preserved, 6 correction leaks, word IoU 0.801.
