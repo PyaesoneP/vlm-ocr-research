@@ -809,6 +809,16 @@ First CTC feasibility result on the existing 21 positive minimal pairs and 44 cl
 
 Threshold sweep on label pairs: margin `>= 0.25` gives 15/21 positive recovery with 0/44 clean corruptions; margin `>= 0.5` gives 13/21 with 0/44 clean corruptions. This is promising enough to continue, but it is still a development-set result and not a production selector.
 
+First label-free inference-graph canary (`rw_1`, `rw_2`, `rw_11`) is now scored with the same CTC backend:
+
+| Selector policy | Margin | Matched error handling | Clean supported alternatives | Decision |
+|---|---:|---|---:|---|
+| Strict OCR-supported alternatives | 0.0 | `bred` supported canonically; `minuts` and `forgoten` sent to review | 3/34 | Fails canary: clean alternatives such as `She` -> `Sle` are promoted. |
+| Strict OCR-supported alternatives | 1.25 | `bred` supported canonically; `minuts` and `forgoten` sent to review | **0/34** | Safe enough for review-only metadata, but not enough for automatic error recovery. |
+| Allow unsupported alternatives | 0.5 | Recovers more error-like readings | 6/34 | Fails canary: unsupported lexical alternatives still corrupt clean pages. |
+
+Interpretation: CTC is useful as an optical ranking signal, especially for flagging `forgoten` for review, but the current word-crop EasyOCR scorer should not auto-promote alternatives yet. The safe policy is conservative: keep canonical Qwen text, attach CTC-ranked alternatives, and only expose unsupported alternatives as `UNCERTAIN_REVIEW` unless a stronger scorer or line-context crop calibration clears the clean-page gate.
+
 Planned work:
 
 1. Improve candidate-set policy before wiring CTC into Stage 2.
@@ -816,10 +826,10 @@ Planned work:
    - Treat wide candidate sets as a risk surface, not as free recall.
    - Use the `--candidate-mode all` result as the current negative control.
 
-2. Extend the scorer to inference evidence-graph records.
-   - Score canonical text against bounded alternatives for `rw_1`, `rw_2`, and `rw_11`.
+2. Extend CTC scoring beyond the canary only after improving context or policy.
    - Preserve canonical Qwen verbatim words and boxes; attach CTC scores as metadata only.
-   - Compare CTC against Qwen visual-gain on the same canary records, especially `bred`, `minuts`, `forgoten`, and clean-page lexical neighbors.
+   - Treat `rw_1`/`rw_2` clean alternatives (`rise` -> `vise`, `She` -> `Sle`, `packed` -> `pecked`) as blocker cases for automatic promotion.
+   - Compare line-context crops against word crops on the same canary records before scoring all 20 pages.
 
 3. Add line-context crop support if word crops remain ambiguous.
    - Word crops may remove useful ascenders, descenders, spacing, or neighboring-stroke context.
@@ -844,12 +854,14 @@ Current/planned artifacts:
 
 - `pipeline/optical_candidate_scorer.py`
 - `scripts/score_phase4_ctc_candidates.py`
+- `scripts/score_phase4_ctc_inference_graph.py`
 - `scripts/analyze_phase4_ctc_calibration.py`
 - `benchmark/results/phase4_ctc_candidate_scores_minimal_pairs.json`
 - `benchmark/results/phase4_ctc_calibration.json`
 - `benchmark/results/phase4_ctc_candidate_scores_minimal_pairs_all_candidates.json`
 - `benchmark/results/phase4_ctc_calibration_all_candidates.json`
 - `benchmark/results/phase4_inference_evidence_graph_ctc_rw1_rw2_rw11.json`
+- `benchmark/results/phase4_inference_evidence_graph_audit_ctc_rw1_rw2_rw11.json`
 - `benchmark/results/phase4_inference_selector_policy_ctc_rw1_rw2_rw11.json`
 
 ```bash
@@ -868,6 +880,23 @@ Current/planned artifacts:
 .venv/bin/python scripts/analyze_phase4_ctc_calibration.py \
   --scores benchmark/results/phase4_ctc_candidate_scores_minimal_pairs_all_candidates.json \
   --output benchmark/results/phase4_ctc_calibration_all_candidates.json
+
+.venv/bin/python scripts/score_phase4_ctc_inference_graph.py \
+  --graph benchmark/results/phase4_inference_evidence_graph_unscored_20image.json \
+  --image rw_1.jpg --image rw_2.jpg --image rw_11.jpg \
+  --output benchmark/results/phase4_inference_evidence_graph_ctc_rw1_rw2_rw11.json
+
+.venv/bin/python scripts/experiment_phase4_inference_selector_policy.py \
+  --graph benchmark/results/phase4_inference_evidence_graph_ctc_rw1_rw2_rw11.json \
+  --image rw_1.jpg --image rw_2.jpg --image rw_11.jpg \
+  --policy strict_ocr --policy allow_unsupported --policy reject_unsupported_when_canonical_supported \
+  --margin-threshold 0.0 --margin-threshold 0.25 --margin-threshold 0.5 --margin-threshold 1.25 \
+  --output benchmark/results/phase4_inference_selector_policy_ctc_rw1_rw2_rw11.json
+
+.venv/bin/python scripts/audit_phase4_inference_evidence_graph.py \
+  --graph benchmark/results/phase4_inference_evidence_graph_ctc_rw1_rw2_rw11.json \
+  --image rw_1.jpg --image rw_2.jpg --image rw_11.jpg \
+  --output benchmark/results/phase4_inference_evidence_graph_audit_ctc_rw1_rw2_rw11.json
 ```
 
 Stop conditions:
