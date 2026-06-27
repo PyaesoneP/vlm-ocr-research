@@ -46,6 +46,39 @@ def candidate_contains(candidate_text: str, evidence_text: str) -> bool:
     return bool(evidence_words and f" {evidence_words} " in candidate_words)
 
 
+def first_alpha(text: str) -> str:
+    for char in str(text):
+        if char.isalpha():
+            return char
+    return ""
+
+
+def guarded_alternative_reasons(record: dict[str, Any], top: dict[str, Any]) -> list[str]:
+    """Return label-free reasons an alternative is too risky to auto-promote."""
+
+    canonical_text = str(record.get("canonical_text", ""))
+    top_text = str(top.get("text", ""))
+    canonical_norm = norm(canonical_text)
+    top_norm = norm(top_text)
+    reasons = []
+
+    if len(canonical_norm) <= 3:
+        reasons.append("short_canonical")
+    if first_alpha(canonical_text).isupper():
+        reasons.append("capitalized_canonical")
+    if " " in norm_words(canonical_text):
+        reasons.append("phrase_canonical")
+    if top.get("source") == "generic_one_edit_variant":
+        reasons.append("generic_one_edit_variant")
+    if isinstance(top.get("edit_distance"), int) and int(top["edit_distance"]) > 1:
+        reasons.append("large_edit_distance")
+    if top_text and first_alpha(top_text) == "" and not top_text[0].isalnum():
+        reasons.append("non_alnum_alternative_start")
+    if canonical_norm and top_norm == canonical_norm[1:]:
+        reasons.append("first_character_deletion")
+    return reasons
+
+
 def bbox_iou(left: list[float], right: list[float]) -> float:
     if len(left) != 4 or len(right) != 4:
         return 0.0
@@ -149,6 +182,11 @@ def policy_decision(record: dict[str, Any], *, policy: str, margin_threshold: fl
         selected = {}
         review = top
         reason = "alternative_margin_below_threshold"
+    elif policy == "allow_unsupported_guarded" and (guard_reasons := guarded_alternative_reasons(record, top)):
+        decision = UNSUPPORTED_ALTERNATIVE_REVIEW
+        selected = {}
+        review = top
+        reason = "guarded_alternative_review:" + ",".join(guard_reasons)
     elif top.get("supported_by_ocr"):
         decision = SUPPORTED_ALTERNATIVE_READING
         reason = "top_alternative_ocr_supported"
@@ -160,6 +198,9 @@ def policy_decision(record: dict[str, Any], *, policy: str, margin_threshold: fl
     elif policy == "allow_unsupported":
         decision = SUPPORTED_ALTERNATIVE_READING
         reason = "unsupported_alternative_allowed"
+    elif policy == "allow_unsupported_guarded":
+        decision = SUPPORTED_ALTERNATIVE_READING
+        reason = "unsupported_alternative_allowed_after_guards"
     elif policy == "reject_unsupported_when_canonical_supported" and canonical:
         decision = REJECT_NOISY_ALTERNATIVE
         selected = canonical
@@ -187,6 +228,7 @@ def policy_decision(record: dict[str, Any], *, policy: str, margin_threshold: fl
         "review_supported_by_ocr": bool(review.get("supported_by_ocr", False)),
         "decision": decision,
         "reason": reason,
+        "guarded_alternative_reasons": guarded_alternative_reasons(record, top) if top else [],
         "alternative_margin_over_canonical": margin_value,
     }
 
@@ -261,6 +303,11 @@ def summarize(decisions: list[dict[str, Any]]) -> dict[str, Any]:
         "clean_rejected_noisy_records": sum(
             1 for row in clean if row["decision"] == REJECT_NOISY_ALTERNATIVE
         ),
+        "clean_guarded_review_records": sum(
+            1 for row in clean
+            if row["decision"] == UNSUPPORTED_ALTERNATIVE_REVIEW
+            and str(row.get("reason", "")).startswith("guarded_alternative_review")
+        ),
     }
 
 
@@ -296,7 +343,12 @@ def main() -> None:
     parser.add_argument("--min-iou", type=float, default=0.05)
     args = parser.parse_args()
 
-    policies = args.policy or ["strict_ocr", "allow_unsupported", "reject_unsupported_when_canonical_supported"]
+    policies = args.policy or [
+        "strict_ocr",
+        "allow_unsupported",
+        "allow_unsupported_guarded",
+        "reject_unsupported_when_canonical_supported",
+    ]
     thresholds = args.margin_threshold or [0.0, 0.5, 1.0]
     image_filter = set(args.images)
     records = graph_records(args.graph, image_filter)

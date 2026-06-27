@@ -886,11 +886,12 @@ GFCN full 20-page development result:
 | Line-context graph only | 17/21 | 13/21 canonical-visible | n/a | n/a | Strongest optical ranking signal so far, but not a policy. |
 | Word-context graph only | 16/21 | 13/21 canonical-visible | n/a | n/a | Similar but slightly weaker than line context. |
 | Allow unsupported alternatives, margin 0.25 | 17/21 top-ranked | 13/21 canonical-visible | n/a | 22/219 clean records | Fails automatic promotion. |
+| Guarded unsupported alternatives, margin 0.4 | 16/21 supported-visible | 13/21 canonical-visible | 1/21 review-visible | **0** | Best selector result so far; dev-set only. |
 | Word/line agreement policy | 17/21 recovered or reviewed | 13/21 | 4/21 before filtering | **0** | Safe as metadata/review path. |
 | Agreement + Stage 2-span filter | 15/21 supported-or-kept | 13/21 | 2/21 kept | 3 clean review records | Small queue, still review-only. |
 | Agreement + Stage 2-span + OCR-supported reviews | 16/21 supported-or-kept | 13/21 | 3/21 kept | 6 clean review records | More recall, too much review noise. |
 
-Interpretation: this is genuine progress over EasyOCR CTC. The handwriting-line GFCN scorer sees more of the visible erroneous forms (`17/21` top-ranked versus the earlier `13/21` label-free ordering), and it recovers the important `forgoten` canary as a top optical alternative. It still should not rewrite OCR automatically: permissive unsupported alternatives produce many clean corruptions (`My` -> `Mly`, `the` -> `tho`, `inside` -> `nside`, `She` -> `sha`). The best current role is an evidence/review scorer: preserve Qwen verbatim as canonical, attach GFCN word/line scores, and surface only small filtered review queues until a stronger policy clears the clean-page gate.
+Interpretation: this is genuine progress over EasyOCR CTC. The handwriting-line GFCN scorer sees more of the visible erroneous forms (`17/21` top-ranked versus the earlier `13/21` label-free ordering), and it recovers the important `forgoten` canary as a top optical alternative. Permissive unsupported alternatives are unsafe (`My` -> `Mly`, `the` -> `tho`, `inside` -> `nside`, `She` -> `sha`), but a label-free guarded policy now clears the clean automatic-alternative gate on the 20-page development set. The guarded policy blocks short/capitalized/phrase-shaped canonicals, generic one-edit variants, large edit-distance OCR alternatives, non-alphanumeric alternative starts, and first-character deletions; at margin `0.4`, it auto-supports only `forgoten`, `usualy`, and `Thursday` while keeping clean automatic alternatives at 0/219. This is promising enough for a held-out test, but it is still development-set calibration and should not be claimed as production-safe.
 
 The GFCN filtered Stage2-span queue is smaller than the EasyOCR queue: 6 P1 records, with 3 matched-error records and 3 clean records; 2 matched records contain the useful visible review text. This is now useful enough for manual inspection, but not for automatic Stage 2 evidence injection. Representative kept reviews: `thursdav` -> `Thursday` for evidence `thursday`, `floor.` -> `flor` for evidence `flor`, and clean distractors such as `close` -> `chose`.
 
@@ -911,6 +912,7 @@ Planned work:
    - Test agreement features on the GFCN scorer: canonical wins in either context, alternative wins in both contexts, OCR-supported alternative wins with high margin, unsupported alternative only to review.
    - Add label-free guards for short capitalized words and one-character deletions, because many clean GFCN corruptions have that shape.
    - Compare GFCN raw versus normalized score fields on a frozen rule set before adding new candidate generators.
+   - Freeze the guarded `margin=0.4` policy before any held-out run; do not keep tuning against these 20 pages.
    - Keep all alternatives as metadata until clean-page corruption is zero at a useful recall level.
 
 4. Keep CTC evidence graph integration metadata-only for now.
@@ -966,6 +968,7 @@ Current/planned artifacts:
 - `benchmark/results/phase4_inference_selector_policy_line_gfcn_agreement_20image.json`
 - `benchmark/results/phase4_inference_selector_policy_line_gfcn_agreement_filtered_stage2_20image.json`
 - `benchmark/results/phase4_inference_selector_policy_line_gfcn_agreement_filtered_stage2_ocr_20image.json`
+- `benchmark/results/phase4_inference_selector_policy_line_gfcn_guarded_threshold_probe_20image.json`
 - `benchmark/results/phase4_uncertain_review_queue_line_gfcn_stage2_p1_p2_20image.json`
 - `benchmark/results/phase4_uncertain_review_queue_line_gfcn_stage2_p1_p2_20image.md`
 
@@ -1088,6 +1091,12 @@ Current/planned artifacts:
   --word-graph benchmark/results/phase4_inference_evidence_graph_line_gfcn_word_normalized_20image.json \
   --line-graph benchmark/results/phase4_inference_evidence_graph_line_gfcn_normalized_20image.json \
   --output benchmark/results/phase4_inference_selector_policy_line_gfcn_agreement_20image.json
+
+.venv/bin/python scripts/experiment_phase4_inference_selector_policy.py \
+  --graph benchmark/results/phase4_inference_evidence_graph_line_gfcn_normalized_20image.json \
+  --policy allow_unsupported_guarded \
+  --margin-threshold 0.35 --margin-threshold 0.4 --margin-threshold 0.45 \
+  --output benchmark/results/phase4_inference_selector_policy_line_gfcn_guarded_threshold_probe_20image.json
 
 .venv/bin/python scripts/filter_phase4_ctc_review_metadata.py \
   --agreement benchmark/results/phase4_inference_selector_policy_line_gfcn_agreement_20image.json \
