@@ -2,8 +2,11 @@
 
 The CTC agreement policy is intentionally conservative: it never automatically
 promotes clean-page alternatives, but it can produce too many review records.
-By default, this script keeps review alternatives only when another label-free
-signal points at the same span:
+By default, this script keeps review alternatives only when a deterministic
+source-text candidate points at the same span. Optional switches can also keep
+reviews that overlap existing Stage 2/adjudicator predictions or OCR-supported
+alternatives; these variants are diagnostic because they may increase clean-page
+review noise.
 
 - the word indices overlap a deterministic source-text adjudication candidate.
 
@@ -56,6 +59,33 @@ def output_boxes_by_image(result_path: Path, strategy_name: str) -> dict[str, li
     raise ValueError(f"Strategy not found: {strategy_name}. Available: {names}")
 
 
+def output_error_spans_by_image(result_path: Path, strategy_name: str) -> dict[str, list[dict[str, Any]]]:
+    data = json.loads(result_path.read_text())
+    for strategy in data.get("strategies", []):
+        if strategy.get("name") != strategy_name:
+            continue
+        outputs: dict[str, list[dict[str, Any]]] = {}
+        for row in strategy.get("images", []):
+            output = row.get("output", {})
+            image = str(output.get("image") or row.get("image") or "")
+            spans = []
+            for error in output.get("errors", []) or []:
+                indices = [int(i) for i in error.get("word_indices", []) if isinstance(i, int)]
+                if not indices:
+                    continue
+                spans.append({
+                    "word_indices": indices,
+                    "evidence_text": str(error.get("evidence_text", "")),
+                    "correction": str(error.get("correction", "")),
+                    "type": str(error.get("type", "")),
+                    "trigger": "stage2_prediction",
+                })
+            outputs[image] = spans
+        return outputs
+    names = [strategy.get("name") for strategy in data.get("strategies", [])]
+    raise ValueError(f"Strategy not found: {strategy_name}. Available: {names}")
+
+
 def source_candidate_spans(boxes_by_image: dict[str, list[TextBox]]) -> dict[str, list[dict[str, Any]]]:
     spans: dict[str, list[dict[str, Any]]] = {}
     for image, boxes in boxes_by_image.items():
@@ -88,6 +118,14 @@ def matching_source_triggers(decision: dict[str, Any], spans_by_image: dict[str,
     return matches
 
 
+def merge_span_maps(*maps: dict[str, list[dict[str, Any]]]) -> dict[str, list[dict[str, Any]]]:
+    merged: dict[str, list[dict[str, Any]]] = {}
+    for span_map in maps:
+        for image, rows in span_map.items():
+            merged.setdefault(image, []).extend(rows)
+    return merged
+
+
 def filter_decision(
     decision: dict[str, Any],
     spans_by_image: dict[str, list[dict[str, Any]]],
@@ -104,7 +142,8 @@ def filter_decision(
             reasons.append("ocr_supported_review")
         if source_triggers:
             keep_review = True
-            reasons.append("overlaps_source_text_candidate")
+            trigger_types = sorted({str(row.get("trigger", "")) for row in source_triggers})
+            reasons.extend(f"overlaps_{trigger}" for trigger in trigger_types if trigger)
 
     filtered = {
         **decision,
@@ -184,6 +223,11 @@ def main() -> None:
     parser.add_argument("--strategy", default=DEFAULT_STRATEGY)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
     parser.add_argument(
+        "--keep-stage2-spans",
+        action="store_true",
+        help="Keep CTC review alternatives that overlap existing Stage 2/adjudicator predicted errors.",
+    )
+    parser.add_argument(
         "--keep-ocr-supported",
         action="store_true",
         help=(
@@ -195,7 +239,12 @@ def main() -> None:
 
     agreement = json.loads(args.agreement.read_text())
     boxes_by_image = output_boxes_by_image(args.source_result, args.strategy)
-    spans = source_candidate_spans(boxes_by_image)
+    source_spans = source_candidate_spans(boxes_by_image)
+    stage2_spans = (
+        output_error_spans_by_image(args.source_result, args.strategy)
+        if args.keep_stage2_spans else {}
+    )
+    spans = merge_span_maps(source_spans, stage2_spans)
     rows = [
         filter_decision(row, spans, keep_ocr_supported=args.keep_ocr_supported)
         for row in agreement.get("decisions", [])
@@ -207,9 +256,11 @@ def main() -> None:
         "label_free_filter": True,
         "filter_rules": [
             *(["keep_review_if_ocr_supported"] if args.keep_ocr_supported else []),
+            *(["keep_review_if_overlaps_stage2_prediction"] if args.keep_stage2_spans else []),
             "keep_review_if_overlaps_source_text_candidate",
         ],
-        "source_text_candidate_spans": spans,
+        "source_text_candidate_spans": source_spans,
+        "stage2_prediction_spans": stage2_spans,
         "summary": summarize(rows),
         "decisions": rows,
     }
