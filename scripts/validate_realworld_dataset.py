@@ -22,6 +22,7 @@ EXPECTED_POSITIVE_COUNT = 10
 EXPECTED_ERROR_COUNT = 21
 
 ALLOWED_PAGE_STATUSES = {"auto_aligned_needs_review", "manual_reviewed"}
+ALLOWED_SKELETON_PAGE_STATUSES = {"missing_image_or_size", "needs_word_boxes"}
 ALLOWED_REVIEW_STATUSES = {"needs_review", "manual_reviewed"}
 
 
@@ -65,7 +66,7 @@ def page_word_tokens(entry: dict[str, Any]) -> list[str]:
     return [str(word.get("text", "")) for word in entry.get("words", [])]
 
 
-def validate_page(entry: dict[str, Any], image_dir: Path) -> list[str]:
+def validate_page(entry: dict[str, Any], image_dir: Path, *, allow_skeleton: bool) -> list[str]:
     errors: list[str] = []
     image_name = str(entry.get("image", ""))
     prefix = image_name or "<missing image>"
@@ -73,18 +74,25 @@ def validate_page(entry: dict[str, Any], image_dir: Path) -> list[str]:
     image_path = image_dir / image_name
     actual_size = image_size(image_path)
     if actual_size is None:
-        errors.append(f"{prefix}: image file is missing")
-        actual_size = tuple(entry.get("image_size", [0, 0]))  # type: ignore[assignment]
+        if not allow_skeleton:
+            errors.append(f"{prefix}: image file is missing")
+        stored_size = entry.get("image_size") or [0, 0]
+        actual_size = tuple(stored_size)  # type: ignore[assignment]
     elif list(actual_size) != entry.get("image_size"):
         errors.append(f"{prefix}: image_size {entry.get('image_size')} != actual {list(actual_size)}")
 
     status = entry.get("annotation_status")
-    if status not in ALLOWED_PAGE_STATUSES:
-        errors.append(f"{prefix}.annotation_status: expected one of {sorted(ALLOWED_PAGE_STATUSES)}, got {status!r}")
+    allowed_page_statuses = (
+        ALLOWED_PAGE_STATUSES | ALLOWED_SKELETON_PAGE_STATUSES
+        if allow_skeleton else ALLOWED_PAGE_STATUSES
+    )
+    if status not in allowed_page_statuses:
+        errors.append(f"{prefix}.annotation_status: expected one of {sorted(allowed_page_statuses)}, got {status!r}")
 
     words = entry.get("words", [])
     if not isinstance(words, list) or not words:
-        errors.append(f"{prefix}.words: expected non-empty list")
+        if not allow_skeleton:
+            errors.append(f"{prefix}.words: expected non-empty list")
         words = []
 
     indices = [word.get("index") for word in words]
@@ -94,7 +102,7 @@ def validate_page(entry: dict[str, Any], image_dir: Path) -> list[str]:
 
     text_tokens = str(entry.get("text", "")).split()
     word_tokens = page_word_tokens(entry)
-    if text_tokens != word_tokens:
+    if words and text_tokens != word_tokens:
         errors.append(f"{prefix}: text tokenization does not match words[].text")
 
     word_by_index: dict[int, dict[str, Any]] = {}
@@ -122,7 +130,8 @@ def validate_page(entry: dict[str, Any], image_dir: Path) -> list[str]:
         location = f"{prefix}.errors[{offset}]"
         word_indices = error.get("word_indices")
         if not isinstance(word_indices, list) or not word_indices:
-            errors.append(f"{location}.word_indices: expected non-empty list")
+            if not allow_skeleton:
+                errors.append(f"{location}.word_indices: expected non-empty list")
             continue
         missing = [idx for idx in word_indices if not isinstance(idx, int) or idx not in word_by_index]
         if missing:
@@ -154,11 +163,20 @@ def validate_page(entry: dict[str, Any], image_dir: Path) -> list[str]:
     return errors
 
 
-def validate_dataset(entries: list[dict[str, Any]], image_dir: Path) -> list[str]:
+def validate_dataset(
+    entries: list[dict[str, Any]],
+    image_dir: Path,
+    *,
+    expected_pages: int,
+    expected_clean: int,
+    expected_positive: int,
+    expected_errors: int,
+    allow_skeleton: bool,
+) -> list[str]:
     errors: list[str] = []
 
-    if len(entries) != EXPECTED_PAGE_COUNT:
-        errors.append(f"dataset: expected {EXPECTED_PAGE_COUNT} pages, got {len(entries)}")
+    if expected_pages >= 0 and len(entries) != expected_pages:
+        errors.append(f"dataset: expected {expected_pages} pages, got {len(entries)}")
 
     image_names = [entry.get("image") for entry in entries]
     if len(set(image_names)) != len(image_names):
@@ -167,15 +185,15 @@ def validate_dataset(entries: list[dict[str, Any]], image_dir: Path) -> list[str
     clean_count = sum(1 for entry in entries if not entry.get("errors"))
     positive_count = sum(1 for entry in entries if entry.get("errors"))
     error_count = sum(len(entry.get("errors", [])) for entry in entries)
-    if clean_count != EXPECTED_CLEAN_COUNT:
-        errors.append(f"dataset: expected {EXPECTED_CLEAN_COUNT} clean pages, got {clean_count}")
-    if positive_count != EXPECTED_POSITIVE_COUNT:
-        errors.append(f"dataset: expected {EXPECTED_POSITIVE_COUNT} positive pages, got {positive_count}")
-    if error_count != EXPECTED_ERROR_COUNT:
-        errors.append(f"dataset: expected {EXPECTED_ERROR_COUNT} errors, got {error_count}")
+    if expected_clean >= 0 and clean_count != expected_clean:
+        errors.append(f"dataset: expected {expected_clean} clean pages, got {clean_count}")
+    if expected_positive >= 0 and positive_count != expected_positive:
+        errors.append(f"dataset: expected {expected_positive} positive pages, got {positive_count}")
+    if expected_errors >= 0 and error_count != expected_errors:
+        errors.append(f"dataset: expected {expected_errors} errors, got {error_count}")
 
     for entry in entries:
-        errors.extend(validate_page(entry, image_dir))
+        errors.extend(validate_page(entry, image_dir, allow_skeleton=allow_skeleton))
 
     return errors
 
@@ -184,10 +202,27 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
     parser.add_argument("--image-dir", type=Path, default=DEFAULT_IMAGE_DIR)
+    parser.add_argument("--expected-pages", type=int, default=EXPECTED_PAGE_COUNT)
+    parser.add_argument("--expected-clean", type=int, default=EXPECTED_CLEAN_COUNT)
+    parser.add_argument("--expected-positive", type=int, default=EXPECTED_POSITIVE_COUNT)
+    parser.add_argument("--expected-errors", type=int, default=EXPECTED_ERROR_COUNT)
+    parser.add_argument(
+        "--allow-skeleton",
+        action="store_true",
+        help="Allow missing images/word boxes for freshly bootstrapped source-truth skeletons.",
+    )
     args = parser.parse_args()
 
     entries = load_json(args.dataset)
-    errors = validate_dataset(entries, args.image_dir)
+    errors = validate_dataset(
+        entries,
+        args.image_dir,
+        expected_pages=args.expected_pages,
+        expected_clean=args.expected_clean,
+        expected_positive=args.expected_positive,
+        expected_errors=args.expected_errors,
+        allow_skeleton=args.allow_skeleton,
+    )
     if errors:
         print(f"Validation failed with {len(errors)} issue(s):")
         for error in errors:

@@ -65,8 +65,9 @@ def _parse_intended_error(line: str) -> dict[str, Any] | None:
 
     evidence_text = ""
     correction = ""
-    if "→" in detail:
-        left, right = detail.split("→", 1)
+    arrow = "→" if "→" in detail else "->" if "->" in detail else ""
+    if arrow:
+        left, right = detail.split(arrow, 1)
         evidence_text = left.strip().strip('"')
         correction = right.strip().strip('"')
     elif detail.lower().startswith("insert "):
@@ -99,9 +100,10 @@ def _parse_intended_error(line: str) -> dict[str, Any] | None:
     }
 
 
-def parse_source_texts(source_path: Path) -> list[dict[str, Any]]:
+def parse_source_texts(source_path: Path, image_dir: Path | None = None) -> list[dict[str, Any]]:
     raw = source_path.read_text()
     chunks = re.split(r"\n###\s+rw_", raw)
+    image_dir = image_dir or source_path.parent
     entries: list[dict[str, Any]] = []
     for chunk in chunks[1:]:
         first_line, _, section_tail = chunk.partition("\n")
@@ -119,7 +121,7 @@ def parse_source_texts(source_path: Path) -> list[dict[str, Any]]:
         split = "positive" if errors else "clean"
 
         image_size = None
-        image_path = RAW_DIR / image_name
+        image_path = image_dir / image_name
         if image_path.exists():
             try:
                 from PIL import Image
@@ -146,9 +148,15 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, default=SOURCE_TEXTS)
     parser.add_argument("--output", type=Path, default=DEFAULT_OUTPUT)
+    parser.add_argument(
+        "--image-dir",
+        type=Path,
+        default=None,
+        help="Directory containing page images. Defaults to the source_texts.md parent.",
+    )
     args = parser.parse_args()
 
-    entries = parse_source_texts(args.source)
+    entries = parse_source_texts(args.source, image_dir=args.image_dir)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(entries, indent=2, ensure_ascii=False) + "\n")
 
