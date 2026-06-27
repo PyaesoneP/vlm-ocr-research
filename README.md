@@ -819,6 +819,46 @@ First label-free inference-graph canary (`rw_1`, `rw_2`, `rw_11`) is now scored 
 
 Interpretation: CTC is useful as an optical ranking signal, especially for flagging `forgoten` for review, but the current word-crop EasyOCR scorer should not auto-promote alternatives yet. The safe policy is conservative: keep canonical Qwen text, attach CTC-ranked alternatives, and only expose unsupported alternatives as `UNCERTAIN_REVIEW` unless a stronger scorer or line-context crop calibration clears the clean-page gate.
 
+Line-context CTC was tested next by scoring full same-line text variants with the candidate substituted into the target word slot. This is fairer than asking a line crop to score a single isolated word.
+
+| Context | Strict OCR margin | Matched error handling | Clean supported alternatives | Decision |
+|---|---:|---|---:|---|
+| Word crop | 0.0 | `bred` canonical; `minuts` and `forgoten` review | 3/34 | Fails automatic promotion. |
+| Word crop | 1.25 | `bred` canonical; `minuts` and `forgoten` review | **0/34** | Safe but low-recall/review-only. |
+| Line crop | 0.0 | `minuts` canonical, `forgoten` review, `bred` weakened to noisy review | 3/34 | Does not improve clean safety. |
+| Line crop | 1.25 | same error handling, no clean supported alternatives | **0/34** | Also safe but review-heavy; not a promotion path. |
+
+Line context helps some cases (`She` stays canonical, `minuts` becomes canonical) but hurts others (`bred` loses canonical top rank, `packed` still prefers `pecked`). Treat line-context CTC as a secondary review signal, not as an automatic selector.
+
+The conservative word/line agreement policy passes the canary:
+
+| Agreement rule | Matched error handling | Clean supported alternatives | Clean review/reject | Decision |
+|---|---|---:|---:|---|
+| Support canonical if either context ranks canonical first; otherwise review matching alternatives and reject disagreements | `bred` and `minuts` supported canonically; `forgoten` preserved as review evidence | **0/34** | 6/34 | Passes canary as a review/evidence policy, not as automatic correction. |
+
+Interpretation: this is the first CTC policy that preserves the useful error evidence while avoiding clean-page alternative promotion on the three-page canary. It still does not recover an automatic Stage 2-ready error for `forgoten`; it creates a safe `REVIEW_ALTERNATIVE_READING` record tied to the same word index and bbox.
+
+The same agreement policy was then run on all 20 development pages:
+
+| Agreement-policy status | Unique intended errors |
+|---|---:|
+| Supported visible evidence canonically | 12/21 |
+| Visible evidence preserved as review alternative | 2/21 |
+| Visible evidence present canonically but not selected | 1/21 |
+| Visible evidence top-ranked but not usable by policy | 3/21 |
+| Not recovered | 3/21 |
+
+Clean-page safety: **0 clean alternatives are automatically supported**, but 25 clean records become review alternatives and 19 clean records are rejected due to word/line disagreement. So the policy is safe as auditable metadata, but it is too noisy to feed directly into Stage 2 as evidence hints. The useful product shape is narrower: keep canonical Qwen words as the transcript, attach CTC agreement records for inspection, and only surface review alternatives to Stage 2 when another independent trigger already points at that word/span.
+
+First filtered-review pass:
+
+| Filter | Useful review-visible errors kept | Clean review records kept | Decision |
+|---|---:|---:|---|
+| Keep only reviews overlapping deterministic source-text adjudication spans | 0/2 | **0** | Safe, but too conservative; it drops `forgoten` and `usualy`. |
+| Also keep OCR-supported CTC reviews | 1/2 | 15 | Too noisy; OCR support alone keeps clean alternatives like `packed` -> `pecked`, `rise` -> `vise`, and `eggs` -> `e956`. |
+
+Interpretation: OCR support is not a strong enough independent trigger for review alternatives. Deterministic grammar/source-text spans are safe but do not help spelling leaks. The next useful filter is conditional: only expose spelling review alternatives when Stage 2 or the adjudicator already proposed an error on the same canonical word/span. That tests whether CTC can repair evidence text for suspicious spans without increasing the grader's search space.
+
 Planned work:
 
 1. Improve candidate-set policy before wiring CTC into Stage 2.
@@ -826,24 +866,27 @@ Planned work:
    - Treat wide candidate sets as a risk surface, not as free recall.
    - Use the `--candidate-mode all` result as the current negative control.
 
-2. Extend CTC scoring beyond the canary only after improving context or policy.
+2. Reduce review volume before Stage 2.
    - Preserve canonical Qwen verbatim words and boxes; attach CTC scores as metadata only.
    - Treat `rw_1`/`rw_2` clean alternatives (`rise` -> `vise`, `She` -> `Sle`, `packed` -> `pecked`) as blocker cases for automatic promotion.
-   - Compare line-context crops against word crops on the same canary records before scoring all 20 pages.
+   - Only pass review alternatives forward when they overlap an independent Stage 2/adjudicator candidate span or a grammar-pattern trigger.
+   - Do not use OCR support alone as a pass-through rule; the all-20 filter shows it keeps too many clean alternatives.
 
-3. Add line-context crop support if word crops remain ambiguous.
-   - Word crops may remove useful ascenders, descenders, spacing, or neighboring-stroke context.
-   - Score isolated word crops and line-context crops separately; do not merge them until calibration shows which is safer.
+3. Improve the optical scorer before Stage 2.
+   - Test agreement features: canonical wins in either context, alternative wins in both contexts, OCR-supported alternative wins with high margin, unsupported alternative only to review.
+   - Consider a CTC model trained for handwriting line recognition rather than EasyOCR's scene-text recognizer.
+   - Keep all alternatives as metadata until clean-page corruption is zero at a useful recall level.
 
-4. Integrate CTC scores into a new scored evidence-graph artifact only after the canary passes.
+4. Keep CTC evidence graph integration metadata-only for now.
    - Preserve Qwen verbatim as the canonical transcript and preserve all canonical word indices and boxes.
    - Attach CTC scores to existing alternatives; do not replace canonical text during Stage 1.
-   - Allow an unsupported lexical alternative to become `SUPPORTED_ALTERNATIVE_READING` only when the optical margin clears the calibrated threshold.
-   - Otherwise emit `UNCERTAIN_REVIEW`; a low score must never silently rewrite the transcript.
+   - Do not allow unsupported lexical alternatives to become automatic error evidence from CTC alone.
+   - A low or mixed score must never silently rewrite the transcript.
 
-5. Run the selector policy first on `rw_1`, `rw_2`, and `rw_11`.
-   - Required canary behavior: keep `bred` and `minuts` as canonical visible evidence, recover or review `forgoten`, and avoid promoting clean-page lexical neighbors.
-   - Then run all 20 development pages only if the canary has 0 clean supported alternatives.
+5. Build the next Stage 2 probe around filtered review metadata.
+   - Start with `rw_1`, `rw_2`, and `rw_11` again, but pass review alternatives only for records overlapping a Stage 2/adjudicator candidate span.
+   - Required behavior remains: keep `bred` and `minuts` as canonical visible evidence, preserve `forgoten` as reviewable evidence, and avoid promoting clean-page lexical neighbors.
+   - Do not run all 20 pages until the filtered canary keeps clean supported alternatives at 0 and sharply reduces clean review/reject volume.
 
 6. Wire the optical scorer into Stage 2 only after the selector gate passes.
    - Stage 2 receives canonical words plus optically supported alternatives tied to the same `word_indices`.
@@ -855,6 +898,7 @@ Current/planned artifacts:
 - `pipeline/optical_candidate_scorer.py`
 - `scripts/score_phase4_ctc_candidates.py`
 - `scripts/score_phase4_ctc_inference_graph.py`
+- `scripts/experiment_phase4_ctc_agreement_policy.py`
 - `scripts/analyze_phase4_ctc_calibration.py`
 - `benchmark/results/phase4_ctc_candidate_scores_minimal_pairs.json`
 - `benchmark/results/phase4_ctc_calibration.json`
@@ -863,6 +907,15 @@ Current/planned artifacts:
 - `benchmark/results/phase4_inference_evidence_graph_ctc_rw1_rw2_rw11.json`
 - `benchmark/results/phase4_inference_evidence_graph_audit_ctc_rw1_rw2_rw11.json`
 - `benchmark/results/phase4_inference_selector_policy_ctc_rw1_rw2_rw11.json`
+- `benchmark/results/phase4_inference_evidence_graph_ctc_line_rw1_rw2_rw11.json`
+- `benchmark/results/phase4_inference_evidence_graph_audit_ctc_line_rw1_rw2_rw11.json`
+- `benchmark/results/phase4_inference_selector_policy_ctc_line_rw1_rw2_rw11.json`
+- `benchmark/results/phase4_inference_selector_policy_ctc_agreement_rw1_rw2_rw11.json`
+- `benchmark/results/phase4_inference_evidence_graph_ctc_20image.json`
+- `benchmark/results/phase4_inference_evidence_graph_ctc_line_20image.json`
+- `benchmark/results/phase4_inference_selector_policy_ctc_agreement_20image.json`
+- `benchmark/results/phase4_inference_selector_policy_ctc_filtered_20image.json`
+- `benchmark/results/phase4_inference_selector_policy_ctc_filtered_ocr_supported_20image.json`
 
 ```bash
 .venv/bin/python scripts/score_phase4_ctc_candidates.py \
@@ -897,6 +950,54 @@ Current/planned artifacts:
   --graph benchmark/results/phase4_inference_evidence_graph_ctc_rw1_rw2_rw11.json \
   --image rw_1.jpg --image rw_2.jpg --image rw_11.jpg \
   --output benchmark/results/phase4_inference_evidence_graph_audit_ctc_rw1_rw2_rw11.json
+
+.venv/bin/python scripts/score_phase4_ctc_inference_graph.py \
+  --graph benchmark/results/phase4_inference_evidence_graph_unscored_20image.json \
+  --context line \
+  --image rw_1.jpg --image rw_2.jpg --image rw_11.jpg \
+  --output benchmark/results/phase4_inference_evidence_graph_ctc_line_rw1_rw2_rw11.json
+
+.venv/bin/python scripts/experiment_phase4_inference_selector_policy.py \
+  --graph benchmark/results/phase4_inference_evidence_graph_ctc_line_rw1_rw2_rw11.json \
+  --image rw_1.jpg --image rw_2.jpg --image rw_11.jpg \
+  --policy strict_ocr --policy allow_unsupported --policy reject_unsupported_when_canonical_supported \
+  --margin-threshold 0.0 --margin-threshold 0.25 --margin-threshold 0.5 --margin-threshold 1.25 \
+  --output benchmark/results/phase4_inference_selector_policy_ctc_line_rw1_rw2_rw11.json
+
+.venv/bin/python scripts/audit_phase4_inference_evidence_graph.py \
+  --graph benchmark/results/phase4_inference_evidence_graph_ctc_line_rw1_rw2_rw11.json \
+  --image rw_1.jpg --image rw_2.jpg --image rw_11.jpg \
+  --output benchmark/results/phase4_inference_evidence_graph_audit_ctc_line_rw1_rw2_rw11.json
+
+.venv/bin/python scripts/experiment_phase4_ctc_agreement_policy.py \
+  --word-graph benchmark/results/phase4_inference_evidence_graph_ctc_rw1_rw2_rw11.json \
+  --line-graph benchmark/results/phase4_inference_evidence_graph_ctc_line_rw1_rw2_rw11.json \
+  --image rw_1.jpg --image rw_2.jpg --image rw_11.jpg \
+  --output benchmark/results/phase4_inference_selector_policy_ctc_agreement_rw1_rw2_rw11.json
+
+.venv/bin/python scripts/score_phase4_ctc_inference_graph.py \
+  --graph benchmark/results/phase4_inference_evidence_graph_unscored_20image.json \
+  --context word \
+  --output benchmark/results/phase4_inference_evidence_graph_ctc_20image.json \
+  --progress-every 25
+
+.venv/bin/python scripts/score_phase4_ctc_inference_graph.py \
+  --graph benchmark/results/phase4_inference_evidence_graph_unscored_20image.json \
+  --context line \
+  --output benchmark/results/phase4_inference_evidence_graph_ctc_line_20image.json \
+  --progress-every 25
+
+.venv/bin/python scripts/experiment_phase4_ctc_agreement_policy.py \
+  --word-graph benchmark/results/phase4_inference_evidence_graph_ctc_20image.json \
+  --line-graph benchmark/results/phase4_inference_evidence_graph_ctc_line_20image.json \
+  --output benchmark/results/phase4_inference_selector_policy_ctc_agreement_20image.json
+
+.venv/bin/python scripts/filter_phase4_ctc_review_metadata.py \
+  --output benchmark/results/phase4_inference_selector_policy_ctc_filtered_20image.json
+
+.venv/bin/python scripts/filter_phase4_ctc_review_metadata.py \
+  --keep-ocr-supported \
+  --output benchmark/results/phase4_inference_selector_policy_ctc_filtered_ocr_supported_20image.json
 ```
 
 Stop conditions:
