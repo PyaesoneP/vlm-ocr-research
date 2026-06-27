@@ -304,6 +304,10 @@ This pass is local-only: no cloud/API sources, no Docker-only sources, no paid c
 - `benchmark/results/phase4_qwen_visual_gain_scores_clean10.json`
 - `benchmark/results/phase4_qwen_visual_gain_scores_clean44.json`
 - `benchmark/results/phase4_qwen_visual_gain_calibration.json`
+- `benchmark/results/phase4_ctc_candidate_scores_minimal_pairs.json`
+- `benchmark/results/phase4_ctc_calibration.json`
+- `benchmark/results/phase4_ctc_candidate_scores_minimal_pairs_all_candidates.json`
+- `benchmark/results/phase4_ctc_calibration_all_candidates.json`
 - `benchmark/results/phase4_evidence_graph_qwen_visual_gain.json`
 - `benchmark/results/phase4_realworld_evidence_graph_adjudication_augment.json`
 - `benchmark/results/phase4_realworld_evidence_graph_adjudication_replace.json`
@@ -790,30 +794,38 @@ UNCERTAIN_REVIEW
 
 At high visual margins, automatically grade. At moderate margins, preserve the crop and alternatives for review. At low margins, keep the primary transcript and do not claim an error. This should reduce false positives while still exposing normalized-away errors.
 
-Immediate next step: optical-only candidate scorer
+Optical-only candidate scorer
 
-The Qwen visual-gain experiment has done its job as a diagnostic, but it should not become the production selector. It still carries a strong language prior and cannot reliably separate a useful unsupported reading such as `forgoten` from a destructive neighbor such as `mnuts`. The next implementation should evaluate a character-level CTC handwriting recognizer as a **scorer over the existing candidate set**, not as another page-level OCR engine.
+The Qwen visual-gain experiment has done its job as a diagnostic, but it should not become the production selector. It still carries a strong language prior and cannot reliably separate a useful unsupported reading such as `forgoten` from a destructive neighbor such as `mnuts`. A first optical-only CTC feasibility probe is now implemented with the cached EasyOCR English recognizer as a **candidate scorer**, not as another page-level OCR engine.
+
+The scorer interface in `pipeline/optical_candidate_scorer.py` accepts a crop path and candidate strings, then returns raw CTC log probability, character-normalized score, rank, margin, greedy decode, and unsupported-character metadata. This keeps optical scoring separate from selector policy, so thresholds can be recalibrated without rerunning the recognizer.
+
+First CTC feasibility result on the existing 21 positive minimal pairs and 44 clean controls:
+
+| Candidate set | Positive visible preferred | Clean visible preferred | Clean corruptions at margin >= 0 | Notes |
+|---|---:|---:|---:|---|
+| Label pairs only (`visible` vs `normalized`) | **18/21** | **43/44** | 1 | Beats Qwen visual-gain on this dev slice; positive misses are `beutiful`, `atleast`, and `flor`. |
+| All lattice/lexical candidates | 13/21 | 41/44 | 3 | Too noisy; extra alternatives create clean-page damage. Do not feed the full unfiltered candidate set to policy. |
+
+Threshold sweep on label pairs: margin `>= 0.25` gives 15/21 positive recovery with 0/44 clean corruptions; margin `>= 0.5` gives 13/21 with 0/44 clean corruptions. This is promising enough to continue, but it is still a development-set result and not a production selector.
 
 Planned work:
 
-1. Add a scorer interface that accepts a crop and arbitrary candidate strings.
-   - Input: crop path plus the canonical and alternative strings already stored in the inference evidence graph.
-   - Output per candidate: raw CTC log probability, character-count-normalized score, rank, margin from the runner-up, and unsupported-character status.
-   - Keep scorer output separate from policy decisions so the same cached scores can be recalibrated without rerunning the model.
+1. Improve candidate-set policy before wiring CTC into Stage 2.
+   - Keep label-pair and high-confidence OCR-supported alternatives separate from speculative lexical neighbors.
+   - Treat wide candidate sets as a risk surface, not as free recall.
+   - Use the `--candidate-mode all` result as the current negative control.
 
-2. Run a small PyLaia/CTC feasibility probe before building full pipeline integration.
-   - Start with the existing 21 positive minimal pairs and 44 clean controls.
-   - Score both isolated word crops and line-context crops where available; word crops may remove useful ascender, descender, spacing, or neighboring-stroke context.
-   - Verify that the model alphabet covers punctuation, case, apostrophes, and spaces needed by the current error set.
-   - Record model/checkpoint identity, preprocessing, crop padding, resize policy, alphabet mapping, and latency.
+2. Extend the scorer to inference evidence-graph records.
+   - Score canonical text against bounded alternatives for `rw_1`, `rw_2`, and `rw_11`.
+   - Preserve canonical Qwen verbatim words and boxes; attach CTC scores as metadata only.
+   - Compare CTC against Qwen visual-gain on the same canary records, especially `bred`, `minuts`, `forgoten`, and clean-page lexical neighbors.
 
-3. Calibrate only on development records, with labels used after scoring.
-   - Report positive visible-form preference, clean visible-form preference, pairwise accuracy, margin distributions, and coverage at each abstention threshold.
-   - Report single-token and phrase-shaped cases separately.
-   - Compare CTC against the current Qwen visual-gain scorer on exactly the same candidate records.
-   - Do not tune individual thresholds or preprocessing for named words.
+3. Add line-context crop support if word crops remain ambiguous.
+   - Word crops may remove useful ascenders, descenders, spacing, or neighboring-stroke context.
+   - Score isolated word crops and line-context crops separately; do not merge them until calibration shows which is safer.
 
-4. Integrate CTC scores into a new scored evidence-graph artifact.
+4. Integrate CTC scores into a new scored evidence-graph artifact only after the canary passes.
    - Preserve Qwen verbatim as the canonical transcript and preserve all canonical word indices and boxes.
    - Attach CTC scores to existing alternatives; do not replace canonical text during Stage 1.
    - Allow an unsupported lexical alternative to become `SUPPORTED_ALTERNATIVE_READING` only when the optical margin clears the calibrated threshold.
@@ -828,15 +840,35 @@ Planned work:
    - Review-only alternatives remain auditable metadata and are not automatic error claims.
    - Rerun the focused full-pipeline matrix only after evidence recovery reaches at least 17/21 or the selector demonstrates a plausible path to `error_detection_f1 >= 0.75`.
 
-Planned artifacts:
+Current/planned artifacts:
 
 - `pipeline/optical_candidate_scorer.py`
 - `scripts/score_phase4_ctc_candidates.py`
 - `scripts/analyze_phase4_ctc_calibration.py`
 - `benchmark/results/phase4_ctc_candidate_scores_minimal_pairs.json`
 - `benchmark/results/phase4_ctc_calibration.json`
+- `benchmark/results/phase4_ctc_candidate_scores_minimal_pairs_all_candidates.json`
+- `benchmark/results/phase4_ctc_calibration_all_candidates.json`
 - `benchmark/results/phase4_inference_evidence_graph_ctc_rw1_rw2_rw11.json`
 - `benchmark/results/phase4_inference_selector_policy_ctc_rw1_rw2_rw11.json`
+
+```bash
+.venv/bin/python scripts/score_phase4_ctc_candidates.py \
+  --candidate-mode labels \
+  --output benchmark/results/phase4_ctc_candidate_scores_minimal_pairs.json
+
+.venv/bin/python scripts/analyze_phase4_ctc_calibration.py \
+  --scores benchmark/results/phase4_ctc_candidate_scores_minimal_pairs.json \
+  --output benchmark/results/phase4_ctc_calibration.json
+
+.venv/bin/python scripts/score_phase4_ctc_candidates.py \
+  --candidate-mode all \
+  --output benchmark/results/phase4_ctc_candidate_scores_minimal_pairs_all_candidates.json
+
+.venv/bin/python scripts/analyze_phase4_ctc_calibration.py \
+  --scores benchmark/results/phase4_ctc_candidate_scores_minimal_pairs_all_candidates.json \
+  --output benchmark/results/phase4_ctc_calibration_all_candidates.json
+```
 
 Stop conditions:
 
