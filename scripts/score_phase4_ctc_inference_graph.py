@@ -13,7 +13,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from pipeline.optical_candidate_scorer import EasyOCRCTCCandidateScorer
+from pipeline.optical_candidate_scorer import EasyOCRCTCCandidateScorer, HandwritingLineGFCNCTCScorer
 
 
 DEFAULT_GRAPH = Path("benchmark/results/phase4_inference_evidence_graph_unscored_20image.json")
@@ -21,6 +21,8 @@ DEFAULT_OUTPUT = Path("benchmark/results/phase4_inference_evidence_graph_ctc_rw1
 DEFAULT_DATASET = Path("benchmark/test_dataset/realworld_writing_errors.json")
 DEFAULT_IMAGE_DIR = Path("benchmark/test_dataset/realworld_raw")
 DEFAULT_LINE_CROP_DIR = Path("pipeline_output/phase4_inference_evidence_graph/line_crops")
+DEFAULT_LINE_GFCN_CHECKPOINT = Path("/tmp/linepytorchocr_weights/model_weights/iam.pt")
+DEFAULT_LINE_GFCN_CODE_DIR = Path("/tmp/LinePytorchOCR")
 
 SUPPORTED_ALTERNATIVE = "SUPPORTED_ALTERNATIVE"
 SUPPORTED_CANONICAL = "SUPPORTED_CANONICAL"
@@ -134,13 +136,14 @@ def line_candidate_text(context: dict[str, Any], candidate_text: str) -> str:
 
 def score_record(
     record: dict[str, Any],
-    scorer: EasyOCRCTCCandidateScorer,
+    scorer: Any,
     *,
     context: str,
     dataset_by_image: dict[str, dict[str, Any]],
     image_dir: Path,
     line_crop_dir: Path,
     line_padding: int,
+    score_field: str,
 ) -> dict[str, Any]:
     line_info = {}
     if context == "line":
@@ -176,7 +179,8 @@ def score_record(
         }
         scored.append(row)
 
-    scored.sort(key=lambda row: row["ctc_normalized_logprob"], reverse=True)
+    score_key = "ctc_raw_logprob" if score_field == "raw" else "ctc_normalized_logprob"
+    scored.sort(key=lambda row: row[score_key], reverse=True)
     for rank, row in enumerate(scored, start=1):
         row["rank"] = rank
 
@@ -185,19 +189,19 @@ def score_record(
     canonical = next((row for row in scored if row.get("is_canonical")), None)
     best_alternative = next((row for row in scored if not row.get("is_canonical")), None)
     margin = (
-        float(top["ctc_normalized_logprob"] - runner_up["ctc_normalized_logprob"])
+        float(top[score_key] - runner_up[score_key])
         if top
         and runner_up
-        and finite(top.get("ctc_normalized_logprob"))
-        and finite(runner_up.get("ctc_normalized_logprob"))
+        and finite(top.get(score_key))
+        and finite(runner_up.get(score_key))
         else None
     )
     alt_margin_over_canonical = (
-        float(best_alternative["ctc_normalized_logprob"] - canonical["ctc_normalized_logprob"])
+        float(best_alternative[score_key] - canonical[score_key])
         if best_alternative
         and canonical
-        and finite(best_alternative.get("ctc_normalized_logprob"))
-        and finite(canonical.get("ctc_normalized_logprob"))
+        and finite(best_alternative.get(score_key))
+        and finite(canonical.get(score_key))
         else None
     )
     return {
@@ -213,6 +217,7 @@ def score_record(
         "top_ctc_unsupported_chars": top.get("ctc_unsupported_chars", []) if top else [],
         "margin": margin,
         "alternative_margin_over_canonical": alt_margin_over_canonical,
+        "ctc_score_field": score_field,
         "hypotheses": scored,
     }
 
@@ -256,6 +261,10 @@ def main() -> None:
     parser.add_argument("--dataset", type=Path, default=DEFAULT_DATASET)
     parser.add_argument("--image-dir", type=Path, default=DEFAULT_IMAGE_DIR)
     parser.add_argument("--line-crop-dir", type=Path, default=DEFAULT_LINE_CROP_DIR)
+    parser.add_argument("--backend", choices=["easyocr", "line_gfcn"], default="easyocr")
+    parser.add_argument("--line-gfcn-checkpoint", type=Path, default=DEFAULT_LINE_GFCN_CHECKPOINT)
+    parser.add_argument("--line-gfcn-code-dir", type=Path, default=DEFAULT_LINE_GFCN_CODE_DIR)
+    parser.add_argument("--score-field", choices=["normalized", "raw"], default="normalized")
     parser.add_argument("--image", action="append", dest="images", default=[])
     parser.add_argument("--context", choices=["word", "line"], default="word")
     parser.add_argument("--line-padding", type=int, default=24)
@@ -273,7 +282,14 @@ def main() -> None:
     if image_filter:
         records = [record for record in records if record.get("image") in image_filter]
 
-    scorer = EasyOCRCTCCandidateScorer(device=args.device, img_h=args.img_h, img_w=args.img_w)
+    if args.backend == "line_gfcn":
+        scorer = HandwritingLineGFCNCTCScorer(
+            checkpoint=args.line_gfcn_checkpoint,
+            code_dir=args.line_gfcn_code_dir,
+            device=args.device,
+        )
+    else:
+        scorer = EasyOCRCTCCandidateScorer(device=args.device, img_h=args.img_h, img_w=args.img_w)
     dataset_by_image = load_dataset(args.dataset) if args.context == "line" else {}
     scored = []
     for offset, record in enumerate(records, start=1):
@@ -285,6 +301,7 @@ def main() -> None:
             image_dir=args.image_dir,
             line_crop_dir=args.line_crop_dir,
             line_padding=args.line_padding,
+            score_field=args.score_field,
         )
         scored_record["decision"] = decide(
             scored_record,
@@ -300,8 +317,9 @@ def main() -> None:
         "source_graph": str(args.graph),
         "label_free": True,
         "scored": True,
-        "score_backend": "easyocr_ctc",
+        "score_backend": scorer.model_id,
         "ctc_context": args.context,
+        "ctc_score_field": args.score_field,
         "scorer": scorer.metadata(),
         "threshold": args.threshold,
         "require_ocr_support": not args.allow_unsupported_alternatives,
