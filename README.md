@@ -856,8 +856,43 @@ First filtered-review pass:
 |---|---:|---:|---|
 | Keep only reviews overlapping deterministic source-text adjudication spans | 0/2 | **0** | Safe, but too conservative; it drops `forgoten` and `usualy`. |
 | Also keep OCR-supported CTC reviews | 1/2 | 15 | Too noisy; OCR support alone keeps clean alternatives like `packed` -> `pecked`, `rise` -> `vise`, and `eggs` -> `e956`. |
+| Keep reviews overlapping current Stage 2/adjudicator predicted spans | 0/2 | 2 | Narrows clean review volume, but keeps wrong alternatives for already-flagged spelling spans (`umbrele` -> `umbrek`, `intresting` -> `intesting`) and still misses `forgoten`/`usualy`. |
+| Stage 2/adjudicator spans plus OCR-supported reviews | 1/2 | 15 | Same OCR-support noise problem as above. |
 
-Interpretation: OCR support is not a strong enough independent trigger for review alternatives. Deterministic grammar/source-text spans are safe but do not help spelling leaks. The next useful filter is conditional: only expose spelling review alternatives when Stage 2 or the adjudicator already proposed an error on the same canonical word/span. That tests whether CTC can repair evidence text for suspicious spans without increasing the grader's search space.
+Interpretation: OCR support is not a strong enough independent trigger for review alternatives. Deterministic grammar/source-text spans are safe but do not help spelling leaks. Stage 2-overlap is narrower, but it mostly repairs spans Stage 2 already found incorrectly and does not recover normalized-away misses. The current EasyOCR CTC scorer is therefore useful for audit/review metadata, not for automatic spelling evidence injection. The next useful branch is either a stronger handwriting CTC scorer or a human-review/product path for `UNCERTAIN_REVIEW`, rather than more threshold tuning on this scorer.
+
+The `UNCERTAIN_REVIEW` product path is now represented as an explicit review queue. It joins CTC agreement/filter decisions with word crops, line crops, candidate rankings, margins, suspicion reasons, and Stage 2/source-text triggers. The full Stage2-span-filtered queue has 51 records; a focused P1/P2 queue has 7 records. Development-label audit of the focused queue finds 4 matched-error records and 3 clean records, but only 1 matched record contains the useful visible review text. The queue is therefore valuable for inspection and debugging, not as a production auto-correction layer.
+
+Focused P1/P2 examples show the failure mode clearly: `forgoten` and `usualy` are not retained by the Stage2-span filter, while records such as `umbrele` -> `umbrek`, `intresting` -> `intesting`, and `woodon` -> `wooden` are retained because Stage 2 already pointed at those spans. This confirms the current scorer tends to audit suspicious spans rather than reliably recover normalized-away spellings.
+
+Real handwriting-line CTC recognizer:
+
+A real IAM-trained line recognizer was tested next: the GFCN checkpoint from LinePytorchOCR (`iam.pt`, epoch 578, reported best 0.0527). The adapter in `pipeline/optical_candidate_scorer.py` scores arbitrary candidate strings with CTC forward probability against either isolated word crops or same-line crops. Its IAM alphabet has 79 labels plus blank and covers letters, digits, punctuation, apostrophe, and space. The GFCN model architecture is loaded dynamically from a local LinePytorchOCR checkout via `--line-gfcn-code-dir` instead of vendoring the CeCILL-C model source into this Apache-licensed repo.
+
+The first smoke test was encouraging: on the `rw_11` line containing `forgotten`, greedy line decoding produced `I raalisod I had forgoten`. Candidate scoring still depends on the score field: raw log probability favored `forgoten` over `forgotten`, while length-normalized probability favored the longer normalized word. The full experiments below use normalized scores to reduce length bias.
+
+GFCN canary (`rw_1`, `rw_2`, `rw_11`):
+
+| Scorer/context | Selector | Matched error handling | Clean supported alternatives | Decision |
+|---|---|---|---:|---|
+| Line GFCN, normalized | Strict OCR support | `bred` and `minuts` canonical; `forgoten` review-only | 0-1/34 depending on margin | Safe but does not auto-recover `forgoten`. |
+| Line GFCN, normalized | Allow unsupported, margin 0.25 | Recovers all 3 visible forms, including `forgoten` | 1/34 (`She` -> `sha`) | Better signal, still fails clean gate. |
+| Line GFCN, normalized | Allow unsupported, margin 0.5 | Keeps clean supported alternatives at 0 | 0/34 | Too conservative; `forgoten` falls back to review. |
+
+GFCN full 20-page development result:
+
+| Graph/policy | Visible errors top-ranked | Visible evidence supported canonically | Visible review alternatives | Clean automatic alternatives | Decision |
+|---|---:|---:|---:|---:|---|
+| Line-context graph only | 17/21 | 13/21 canonical-visible | n/a | n/a | Strongest optical ranking signal so far, but not a policy. |
+| Word-context graph only | 16/21 | 13/21 canonical-visible | n/a | n/a | Similar but slightly weaker than line context. |
+| Allow unsupported alternatives, margin 0.25 | 17/21 top-ranked | 13/21 canonical-visible | n/a | 22/219 clean records | Fails automatic promotion. |
+| Word/line agreement policy | 17/21 recovered or reviewed | 13/21 | 4/21 before filtering | **0** | Safe as metadata/review path. |
+| Agreement + Stage 2-span filter | 15/21 supported-or-kept | 13/21 | 2/21 kept | 3 clean review records | Small queue, still review-only. |
+| Agreement + Stage 2-span + OCR-supported reviews | 16/21 supported-or-kept | 13/21 | 3/21 kept | 6 clean review records | More recall, too much review noise. |
+
+Interpretation: this is genuine progress over EasyOCR CTC. The handwriting-line GFCN scorer sees more of the visible erroneous forms (`17/21` top-ranked versus the earlier `13/21` label-free ordering), and it recovers the important `forgoten` canary as a top optical alternative. It still should not rewrite OCR automatically: permissive unsupported alternatives produce many clean corruptions (`My` -> `Mly`, `the` -> `tho`, `inside` -> `nside`, `She` -> `sha`). The best current role is an evidence/review scorer: preserve Qwen verbatim as canonical, attach GFCN word/line scores, and surface only small filtered review queues until a stronger policy clears the clean-page gate.
+
+The GFCN filtered Stage2-span queue is smaller than the EasyOCR queue: 6 P1 records, with 3 matched-error records and 3 clean records; 2 matched records contain the useful visible review text. This is now useful enough for manual inspection, but not for automatic Stage 2 evidence injection. Representative kept reviews: `thursdav` -> `Thursday` for evidence `thursday`, `floor.` -> `flor` for evidence `flor`, and clean distractors such as `close` -> `chose`.
 
 Planned work:
 
@@ -869,12 +904,13 @@ Planned work:
 2. Reduce review volume before Stage 2.
    - Preserve canonical Qwen verbatim words and boxes; attach CTC scores as metadata only.
    - Treat `rw_1`/`rw_2` clean alternatives (`rise` -> `vise`, `She` -> `Sle`, `packed` -> `pecked`) as blocker cases for automatic promotion.
-   - Only pass review alternatives forward when they overlap an independent Stage 2/adjudicator candidate span or a grammar-pattern trigger.
    - Do not use OCR support alone as a pass-through rule; the all-20 filter shows it keeps too many clean alternatives.
+   - Do not assume Stage 2-overlap fixes spelling evidence; the all-20 filter shows it misses the useful normalized-away cases.
 
 3. Improve the optical scorer before Stage 2.
-   - Test agreement features: canonical wins in either context, alternative wins in both contexts, OCR-supported alternative wins with high margin, unsupported alternative only to review.
-   - Consider a CTC model trained for handwriting line recognition rather than EasyOCR's scene-text recognizer.
+   - Test agreement features on the GFCN scorer: canonical wins in either context, alternative wins in both contexts, OCR-supported alternative wins with high margin, unsupported alternative only to review.
+   - Add label-free guards for short capitalized words and one-character deletions, because many clean GFCN corruptions have that shape.
+   - Compare GFCN raw versus normalized score fields on a frozen rule set before adding new candidate generators.
    - Keep all alternatives as metadata until clean-page corruption is zero at a useful recall level.
 
 4. Keep CTC evidence graph integration metadata-only for now.
@@ -883,10 +919,11 @@ Planned work:
    - Do not allow unsupported lexical alternatives to become automatic error evidence from CTC alone.
    - A low or mixed score must never silently rewrite the transcript.
 
-5. Build the next Stage 2 probe around filtered review metadata.
-   - Start with `rw_1`, `rw_2`, and `rw_11` again, but pass review alternatives only for records overlapping a Stage 2/adjudicator candidate span.
-   - Required behavior remains: keep `bred` and `minuts` as canonical visible evidence, preserve `forgoten` as reviewable evidence, and avoid promoting clean-page lexical neighbors.
-   - Do not run all 20 pages until the filtered canary keeps clean supported alternatives at 0 and sharply reduces clean review/reject volume.
+5. Decide whether the current scorer is audit-only or replace it.
+   - The current EasyOCR CTC scorer should stay metadata-only unless a new filter recovers `forgoten`/`usualy` without clean review noise.
+   - The GFCN handwriting-line scorer replaces EasyOCR as the main optical-scoring branch, but remains metadata/review-only until clean corruption is controlled.
+   - If that branch is unavailable, formalize `UNCERTAIN_REVIEW` as the product path instead of trying to turn speculative spelling alternatives into automatic error evidence.
+   - The first review-queue artifact is now in place; use it for inspection, not grading.
 
 6. Wire the optical scorer into Stage 2 only after the selector gate passes.
    - Stage 2 receives canonical words plus optically supported alternatives tied to the same `word_indices`.
@@ -916,6 +953,21 @@ Current/planned artifacts:
 - `benchmark/results/phase4_inference_selector_policy_ctc_agreement_20image.json`
 - `benchmark/results/phase4_inference_selector_policy_ctc_filtered_20image.json`
 - `benchmark/results/phase4_inference_selector_policy_ctc_filtered_ocr_supported_20image.json`
+- `benchmark/results/phase4_inference_selector_policy_ctc_filtered_stage2_spans_20image.json`
+- `benchmark/results/phase4_inference_selector_policy_ctc_filtered_stage2_ocr_supported_20image.json`
+- `benchmark/results/phase4_uncertain_review_queue_ctc_stage2_spans_20image.json`
+- `benchmark/results/phase4_uncertain_review_queue_ctc_stage2_spans_20image.md`
+- `benchmark/results/phase4_uncertain_review_queue_ctc_stage2_spans_p1_p2_20image.json`
+- `benchmark/results/phase4_uncertain_review_queue_ctc_stage2_spans_p1_p2_20image.md`
+- `benchmark/results/phase4_inference_evidence_graph_line_gfcn_normalized_20image.json`
+- `benchmark/results/phase4_inference_evidence_graph_line_gfcn_word_normalized_20image.json`
+- `benchmark/results/phase4_inference_evidence_graph_audit_line_gfcn_normalized_20image.json`
+- `benchmark/results/phase4_inference_selector_policy_line_gfcn_normalized_20image.json`
+- `benchmark/results/phase4_inference_selector_policy_line_gfcn_agreement_20image.json`
+- `benchmark/results/phase4_inference_selector_policy_line_gfcn_agreement_filtered_stage2_20image.json`
+- `benchmark/results/phase4_inference_selector_policy_line_gfcn_agreement_filtered_stage2_ocr_20image.json`
+- `benchmark/results/phase4_uncertain_review_queue_line_gfcn_stage2_p1_p2_20image.json`
+- `benchmark/results/phase4_uncertain_review_queue_line_gfcn_stage2_p1_p2_20image.md`
 
 ```bash
 .venv/bin/python scripts/score_phase4_ctc_candidates.py \
@@ -998,6 +1050,57 @@ Current/planned artifacts:
 .venv/bin/python scripts/filter_phase4_ctc_review_metadata.py \
   --keep-ocr-supported \
   --output benchmark/results/phase4_inference_selector_policy_ctc_filtered_ocr_supported_20image.json
+
+.venv/bin/python scripts/filter_phase4_ctc_review_metadata.py \
+  --keep-stage2-spans \
+  --output benchmark/results/phase4_inference_selector_policy_ctc_filtered_stage2_spans_20image.json
+
+.venv/bin/python scripts/filter_phase4_ctc_review_metadata.py \
+  --keep-stage2-spans --keep-ocr-supported \
+  --output benchmark/results/phase4_inference_selector_policy_ctc_filtered_stage2_ocr_supported_20image.json
+
+.venv/bin/python scripts/build_phase4_uncertain_review_queue.py \
+  --include-markdown \
+  --output benchmark/results/phase4_uncertain_review_queue_ctc_stage2_spans_20image.json \
+  --markdown benchmark/results/phase4_uncertain_review_queue_ctc_stage2_spans_20image.md
+
+.venv/bin/python scripts/build_phase4_uncertain_review_queue.py \
+  --priority P1 --priority P2 --include-markdown \
+  --output benchmark/results/phase4_uncertain_review_queue_ctc_stage2_spans_p1_p2_20image.json \
+  --markdown benchmark/results/phase4_uncertain_review_queue_ctc_stage2_spans_p1_p2_20image.md
+
+.venv/bin/python scripts/score_phase4_ctc_inference_graph.py \
+  --backend line_gfcn --context line --score-field normalized \
+  --line-gfcn-code-dir /tmp/LinePytorchOCR \
+  --line-gfcn-checkpoint /tmp/linepytorchocr_weights/model_weights/iam.pt \
+  --line-crop-dir pipeline_output/phase4_inference_evidence_graph/line_crops_line_gfcn_norm_20 \
+  --output benchmark/results/phase4_inference_evidence_graph_line_gfcn_normalized_20image.json \
+  --progress-every 25
+
+.venv/bin/python scripts/score_phase4_ctc_inference_graph.py \
+  --backend line_gfcn --context word --score-field normalized \
+  --line-gfcn-code-dir /tmp/LinePytorchOCR \
+  --line-gfcn-checkpoint /tmp/linepytorchocr_weights/model_weights/iam.pt \
+  --output benchmark/results/phase4_inference_evidence_graph_line_gfcn_word_normalized_20image.json \
+  --progress-every 25
+
+.venv/bin/python scripts/experiment_phase4_ctc_agreement_policy.py \
+  --word-graph benchmark/results/phase4_inference_evidence_graph_line_gfcn_word_normalized_20image.json \
+  --line-graph benchmark/results/phase4_inference_evidence_graph_line_gfcn_normalized_20image.json \
+  --output benchmark/results/phase4_inference_selector_policy_line_gfcn_agreement_20image.json
+
+.venv/bin/python scripts/filter_phase4_ctc_review_metadata.py \
+  --agreement benchmark/results/phase4_inference_selector_policy_line_gfcn_agreement_20image.json \
+  --keep-stage2-spans \
+  --output benchmark/results/phase4_inference_selector_policy_line_gfcn_agreement_filtered_stage2_20image.json
+
+.venv/bin/python scripts/build_phase4_uncertain_review_queue.py \
+  --decisions benchmark/results/phase4_inference_selector_policy_line_gfcn_agreement_filtered_stage2_20image.json \
+  --word-graph benchmark/results/phase4_inference_evidence_graph_line_gfcn_word_normalized_20image.json \
+  --line-graph benchmark/results/phase4_inference_evidence_graph_line_gfcn_normalized_20image.json \
+  --priority P1 --priority P2 --include-markdown \
+  --output benchmark/results/phase4_uncertain_review_queue_line_gfcn_stage2_p1_p2_20image.json \
+  --markdown benchmark/results/phase4_uncertain_review_queue_line_gfcn_stage2_p1_p2_20image.md
 ```
 
 Stop conditions:
