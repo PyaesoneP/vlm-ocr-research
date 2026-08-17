@@ -1,0 +1,61 @@
+[
+  {
+    "id": "pc_capitalization_spelling",
+    "text": "i recieved the letter yesterday.",
+    "lines": [
+      "i recieved the letter yesterday."
+    ],
+    "blocks": [
+      {
+        "index": 0,
+        "bbox": [40, 40, 260, 66],
+        "text": "i recieved the letter yesterday.",
+        "confidence": 1.0
+      }
+    ],
+    "errors": [
+      {
+        "type": "capitalization",
+        "bbox": [40, 40, 52, 66],
+        "description": "Sentence should start with a capital letter.",
+        "correction": "I",
+        "evidence_text": "i"
+      },
+      {
+        "type": "spelling",
+        "bbox": [72, 40, 142, 66],
+        "description": "'recieved' should be 'received'.",
+        "correction": "received",
+        "evidence_text": "recieved"
+      }
+    ],
+    "expected_error_types": ["capitalization", "spelling"],
+    "purpose": "Schema and behavior probe only; not a handwritten accuracy benchmark."
+  },
+  {
+    "id": "pc_punctuation_grammar",
+    "text": "The story was exciting it made me think",
+    "lines": [
+      "The story was exciting it made me think"
+    ],
+    "blocks": [
+      {
+        "index": 0,
+        "bbox": [40, 40, 360, 66],
+        "text": "The story was exciting it made me think",
+        "confidence": 1.0
+      }
+    ],
+    "errors": [
+      {
+        "type": "punctuation",
+        "bbox": [170, 40, 214, 66],
+        "description": "Two independent clauses need punctuation or a conjunction.",
+        "correction": "The story was exciting, and it made me think.",
+        "evidence_text": "exciting it"
+      }
+    ],
+    "expected_error_types": ["punctuation"],
+    "purpose": "Schema and behavior probe only; not a handwritten accuracy benchmark."
+  }
+]

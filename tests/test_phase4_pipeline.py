@@ -1,0 +1,448 @@
+from __future__ import annotations
+
+import json
+import tempfile
+import unittest
+from pathlib import Path
+
+from pipeline.adjudication import adjudicate_stage2_errors
+from pipeline.alignment import align_text_boxes_to_geometry, text_similarity
+from pipeline.contracts import ErrorFinding, PipelineOutput, TextBox
+from pipeline.localization import bbox_from_word_indices
+from pipeline.metrics import NOT_APPLICABLE, compute_truthfulness_metrics, evaluate_phase4_output
+from pipeline.model_registry import STAGE1_MODEL_REGISTRY
+from pipeline.parsing import parse_model_json
+from pipeline.strategies import SinglePassStrategy, TwoStageStrategy
+from scripts.benchmark_phase4 import (
+    LIVE_STAGE1_TEXT_SOURCES,
+    parse_crop_verifier_response,
+    parse_qwen_word_response,
+    parse_two_stage_strategy_name,
+    select_images,
+    should_accept_crop_replacement,
+    suspicious_word_indices,
+)
+
+
+class Phase4PipelineTests(unittest.TestCase):
+    def _temp_image(self) -> Path:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        path = Path(tmp.name) / "sample.png"
+        path.write_bytes(b"not a real image; tests do not inspect pixels")
+        return path
+
+    def _temp_png(self) -> Path:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        path = Path(tmp.name) / "sample.png"
+        # 1x1 transparent PNG.
+        path.write_bytes(
+            b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01"
+            b"\x00\x00\x00\x01\x08\x06\x00\x00\x00\x1f\x15\xc4"
+            b"\x89\x00\x00\x00\nIDATx\x9cc\x00\x01\x00\x00\x05"
+            b"\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82"
+        )
+        return path
+
+    def test_parse_filters_invalid_error_types_and_clamps_boxes(self) -> None:
+        raw = """```json
+        {
+          "errors": [
+            {"type": "spelling", "bbox": [50, 20, 10, 80], "description": "typo"},
+            {"type": "style", "bbox": [0, 0, 5, 5], "description": "not allowed"}
+          ],
+          "feedback": "Good effort."
+        }
+        ```"""
+        parsed = parse_model_json(raw, image_size=(100, 100))
+
+        self.assertFalse(parsed.valid)
+        self.assertEqual(len(parsed.errors), 1)
+        self.assertEqual(parsed.errors[0].type, "spelling")
+        self.assertEqual(parsed.errors[0].bbox, [10, 20, 50, 80])
+        self.assertIn("invalid type", " ".join(parsed.problems))
+
+    def test_parse_denormalizes_qwen_1000_space_boxes(self) -> None:
+        raw = json.dumps({
+            "text": "Hello",
+            "blocks": [{"bbox": [0, 0, 999, 500], "text": "Hello"}],
+            "errors": [],
+            "feedback": {"summary": "ok"},
+        })
+        parsed = parse_model_json(raw, image_size=(2000, 1200), require_text=True, require_boxes=True)
+
+        self.assertTrue(parsed.valid)
+        self.assertEqual(parsed.boxes[0].bbox, [0, 0, 2000, 601])
+
+    def test_word_indices_union(self) -> None:
+        boxes = [
+            TextBox(index=0, bbox=[10, 10, 20, 20], text="a"),
+            TextBox(index=1, bbox=[24, 12, 50, 22], text="word"),
+            TextBox(index=2, bbox=[60, 15, 80, 24], text="later"),
+        ]
+        self.assertEqual(bbox_from_word_indices(boxes, [0, 1]), [10, 10, 50, 22])
+        self.assertEqual(bbox_from_word_indices(boxes, [9]), [0, 0, 0, 0])
+
+    def test_stage2_adjudication_expands_known_grammar_span(self) -> None:
+        boxes = [
+            TextBox(index=0, bbox=[0, 0, 40, 20], text="We"),
+            TextBox(index=1, bbox=[45, 0, 100, 20], text="should"),
+            TextBox(index=2, bbox=[105, 0, 125, 20], text="of"),
+            TextBox(index=3, bbox=[130, 0, 170, 20], text="left"),
+        ]
+        errors = [
+            ErrorFinding(
+                type="spelling",
+                bbox=[105, 0, 125, 20],
+                description="Use have.",
+                correction="have",
+                evidence_text="of",
+                word_indices=[2],
+            )
+        ]
+
+        changes = adjudicate_stage2_errors(errors, boxes)
+
+        self.assertTrue(changes)
+        self.assertEqual(errors[0].type, "grammar")
+        self.assertEqual(errors[0].word_indices, [1, 2])
+        self.assertEqual(errors[0].evidence_text, "should of")
+        self.assertEqual(errors[0].correction, "should have")
+        self.assertEqual(errors[0].bbox, [45, 0, 125, 20])
+
+    def test_stage2_adjudication_adds_candidates_and_drops_overreach(self) -> None:
+        words = [
+            "My", "brother", "and", "me", "are", "going", "They", "lives",
+            "near", "the", "park", "We", "go", "hiking",
+        ]
+        boxes = [
+            TextBox(index=i, bbox=[i * 10, 0, i * 10 + 8, 10], text=word)
+            for i, word in enumerate(words)
+        ]
+        errors = [
+            ErrorFinding(
+                type="spelling",
+                bbox=boxes[7].bbox,
+                description="Agreement.",
+                correction="live",
+                evidence_text="lives",
+                word_indices=[7],
+            ),
+            ErrorFinding(
+                type="spelling",
+                bbox=boxes[13].bbox,
+                description="Awkward form.",
+                correction="hike",
+                evidence_text="hiking",
+                word_indices=[13],
+            ),
+        ]
+
+        changes = adjudicate_stage2_errors(errors, boxes)
+
+        self.assertIn("dropped_overreach:hiking->hike", changes)
+        self.assertEqual([(error.type, error.word_indices) for error in errors], [
+            ("grammar", [7]),
+            ("grammar", [3]),
+        ])
+        self.assertEqual(errors[1].evidence_text, "me")
+        self.assertEqual(errors[1].correction, "I")
+
+    def test_parse_qwen_word_response_accepts_boxes_only(self) -> None:
+        try:
+            import PIL  # noqa: F401
+        except ImportError:
+            self.skipTest("Pillow is not installed in this interpreter")
+        parsed = parse_qwen_word_response("[0, 0, 999, 999], [100, 100, 200, 200]", self._temp_png())
+
+        self.assertEqual(len(parsed["blocks"]), 2)
+        self.assertFalse(parsed["_text_labels_present"])
+        self.assertEqual(parsed["blocks"][0]["bbox"], [0, 0, 1, 1])
+
+    def test_phase4_strategy_name_expresses_full_composition(self) -> None:
+        spec = parse_two_stage_strategy_name(
+            "two_stage__florence2_large_wordlevel__tesseract_word_boxes__qwen3vl_4b_grader"
+        )
+
+        self.assertEqual(spec.text_source, "florence2_large_wordlevel")
+        self.assertEqual(spec.box_source, "tesseract_word_boxes")
+        self.assertEqual(spec.grader, "qwen3vl_4b_grader")
+        self.assertEqual(
+            parse_two_stage_strategy_name("two_stage_qwen_text_tesseract_boxes").name,
+            "two_stage__qwen3vl_4b_wordlevel__tesseract_word_boxes__qwen3vl_4b_grader",
+        )
+
+    def test_live_stage1_strategy_uses_same_stage1_boxes(self) -> None:
+        spec = parse_two_stage_strategy_name(
+            "two_stage__tesseract_live_word_ocr__same_stage1_boxes__qwen3vl_4b_grader"
+        )
+
+        self.assertEqual(spec.text_source, "tesseract_live_word_ocr")
+        self.assertEqual(spec.box_source, "same_stage1_boxes")
+
+    def test_verbatim_stage1_strategy_is_available(self) -> None:
+        spec = parse_two_stage_strategy_name(
+            "two_stage__qwen3vl_4b_verbatim_word_ocr__same_stage1_boxes__qwen3vl_4b_grader"
+        )
+
+        self.assertEqual(spec.text_source, "qwen3vl_4b_verbatim_word_ocr")
+        self.assertEqual(spec.box_source, "same_stage1_boxes")
+
+    def test_crop_verified_stage1_strategy_is_available(self) -> None:
+        spec = parse_two_stage_strategy_name(
+            "two_stage__qwen3vl_4b_crop_verified_word_ocr__same_stage1_boxes__qwen3vl_4b_grader"
+        )
+
+        self.assertEqual(spec.text_source, "qwen3vl_4b_crop_verified_word_ocr")
+        self.assertEqual(spec.box_source, "same_stage1_boxes")
+        self.assertIn("qwen3vl_4b_crop_verified_word_ocr", LIVE_STAGE1_TEXT_SOURCES)
+
+    def test_crop_verifier_response_parser_and_acceptance(self) -> None:
+        parsed = parse_crop_verifier_response(
+            '{"observed_text": "forgoten", "confidence": "high"}'
+        )
+
+        self.assertEqual(parsed["observed_text"], "forgoten")
+        self.assertEqual(parsed["confidence"], "high")
+        self.assertTrue(should_accept_crop_replacement("forgotten", "forgoten", "high"))
+        self.assertTrue(should_accept_crop_replacement("minutes", "minuts", "high"))
+        self.assertFalse(should_accept_crop_replacement("forgotten", "forgoten", "medium"))
+        self.assertFalse(should_accept_crop_replacement("forgotten", "forgotten", "high"))
+        self.assertFalse(should_accept_crop_replacement("bred", "bored", "high"))
+        self.assertFalse(should_accept_crop_replacement("minuts", "minutes", "high"))
+        self.assertFalse(should_accept_crop_replacement("forgotten", "a whole rewritten sentence", "high"))
+
+    def test_suspicious_word_indices_find_normalization_and_disagreement(self) -> None:
+        base = [
+            TextBox(index=0, bbox=[0, 0, 10, 10], text="I"),
+            TextBox(index=1, bbox=[12, 0, 50, 10], text="forgotten"),
+            TextBox(index=2, bbox=[52, 0, 90, 10], text="minuts"),
+        ]
+        normal = [
+            TextBox(index=0, bbox=[0, 0, 10, 10], text="I"),
+            TextBox(index=1, bbox=[12, 0, 50, 10], text="forgotten"),
+            TextBox(index=2, bbox=[52, 0, 90, 10], text="minutes"),
+        ]
+
+        reasons = suspicious_word_indices(base, normal_boxes=normal)
+
+        self.assertIn(1, reasons)
+        self.assertIn("normalization_target", reasons[1])
+        self.assertIn(2, reasons)
+        self.assertIn("known_error_pattern", reasons[2])
+        self.assertIn("qwen_normal_verbatim_disagreement", reasons[2])
+
+    def test_aligned_tesseract_box_strategy_is_available_for_live_text(self) -> None:
+        spec = parse_two_stage_strategy_name(
+            "two_stage__qwen3vl_4b_verbatim_word_ocr__aligned_tesseract_word_boxes__qwen3vl_4b_grader"
+        )
+
+        self.assertEqual(spec.text_source, "qwen3vl_4b_verbatim_word_ocr")
+        self.assertEqual(spec.box_source, "aligned_tesseract_word_boxes")
+
+    def test_aligned_tesseract_box_strategy_requires_live_text(self) -> None:
+        with self.assertRaisesRegex(ValueError, "requires a live Stage 1 text source"):
+            parse_two_stage_strategy_name(
+                "two_stage__realworld_source_text__aligned_tesseract_word_boxes__qwen3vl_4b_grader"
+            )
+
+    def test_align_text_boxes_keeps_text_and_borrows_geometry(self) -> None:
+        text_boxes = [
+            TextBox(index=0, bbox=[10, 10, 50, 30], text="I", source="qwen"),
+            TextBox(index=1, bbox=[60, 10, 140, 30], text="street", source="qwen"),
+            TextBox(index=2, bbox=[150, 10, 230, 30], text="forgoten", source="qwen"),
+        ]
+        geometry_boxes = [
+            TextBox(index=0, bbox=[12, 12, 48, 32], text="T", source="tesseract"),
+            TextBox(index=1, bbox=[62, 12, 82, 32], text="s", source="tesseract"),
+            TextBox(index=2, bbox=[84, 12, 144, 32], text="treet", source="tesseract"),
+            TextBox(index=3, bbox=[152, 12, 232, 32], text="forgotten", source="tesseract"),
+        ]
+
+        aligned, stats = align_text_boxes_to_geometry(text_boxes, geometry_boxes)
+
+        self.assertEqual([box.text for box in aligned], ["I", "street", "forgoten"])
+        self.assertEqual(aligned[0].bbox, [12, 12, 48, 32])
+        self.assertEqual(aligned[1].bbox, [62, 12, 144, 32])
+        self.assertEqual(aligned[2].bbox, [152, 12, 232, 32])
+        self.assertEqual(stats["alignment_matched"], 3)
+        self.assertEqual(stats["alignment_multi_geometry_matches"], 1)
+        self.assertEqual(stats["alignment_fallback"], 0)
+        self.assertGreater(text_similarity("street", "s treet"), 0.95)
+
+    def test_stage1_registry_covers_non_qwen_models(self) -> None:
+        for name in ["paddleocr_vl", "florence2_large_wordlevel", "doctr_live_word_ocr", "easyocr_live_word_ocr", "hunyuan_vl_manual"]:
+            self.assertIn(name, STAGE1_MODEL_REGISTRY)
+
+        self.assertEqual(STAGE1_MODEL_REGISTRY["paddleocr_vl"].source_kind, "saved_artifact_requires_docker")
+
+    def test_live_registry_covers_prior_local_candidates(self) -> None:
+        for name in [
+            "florence2_live_region_ocr",
+            "got_ocr2_live_ocr",
+            "smoldocling_live_ocr",
+            "nemotron_ocr_v2_live_ocr",
+            "paddleocr_vl_live_ocr",
+            "monkeyocr_live_ocr",
+            "trocr_base_live_line_ocr",
+            "trocr_large_live_line_ocr",
+        ]:
+            self.assertIn(name, STAGE1_MODEL_REGISTRY)
+            self.assertIn(name, LIVE_STAGE1_TEXT_SOURCES)
+
+    def test_live_candidate_strategy_names_are_selectable(self) -> None:
+        spec = parse_two_stage_strategy_name(
+            "two_stage__got_ocr2_live_ocr__same_stage1_boxes__qwen3vl_4b_grader"
+        )
+
+        self.assertEqual(spec.text_source, "got_ocr2_live_ocr")
+        self.assertEqual(spec.box_source, "same_stage1_boxes")
+
+    def test_explicit_images_are_not_truncated_by_default_max(self) -> None:
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        image_dir = Path(tmp.name)
+        for name in ["a.jpg", "b.jpg"]:
+            (image_dir / name).write_bytes(b"")
+
+        images = select_images(1, ["a.jpg", "b.jpg"], image_dir=image_dir)
+
+        self.assertEqual([path.name for path in images], ["a.jpg", "b.jpg"])
+
+    def test_no_error_ground_truth_returns_not_applicable_f1(self) -> None:
+        output = PipelineOutput(
+            strategy_name="test",
+            image="sample.png",
+            text="Clean text.",
+            boxes=[
+                TextBox(index=0, bbox=[0, 0, 45, 20], text="Clean"),
+                TextBox(index=1, bbox=[50, 0, 100, 20], text="text."),
+            ],
+            parse_valid=True,
+        )
+        gt = {
+            "image": "sample.png",
+            "text": "Clean text.",
+            "blocks": [{"bbox": [0, 0, 100, 20], "text": "Clean text."}],
+            "words": [
+                {"bbox": [0, 0, 45, 20], "text": "Clean"},
+                {"bbox": [50, 0, 100, 20], "text": "text."},
+            ],
+            "errors": [],
+        }
+        metrics = evaluate_phase4_output(output, gt, gt)
+
+        self.assertEqual(metrics["error_detection_f1"], NOT_APPLICABLE)
+        self.assertEqual(metrics["error_box_iou"], NOT_APPLICABLE)
+        self.assertEqual(metrics["false_positive_count"], 0)
+        self.assertEqual(metrics["word_iou"], 1.0)
+
+    def test_error_text_f1_is_separate_from_localization(self) -> None:
+        output = PipelineOutput(
+            strategy_name="test",
+            image="sample.png",
+            text="I ate bred.",
+            parse_valid=True,
+        )
+        output.errors = [
+            # Correct type/evidence/correction, deliberately wrong bbox.
+            ErrorFinding(
+                type="spelling",
+                bbox=[200, 200, 260, 230],
+                description="Fix spelling.",
+                correction="bread",
+                evidence_text="bred.",
+            )
+        ]
+        gt = {
+            "image": "sample.png",
+            "text": "I ate bred.",
+            "words": [{"bbox": [20, 20, 80, 40], "text": "bred."}],
+            "errors": [{
+                "type": "spelling",
+                "bbox": [20, 20, 80, 40],
+                "evidence_text": "bred",
+                "correction": "bread",
+            }],
+        }
+        metrics = evaluate_phase4_output(output, gt, gt)
+
+        self.assertEqual(metrics["error_text_f1"], 1.0)
+        self.assertEqual(metrics["error_detection_f1"], 0.0)
+
+    def test_truthfulness_metrics_detect_preserved_evidence_and_leaks(self) -> None:
+        gt = {
+            "text": "I bought bred and waited ten minuts.",
+            "errors": [
+                {"type": "spelling", "evidence_text": "bred", "correction": "bread"},
+                {"type": "spelling", "evidence_text": "minuts", "correction": "minutes"},
+            ],
+        }
+
+        preserved = compute_truthfulness_metrics("I bought bred and waited ten minutes.", gt)
+
+        self.assertEqual(preserved["evidence_preserved_count"], 1)
+        self.assertEqual(preserved["evidence_total"], 2)
+        self.assertEqual(preserved["correction_leak_count"], 1)
+        self.assertEqual(preserved["evidence_preserved_rate"], 0.5)
+
+    def test_single_pass_repairs_invalid_json_once(self) -> None:
+        image_path = self._temp_image()
+        calls: list[str] = []
+
+        def model_call(prompt: str, image_path: Path | None) -> str:
+            calls.append(prompt)
+            if len(calls) == 1:
+                return "not json"
+            return json.dumps({
+                "text": "Clean text.",
+                "blocks": [{"index": 0, "bbox": [0, 0, 100, 20], "text": "Clean text."}],
+                "errors": [],
+                "feedback": {"summary": "Looks clean."},
+            })
+
+        strategy = SinglePassStrategy("single_test", model_call)
+        output = strategy.run(image_path)
+
+        self.assertTrue(output.parse_valid)
+        self.assertTrue(output.repair_attempted)
+        self.assertTrue(output.repair_succeeded)
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(output.text, "Clean text.")
+
+    def test_two_stage_smoke(self) -> None:
+        image_path = self._temp_image()
+
+        def ocr_call(path: Path) -> PipelineOutput:
+            return PipelineOutput(
+                strategy_name="fake_ocr",
+                image=path.name,
+                text="i recieved it.",
+                boxes=[TextBox(index=0, bbox=[10, 10, 90, 30], text="i recieved it.")],
+                stage1_latency=0.1,
+            )
+
+        def grader_call(prompt: str, image_path: Path | None) -> str:
+            return json.dumps({
+                "errors": [{
+                    "type": "spelling",
+                    "bbox": [20, 10, 70, 30],
+                    "description": "Fix spelling.",
+                    "correction": "received",
+                    "evidence_text": "recieved",
+                }],
+                "feedback": {"summary": "Fix the spelling."},
+            })
+
+        strategy = TwoStageStrategy("two_stage_test", ocr_call, grader_call)
+        output = strategy.run(image_path)
+
+        self.assertTrue(output.parse_valid)
+        self.assertEqual(output.stage1_latency, 0.1)
+        self.assertGreaterEqual(output.stage2_latency, 0.0)
+        self.assertEqual(output.errors[0].type, "spelling")
+
+
+if __name__ == "__main__":
+    unittest.main()

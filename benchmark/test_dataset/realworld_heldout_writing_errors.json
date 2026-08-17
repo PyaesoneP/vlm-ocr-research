@@ -1,0 +1,1062 @@
+[
+  {
+    "image": "rw_101.jpg",
+    "split": "clean",
+    "text": "The visitor felt embarrassed when he arrived late to the meeting. He apologised quietly and took a seat near the back. The speaker continued without stopping.",
+    "corrected_text": "The visitor felt embarrassed when he arrived late to the meeting. He apologised quietly and took a seat near the back. The speaker continued without stopping.",
+    "image_size": null,
+    "words": [],
+    "errors": [],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_102.jpg",
+    "split": "clean",
+    "text": "Please keep the blue forms separate from the yellow forms. The boxes are already labelled, so the sorting should be simple. Put the finished stack on my desk.",
+    "corrected_text": "Please keep the blue forms separate from the yellow forms. The boxes are already labelled, so the sorting should be simple. Put the finished stack on my desk.",
+    "image_size": null,
+    "words": [],
+    "errors": [],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_103.jpg",
+    "split": "clean",
+    "text": "The small accident occurred just after lunch. Nobody was hurt, but everyone agreed to be more careful. A short report was written before the office closed.",
+    "corrected_text": "The small accident occurred just after lunch. Nobody was hurt, but everyone agreed to be more careful. A short report was written before the office closed.",
+    "image_size": null,
+    "words": [],
+    "errors": [],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_104.jpg",
+    "split": "clean",
+    "text": "There were a lot of chairs in the hall. We moved them into straight rows before the guests arrived. By noon the room looked ready for the ceremony.",
+    "corrected_text": "There were a lot of chairs in the hall. We moved them into straight rows before the guests arrived. By noon the room looked ready for the ceremony.",
+    "image_size": null,
+    "words": [],
+    "errors": [],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_105.jpg",
+    "split": "clean",
+    "text": "I will definitely call you when the parcel arrives. The shop promised to send a message with the tracking number. Until then, we only have to wait.",
+    "corrected_text": "I will definitely call you when the parcel arrives. The shop promised to send a message with the tracking number. Until then, we only have to wait.",
+    "image_size": null,
+    "words": [],
+    "errors": [],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_106.jpg",
+    "split": "clean",
+    "text": "The school will receive new computers next month. Each classroom will get two machines for shared work. The teachers are planning lessons that use them.",
+    "corrected_text": "The school will receive new computers next month. Each classroom will get two machines for shared work. The teachers are planning lessons that use them.",
+    "image_size": null,
+    "words": [],
+    "errors": [],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_107.jpg",
+    "split": "clean",
+    "text": "Taking care of the class pet is a serious responsibility. The students must feed it every morning and clean its cage twice a week. Everyone gets a turn.",
+    "corrected_text": "Taking care of the class pet is a serious responsibility. The students must feed it every morning and clean its cage twice a week. Everyone gets a turn.",
+    "image_size": null,
+    "words": [],
+    "errors": [],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_108.jpg",
+    "split": "clean",
+    "text": "At the beginning of the story, the main character is nervous. Later she becomes braver and makes a difficult choice. The ending feels hopeful.",
+    "corrected_text": "At the beginning of the story, the main character is nervous. Later she becomes braver and makes a difficult choice. The ending feels hopeful.",
+    "image_size": null,
+    "words": [],
+    "errors": [],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_109.jpg",
+    "split": "clean",
+    "text": "My friend brought fresh bread to the picnic. We shared it with cheese, fruit, and cold lemonade. The weather stayed warm all afternoon.",
+    "corrected_text": "My friend brought fresh bread to the picnic. We shared it with cheese, fruit, and cold lemonade. The weather stayed warm all afternoon.",
+    "image_size": null,
+    "words": [],
+    "errors": [],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_110.jpg",
+    "split": "clean",
+    "text": "The government announced a new plan for public transport. More buses will run during the morning rush hour. The city hopes this will reduce traffic.",
+    "corrected_text": "The government announced a new plan for public transport. More buses will run during the morning rush hour. The city hopes this will reduce traffic.",
+    "image_size": null,
+    "words": [],
+    "errors": [],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_111.jpg",
+    "split": "clean",
+    "text": "We are leaving tomorrow before sunrise. Please pack your coat, your notebook, and the map. The train will not wait if we are late.",
+    "corrected_text": "We are leaving tomorrow before sunrise. Please pack your coat, your notebook, and the map. The train will not wait if we are late.",
+    "image_size": null,
+    "words": [],
+    "errors": [],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_112.jpg",
+    "split": "clean",
+    "text": "It felt weird to walk through the empty school at night. The corridors were silent, and every small sound seemed louder than usual.",
+    "corrected_text": "It felt weird to walk through the empty school at night. The corridors were silent, and every small sound seemed louder than usual.",
+    "image_size": null,
+    "words": [],
+    "errors": [],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_113.jpg",
+    "split": "clean",
+    "text": "Write your full address clearly on the envelope. If the number is hard to read, the letter may be delayed. Use black ink if possible.",
+    "corrected_text": "Write your full address clearly on the envelope. If the number is hard to read, the letter may be delayed. Use black ink if possible.",
+    "image_size": null,
+    "words": [],
+    "errors": [],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_114.jpg",
+    "split": "clean",
+    "text": "I stayed home because the rain was heavy. The road outside our house was covered with water. By evening the sky finally began to clear.",
+    "corrected_text": "I stayed home because the rain was heavy. The road outside our house was covered with water. By evening the sky finally began to clear.",
+    "image_size": null,
+    "words": [],
+    "errors": [],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_115.jpg",
+    "split": "clean",
+    "text": "The library closes early on Fridays. Students who need extra time should borrow their books before lunch. The reading room will reopen on Monday.",
+    "corrected_text": "The library closes early on Fridays. Students who need extra time should borrow their books before lunch. The reading room will reopen on Monday.",
+    "image_size": null,
+    "words": [],
+    "errors": [],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_116.jpg",
+    "split": "clean",
+    "text": "Protecting the environment requires many small habits. We can save water, reuse bags, and turn off lights when rooms are empty.",
+    "corrected_text": "Protecting the environment requires many small habits. We can save water, reuse bags, and turn off lights when rooms are empty.",
+    "image_size": null,
+    "words": [],
+    "errors": [],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_117.jpg",
+    "split": "clean",
+    "text": "It is necessary to check your answers before handing in the test. A simple mistake can change the meaning of a whole sentence.",
+    "corrected_text": "It is necessary to check your answers before handing in the test. A simple mistake can change the meaning of a whole sentence.",
+    "image_size": null,
+    "words": [],
+    "errors": [],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_118.jpg",
+    "split": "clean",
+    "text": "Regular exercise helps me sleep better. I usually walk in the park after dinner. On rainy days I stretch indoors instead.",
+    "corrected_text": "Regular exercise helps me sleep better. I usually walk in the park after dinner. On rainy days I stretch indoors instead.",
+    "image_size": null,
+    "words": [],
+    "errors": [],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_119.jpg",
+    "split": "clean",
+    "text": "The quiet museum opened at ten o'clock. Visitors walked slowly through the rooms and read the notes beside each painting.",
+    "corrected_text": "The quiet museum opened at ten o'clock. Visitors walked slowly through the rooms and read the notes beside each painting.",
+    "image_size": null,
+    "words": [],
+    "errors": [],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_120.jpg",
+    "split": "clean",
+    "text": "My cousin plays the piano every Monday. In January she will perform at a small concert near the town centre.",
+    "corrected_text": "My cousin plays the piano every Monday. In January she will perform at a small concert near the town centre.",
+    "image_size": null,
+    "words": [],
+    "errors": [],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_121.jpg",
+    "split": "positive",
+    "text": "The boy felt embarassed after he dropped his lunch tray. He tried to laugh, but his face turned red. Later he sat at a seperate table with his friends.",
+    "corrected_text": "The boy felt embarrassed after he dropped his lunch tray. He tried to laugh, but his face turned red. Later he sat at a separate table with his friends.",
+    "image_size": null,
+    "words": [],
+    "errors": [
+      {
+        "type": "spelling",
+        "source_label": "SPELL",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "embarassed",
+        "correction": "embarrassed",
+        "description": "",
+        "near": "...felt embarassed after...",
+        "annotation_status": "needs_word_indices"
+      },
+      {
+        "type": "spelling",
+        "source_label": "SPELL",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "seperate",
+        "correction": "separate",
+        "description": "",
+        "near": "...a seperate table...",
+        "annotation_status": "needs_word_indices"
+      }
+    ],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_122.jpg",
+    "split": "positive",
+    "text": "The delay occured during the afternoon storm. A lot of people waited inside the station. The loudspeaker made alot of announcements before the trains moved again.",
+    "corrected_text": "The delay occurred during the afternoon storm. A lot of people waited inside the station. The loudspeaker made a lot of announcements before the trains moved again.",
+    "image_size": null,
+    "words": [],
+    "errors": [
+      {
+        "type": "spelling",
+        "source_label": "SPELL",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "occured",
+        "correction": "occurred",
+        "description": "",
+        "near": "...delay occured during...",
+        "annotation_status": "needs_word_indices"
+      },
+      {
+        "type": "grammar",
+        "source_label": "MERGE",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "alot",
+        "correction": "a lot",
+        "description": "",
+        "near": "...made alot of announcements...",
+        "annotation_status": "needs_word_indices"
+      }
+    ],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_123.jpg",
+    "split": "positive",
+    "text": "I will definately send the letter today. If you recieve it before Friday, please call me. The envelope has the new address on the front.",
+    "corrected_text": "I will definitely send the letter today. If you receive it before Friday, please call me. The envelope has the new address on the front.",
+    "image_size": null,
+    "words": [],
+    "errors": [
+      {
+        "type": "spelling",
+        "source_label": "SPELL",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "definately",
+        "correction": "definitely",
+        "description": "",
+        "near": "...will definately send...",
+        "annotation_status": "needs_word_indices"
+      },
+      {
+        "type": "spelling",
+        "source_label": "SPELL",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "recieve",
+        "correction": "receive",
+        "description": "",
+        "near": "...you recieve it...",
+        "annotation_status": "needs_word_indices"
+      }
+    ],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_124.jpg",
+    "split": "positive",
+    "text": "Feeding the dog is my responsability this week. At the begining of each day, I fill his bowl and check his water. He waits by the kitchen door.",
+    "corrected_text": "Feeding the dog is my responsibility this week. At the beginning of each day, I fill his bowl and check his water. He waits by the kitchen door.",
+    "image_size": null,
+    "words": [],
+    "errors": [
+      {
+        "type": "spelling",
+        "source_label": "SPELL",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "responsability",
+        "correction": "responsibility",
+        "description": "",
+        "near": "...my responsability this...",
+        "annotation_status": "needs_word_indices"
+      },
+      {
+        "type": "spelling",
+        "source_label": "SPELL",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "begining",
+        "correction": "beginning",
+        "description": "",
+        "near": "...the begining of...",
+        "annotation_status": "needs_word_indices"
+      }
+    ],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_125.jpg",
+    "split": "positive",
+    "text": "My best freind moved to another city last year. The goverment built a new road near her neighbourhood. She says the buses are faster now.",
+    "corrected_text": "My best friend moved to another city last year. The government built a new road near her neighbourhood. She says the buses are faster now.",
+    "image_size": null,
+    "words": [],
+    "errors": [
+      {
+        "type": "spelling",
+        "source_label": "SPELL",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "freind",
+        "correction": "friend",
+        "description": "",
+        "near": "...best freind moved...",
+        "annotation_status": "needs_word_indices"
+      },
+      {
+        "type": "spelling",
+        "source_label": "SPELL",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "goverment",
+        "correction": "government",
+        "description": "",
+        "near": "...The goverment built...",
+        "annotation_status": "needs_word_indices"
+      }
+    ],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_126.jpg",
+    "split": "positive",
+    "text": "We will meet tommorow after school. It feels wierd to plan a picnic in winter, but the forecast says it will be warm. Bring a jacket just in case.",
+    "corrected_text": "We will meet tomorrow after school. It feels weird to plan a picnic in winter, but the forecast says it will be warm. Bring a jacket just in case.",
+    "image_size": null,
+    "words": [],
+    "errors": [
+      {
+        "type": "spelling",
+        "source_label": "SPELL",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "tommorow",
+        "correction": "tomorrow",
+        "description": "",
+        "near": "...meet tommorow after...",
+        "annotation_status": "needs_word_indices"
+      },
+      {
+        "type": "spelling",
+        "source_label": "SPELL",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "wierd",
+        "correction": "weird",
+        "description": "",
+        "near": "...feels wierd to...",
+        "annotation_status": "needs_word_indices"
+      }
+    ],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_127.jpg",
+    "split": "positive",
+    "text": "Please write your adress at the top of the form. I missed the first bus becuase I could not find my pass. The office opens at nine.",
+    "corrected_text": "Please write your address at the top of the form. I missed the first bus because I could not find my pass. The office opens at nine.",
+    "image_size": null,
+    "words": [],
+    "errors": [
+      {
+        "type": "spelling",
+        "source_label": "SPELL",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "adress",
+        "correction": "address",
+        "description": "",
+        "near": "...your adress at...",
+        "annotation_status": "needs_word_indices"
+      },
+      {
+        "type": "spelling",
+        "source_label": "SPELL",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "becuase",
+        "correction": "because",
+        "description": "",
+        "near": "...bus becuase I...",
+        "annotation_status": "needs_word_indices"
+      }
+    ],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_128.jpg",
+    "split": "positive",
+    "text": "The libary was closed for repairs all week. A sign near the door said the enviroment inside was unsafe because of dust. Students returned their books online.",
+    "corrected_text": "The library was closed for repairs all week. A sign near the door said the environment inside was unsafe because of dust. Students returned their books online.",
+    "image_size": null,
+    "words": [],
+    "errors": [
+      {
+        "type": "spelling",
+        "source_label": "SPELL",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "libary",
+        "correction": "library",
+        "description": "",
+        "near": "...The libary was...",
+        "annotation_status": "needs_word_indices"
+      },
+      {
+        "type": "spelling",
+        "source_label": "SPELL",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "enviroment",
+        "correction": "environment",
+        "description": "",
+        "near": "...the enviroment inside...",
+        "annotation_status": "needs_word_indices"
+      }
+    ],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_129.jpg",
+    "split": "positive",
+    "text": "It is neccessary to stretch before running. The coach said that daily excercise would help us avoid injuries. Everyone listened carefully.",
+    "corrected_text": "It is necessary to stretch before running. The coach said that daily exercise would help us avoid injuries. Everyone listened carefully.",
+    "image_size": null,
+    "words": [],
+    "errors": [
+      {
+        "type": "spelling",
+        "source_label": "SPELL",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "neccessary",
+        "correction": "necessary",
+        "description": "",
+        "near": "...is neccessary to...",
+        "annotation_status": "needs_word_indices"
+      },
+      {
+        "type": "spelling",
+        "source_label": "SPELL",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "excercise",
+        "correction": "exercise",
+        "description": "",
+        "near": "...daily excercise would...",
+        "annotation_status": "needs_word_indices"
+      }
+    ],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_130.jpg",
+    "split": "positive",
+    "text": "I dont know where the spare keys are. We could of checked the drawer before leaving. Now we have to wait outside until Dad gets home.",
+    "corrected_text": "I don't know where the spare keys are. We could have checked the drawer before leaving. Now we have to wait outside until Dad gets home.",
+    "image_size": null,
+    "words": [],
+    "errors": [
+      {
+        "type": "spelling",
+        "source_label": "SPELL",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "dont",
+        "correction": "don't",
+        "description": "",
+        "near": "...I dont know...",
+        "annotation_status": "needs_word_indices"
+      },
+      {
+        "type": "grammar",
+        "source_label": "GRAMMAR",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "could of",
+        "correction": "could have",
+        "description": "",
+        "near": "...We could of checked...",
+        "annotation_status": "needs_word_indices"
+      }
+    ],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_131.jpg",
+    "split": "positive",
+    "text": "The list of supplies are on the table. Each student needs two pencils and one ruler. The childrens coats should stay on the hooks.",
+    "corrected_text": "The list of supplies is on the table. Each student needs two pencils and one ruler. The children's coats should stay on the hooks.",
+    "image_size": null,
+    "words": [],
+    "errors": [
+      {
+        "type": "grammar",
+        "source_label": "AGREE",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "are",
+        "correction": "is",
+        "description": "",
+        "near": "...supplies are on...",
+        "annotation_status": "needs_word_indices"
+      },
+      {
+        "type": "spelling",
+        "source_label": "SPELL",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "childrens",
+        "correction": "children's",
+        "description": "",
+        "near": "...The childrens coats...",
+        "annotation_status": "needs_word_indices"
+      }
+    ],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_132.jpg",
+    "split": "positive",
+    "text": "Between you and I, the old plan was easier. There were less mistakes when we used the simple form. The new system still needs work.",
+    "corrected_text": "Between you and me, the old plan was easier. There were fewer mistakes when we used the simple form. The new system still needs work.",
+    "image_size": null,
+    "words": [],
+    "errors": [
+      {
+        "type": "grammar",
+        "source_label": "GRAMMAR",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "I",
+        "correction": "me",
+        "description": "pronoun case after preposition",
+        "near": "...you and I,...",
+        "annotation_status": "needs_word_indices"
+      },
+      {
+        "type": "grammar",
+        "source_label": "GRAMMAR",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "less",
+        "correction": "fewer",
+        "description": "",
+        "near": "...were less mistakes...",
+        "annotation_status": "needs_word_indices"
+      }
+    ],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_133.jpg",
+    "split": "positive",
+    "text": "The cold weather can effect the battery in your phone. If you loose power, keep the device in your coat pocket. Warmth often helps.",
+    "corrected_text": "The cold weather can affect the battery in your phone. If you lose power, keep the device in your coat pocket. Warmth often helps.",
+    "image_size": null,
+    "words": [],
+    "errors": [
+      {
+        "type": "spelling",
+        "source_label": "SPELL",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "effect",
+        "correction": "affect",
+        "description": "",
+        "near": "...can effect the...",
+        "annotation_status": "needs_word_indices"
+      },
+      {
+        "type": "spelling",
+        "source_label": "SPELL",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "loose",
+        "correction": "lose",
+        "description": "",
+        "near": "...you loose power...",
+        "annotation_status": "needs_word_indices"
+      }
+    ],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_134.jpg",
+    "split": "positive",
+    "text": "This box is heavier then the last one. It is to large for the shelf, so we should leave it on the floor. Mark it with tape.",
+    "corrected_text": "This box is heavier than the last one. It is too large for the shelf, so we should leave it on the floor. Mark it with tape.",
+    "image_size": null,
+    "words": [],
+    "errors": [
+      {
+        "type": "spelling",
+        "source_label": "SPELL",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "then",
+        "correction": "than",
+        "description": "",
+        "near": "...heavier then the...",
+        "annotation_status": "needs_word_indices"
+      },
+      {
+        "type": "spelling",
+        "source_label": "SPELL",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "to",
+        "correction": "too",
+        "description": "",
+        "near": "...It is to large...",
+        "annotation_status": "needs_word_indices"
+      }
+    ],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_135.jpg",
+    "split": "positive",
+    "text": "The dog wagged it's tail when the door opened. Your going to like the new park near our street. It has a wide path and several benches.",
+    "corrected_text": "The dog wagged its tail when the door opened. You're going to like the new park near our street. It has a wide path and several benches.",
+    "image_size": null,
+    "words": [],
+    "errors": [
+      {
+        "type": "spelling",
+        "source_label": "SPELL",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "it's",
+        "correction": "its",
+        "description": "",
+        "near": "...wagged it's tail...",
+        "annotation_status": "needs_word_indices"
+      },
+      {
+        "type": "spelling",
+        "source_label": "HOMOPHONE",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "Your",
+        "correction": "You're",
+        "description": "",
+        "near": "...Your going to...",
+        "annotation_status": "needs_word_indices"
+      }
+    ],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_136.jpg",
+    "split": "positive",
+    "text": "He go to the gym every Saturday morning. If the machines was busy, he runs outside instead. The route around the lake is quiet.",
+    "corrected_text": "He goes to the gym every Saturday morning. If the machines were busy, he runs outside instead. The route around the lake is quiet.",
+    "image_size": null,
+    "words": [],
+    "errors": [
+      {
+        "type": "grammar",
+        "source_label": "AGREE",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "go",
+        "correction": "goes",
+        "description": "",
+        "near": "...He go to...",
+        "annotation_status": "needs_word_indices"
+      },
+      {
+        "type": "grammar",
+        "source_label": "AGREE",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "was",
+        "correction": "were",
+        "description": "",
+        "near": "...machines was busy...",
+        "annotation_status": "needs_word_indices"
+      }
+    ],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_137.jpg",
+    "split": "positive",
+    "text": "I seen the notice on the classroom door. The teacher done the same activity last year. This time we will work in pairs.",
+    "corrected_text": "I saw the notice on the classroom door. The teacher did the same activity last year. This time we will work in pairs.",
+    "image_size": null,
+    "words": [],
+    "errors": [
+      {
+        "type": "grammar",
+        "source_label": "GRAMMAR",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "seen",
+        "correction": "saw",
+        "description": "",
+        "near": "...I seen the...",
+        "annotation_status": "needs_word_indices"
+      },
+      {
+        "type": "grammar",
+        "source_label": "GRAMMAR",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "done",
+        "correction": "did",
+        "description": "",
+        "near": "...teacher done the...",
+        "annotation_status": "needs_word_indices"
+      }
+    ],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_138.jpg",
+    "split": "positive",
+    "text": "I no the answer to the first question. She new the answer too, but she waited for someone else to speak. The room stayed silent.",
+    "corrected_text": "I know the answer to the first question. She knew the answer too, but she waited for someone else to speak. The room stayed silent.",
+    "image_size": null,
+    "words": [],
+    "errors": [
+      {
+        "type": "spelling",
+        "source_label": "HOMOPHONE",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "no",
+        "correction": "know",
+        "description": "",
+        "near": "...I no the...",
+        "annotation_status": "needs_word_indices"
+      },
+      {
+        "type": "spelling",
+        "source_label": "HOMOPHONE",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "new",
+        "correction": "knew",
+        "description": "",
+        "near": "...She new the...",
+        "annotation_status": "needs_word_indices"
+      }
+    ],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_139.jpg",
+    "split": "positive",
+    "text": "We were not aloud to enter the room before the bell. I saved the last peace of cake for my sister. She thanked me after dinner.",
+    "corrected_text": "We were not allowed to enter the room before the bell. I saved the last piece of cake for my sister. She thanked me after dinner.",
+    "image_size": null,
+    "words": [],
+    "errors": [
+      {
+        "type": "spelling",
+        "source_label": "HOMOPHONE",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "aloud",
+        "correction": "allowed",
+        "description": "",
+        "near": "...not aloud to...",
+        "annotation_status": "needs_word_indices"
+      },
+      {
+        "type": "spelling",
+        "source_label": "HOMOPHONE",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "peace",
+        "correction": "piece",
+        "description": "",
+        "near": "...last peace of...",
+        "annotation_status": "needs_word_indices"
+      }
+    ],
+    "annotation_status": "missing_image_or_size"
+  },
+  {
+    "image": "rw_140.jpg",
+    "split": "positive",
+    "text": "The concert is on monday evening. In january, the same group will visit our school again. We should buy tickets early.",
+    "corrected_text": "The concert is on Monday evening. In January, the same group will visit our school again. We should buy tickets early.",
+    "image_size": null,
+    "words": [],
+    "errors": [
+      {
+        "type": "capitalization",
+        "source_label": "CAPITAL",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "monday",
+        "correction": "Monday",
+        "description": "",
+        "near": "...on monday evening...",
+        "annotation_status": "needs_word_indices"
+      },
+      {
+        "type": "capitalization",
+        "source_label": "CAPITAL",
+        "word_indices": [],
+        "bbox": [
+          0,
+          0,
+          0,
+          0
+        ],
+        "evidence_text": "january",
+        "correction": "January",
+        "description": "",
+        "near": "...In january, the...",
+        "annotation_status": "needs_word_indices"
+      }
+    ],
+    "annotation_status": "missing_image_or_size"
+  }
+]

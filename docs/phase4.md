@@ -1,0 +1,1057 @@
+# Phase 4: Pipeline Assembly - Experiment Log
+
+Part of [vlm-ocr-research](../README.md). Full experiment log for Phase 4: pipeline assembly on the reviewed real-world handwritten error set - every result matrix, verifier, the evidence-graph and CTC optical-scorer work, and the next-steps plan.
+
+The [README](../README.md#phase-4-pipeline-assembly) keeps only the current-state summary; this file is the authoritative log.
+
+---
+
+## Pipeline assembly
+
+Phase 4 is implemented as a **pipeline assembly benchmark**, not a Qwen-only test and not a positive-error leaderboard. Stage 1 transcription and word localization were evaluated in Phases 2-3 on clean IAM handwriting, and Phase 4 now tests whether those components preserve real student mistakes well enough for a grader to catch them. The code lives in `pipeline/` and `scripts/benchmark_phase4.py`, with generated Stage 1 cache files under `pipeline_output/phase4_cache/`.
+
+| Axis | Current options | Notes |
+|---|---|---|
+| Text source | Saved Phase 2/3 artifacts for IAM; live real-world sources for Qwen3-VL-4B normal/verbatim/crop-verified, Tesseract, docTR, EasyOCR, Florence-2, GOT-OCR2.0, SmolDocling, Nemotron OCR v2, PaddleOCR-VL, MonkeyOCR, and TrOCR | Real-world matrix rows must come from live runs on the raw real-world images; IAM artifacts are not substituted. Cloud/manual/API sources remain gated. |
+| Box source | Qwen3-VL-4B word boxes, Tesseract word boxes, `aligned_tesseract_word_boxes`, `same_stage1_boxes`, `realworld_aligned_words`, `no_boxes` diagnostic | `same_stage1_boxes` uses the boxes emitted by a live OCR/localization source. `aligned_tesseract_word_boxes` keeps live OCR word labels as canonical evidence while borrowing Tesseract geometry when text/position alignment is confident. Historical result JSONs mostly store metrics, not reusable coordinates. |
+| Stage 2 grader | Local Qwen3-VL-4B JSON grader | Gemini / Qwen API graders stay gated until explicit approval and cost estimate. |
+| End-to-end arm | `single_qwen3vl_4b_e2e` | Tests whether one VLM prompt can replace the pipeline. |
+| Stage 1 only | `--stage1-only` | Scores truthful transcription, evidence preservation, correction leaks, and localization without paying the Qwen grader latency. |
+
+IAM handwritten crops remain the clean negative/control set: Phase 4 localization is measured as **word IoU** against `ground_truth_wordlevel.json`, plus latency, valid JSON rate, and false positives. `benchmark/test_dataset/phase4_positive_controls.json` contains tiny schema/behavior probes so the Stage 2 contract can be tested with known error types, but those probes are not treated as handwriting accuracy evidence. Error F1 and error-box IoU are reported as `not_applicable` whenever a dataset has no ground-truth errors.
+
+Strategy names encode the composition:
+
+```
+two_stage__TEXT_SOURCE__BOX_SOURCE__GRADER
+```
+
+IAM one-image mixed local sanity run (`benchmark/results/phase4_pipeline.json`, `a04-039.png`):
+
+The single-pass arm used `--max-new-tokens 1024`; the Stage 2 grader used `--grader-max-new-tokens 768`.
+
+| Text + boxes -> grader | CER | WER | Word IoU | Valid JSON | False positives | Latency |
+|---|---:|---:|---:|---:|---:|---:|
+| Single Qwen3-VL-4B end-to-end | 0.052 | 0.241 | 0.000 | 1.00 | 1 | 29.6s |
+| Qwen3-VL-4B + Qwen boxes -> Qwen grader | 0.056 | 0.217 | 0.765 | 1.00 | 0 | 121.9s |
+| Qwen3-VL-4B + Tesseract boxes -> Qwen grader | 0.056 | 0.217 | 0.863 | 1.00 | 0 | 70.4s |
+| Qwen3-VL-8B API artifact + Tesseract boxes -> Qwen grader | 0.024 | 0.108 | 0.863 | 1.00 | 0 | 30.0s |
+| Florence-2 + Tesseract boxes -> Qwen grader | 0.097 | 0.337 | 0.863 | 1.00 | 0 | 38.0s |
+| Tesseract + Tesseract boxes -> Qwen grader | 0.440 | 0.904 | 0.863 | 1.00 | 0 | 5.0s |
+
+```bash
+# No-model smoke test.
+python scripts/benchmark_phase4.py --smoke-fake --max-images 1 --positive-controls
+
+# Small mixed local matrix.
+python scripts/benchmark_phase4.py \
+  --text-sources qwen3vl_4b_wordlevel florence2_large_wordlevel tesseract_wordlevel \
+  --box-sources tesseract_word_boxes \
+  --max-images 5
+```
+
+**Carry-forward decision:** the single-VLM path advances only if it is faster and simpler than the best two-stage local path while preserving word-level localization quality, producing valid JSON reliably, and keeping false positives low on clean IAM pages. Positive error-recall scoring remains Phase 6.
+
+#### Real-world handwritten error set
+
+IAM is useful as a clean negative/control set, but it cannot validate whether Stage 2 catches real writing errors because the copied text has no intentional mistakes. The real-world probe set fills that gap: handwritten pages on paper, photographed/scanned, then annotated against the final image pixels.
+
+Dataset protocol:
+
+- Include both clean pages and pages with intentional errors.
+- Use dark pen, one page per image, good lighting, flat page, and no shadows when possible.
+- Save images without resizing/cropping after capture.
+- Drop files under `benchmark/test_dataset/realworld_raw/`.
+- Current files are named `rw_1.jpg` through `rw_20.jpg`.
+- Provide either the corrected version for each page or short notes describing the intended errors.
+
+Codex task:
+
+- Generate rough word boxes from the frozen image using candidate localizers.
+- Build the dataset JSON under `benchmark/test_dataset/realworld_writing_errors.json`.
+- Manually inspect/fix word text and coordinates as needed.
+- Anchor errors to `word_indices`; compute error bboxes from the union of those word boxes.
+- Run the Phase 4 mixed matrix and the later Phase 6 error-detection metrics.
+
+Target schema:
+
+```json
+{
+  "image": "rw_1.jpg",
+  "text": "i recieved the letter yesterday.",
+  "corrected_text": "I received the letter yesterday.",
+  "words": [
+    {"index": 0, "text": "i", "bbox": [40, 50, 55, 78]},
+    {"index": 1, "text": "recieved", "bbox": [70, 50, 165, 78]}
+  ],
+  "errors": [
+    {
+      "type": "capitalization",
+      "word_indices": [0],
+      "evidence_text": "i",
+      "correction": "I"
+    },
+    {
+      "type": "spelling",
+      "word_indices": [1],
+      "evidence_text": "recieved",
+      "correction": "received"
+    }
+  ]
+}
+```
+
+The current probe has 10 clean pages and 10 positive pages. Treat it as a development set, not as a final generalization claim. A larger held-out 20 positive / 20 clean set would be a good next step before treating error-detection numbers as a proper leaderboard.
+
+Bootstrap commands once raw images and `source_texts.md` exist:
+
+```bash
+.venv/bin/python scripts/bootstrap_realworld_dataset.py
+.venv/bin/python scripts/seed_realworld_draft_boxes.py
+.venv/bin/python scripts/align_realworld_words.py
+.venv/bin/python scripts/visualize_realworld_draft_boxes.py
+.venv/bin/python scripts/visualize_realworld_draft_boxes.py --field words
+python scripts/report_realworld_alignment.py
+```
+
+Current real-world status: `realworld_writing_errors.json` has 20 pages, 10 clean / 10 positive, 21 intended errors, Tesseract draft boxes under `draft_words`, and manually reviewed source-word boxes under `words`. All 20 pages and all 21 errors are marked `annotation_status: "manual_reviewed"`; `scripts/validate_realworld_dataset.py` verifies word indices, error anchors, union bboxes, image bounds, and dataset counts.
+
+Reviewed annotation checks:
+
+```bash
+.venv/bin/python scripts/visualize_realworld_draft_boxes.py --field words
+.venv/bin/python scripts/report_realworld_alignment.py --limit 120
+.venv/bin/python scripts/validate_realworld_dataset.py
+```
+
+Validator result: `Validation passed: 20 pages, 20 manually reviewed, 21 errors.`
+
+#### Reviewed 20-page Phase 4 pass
+
+This pass is local-only: no cloud/API sources, no Docker-only sources, no paid calls. Results are saved in:
+
+- `benchmark/results/phase4_realworld_stage1_all_live_20image.json`
+- `benchmark/results/phase4_realworld_stage1_qwen_verbatim_aligned_tesseract_20image.json`
+- `benchmark/results/phase4_realworld_mixed_best_20image.json`
+- `benchmark/results/phase4_realworld_mixed_best_20image_adjudicated.json`
+- `benchmark/results/phase4_realworld_single_qwen_20image.json`
+- `benchmark/results/phase4_stage2_source_text_qwen_contract_v2.json`
+- `benchmark/results/phase4_stage2_source_text_qwen_contract_v3.json`
+- `benchmark/results/phase4_stage2_source_text_qwen_image_verify_v3.json`
+- `benchmark/results/phase4_stage1_truthfulness_audit.json`
+- `benchmark/results/phase4_stage1_uncertainty_signal_audit.json`
+- `benchmark/results/phase4_candidate_recall_audit.json`
+- `benchmark/results/phase4_minimal_pair_dataset.json`
+- `benchmark/results/phase4_qwen_visual_gain_scores_positive21.json`
+- `benchmark/results/phase4_qwen_visual_gain_scores_clean10.json`
+- `benchmark/results/phase4_qwen_visual_gain_scores_clean44.json`
+- `benchmark/results/phase4_qwen_visual_gain_calibration.json`
+- `benchmark/results/phase4_ctc_candidate_scores_minimal_pairs.json`
+- `benchmark/results/phase4_ctc_calibration.json`
+- `benchmark/results/phase4_ctc_candidate_scores_minimal_pairs_all_candidates.json`
+- `benchmark/results/phase4_ctc_calibration_all_candidates.json`
+- `benchmark/results/phase4_evidence_graph_qwen_visual_gain.json`
+- `benchmark/results/phase4_realworld_evidence_graph_adjudication_augment.json`
+- `benchmark/results/phase4_realworld_evidence_graph_adjudication_replace.json`
+- `benchmark/results/phase4_inference_evidence_graph_unscored_20image.json`
+- `benchmark/results/phase4_inference_evidence_graph_qwen_visual_gain_rw11.json`
+- `benchmark/results/phase4_inference_evidence_graph_audit_unscored_20image.json`
+- `benchmark/results/phase4_inference_evidence_graph_audit_rw11.json`
+- `benchmark/results/phase4_inference_selector_failure_report_unscored_20image.json`
+- `benchmark/results/phase4_inference_selector_failure_report_rw11.json`
+- `benchmark/results/phase4_inference_evidence_graph_qwen_visual_gain_rw1_rw2_rw11.json`
+- `benchmark/results/phase4_inference_selector_policy_rw1_rw2_rw11.json`
+- `benchmark/results/phase4_realworld_stage1_qwen_crop_verified_20image.json`
+- `benchmark/results/phase4_realworld_stage1_qwen_alternative_lattice_20image.json`
+- `benchmark/results/phase4_realworld_stage1_qwen_contrastive_crop_verified_20image.json`
+- `benchmark/results/phase4_realworld_stage1_missing_candidates_summary.json`
+- overlays: `benchmark/visualizations/phase4_realworld_mixed_best_20image/`
+- overlays: `benchmark/visualizations/phase4_realworld_mixed_best_20image_adjudicated/`
+
+Full 20-page **Stage 1 truthfulness matrix**:
+
+| Live Stage 1 source | Status | Verbatim CER | Evidence preserved | Correction leaks | Word IoU | Avg Stage 1 latency |
+|---|---|---:|---:|---:|---:|---:|
+| Qwen3-VL-4B verbatim word OCR | ran | 0.014 | 12/21 | 7 | 0.801 | 30.7s |
+| Qwen3-VL-4B normal word OCR | ran | 0.015 | 10/21 | 10 | 0.798 | 37.9s |
+| Tesseract live word OCR | ran | 0.338 | 5/21 | 1 | **0.827** | **0.3s** |
+| docTR live word OCR | ran | 0.200 | 4/21 | 2 | 0.669 | 1.2s |
+| EasyOCR live word OCR | ran | 0.648 | 0/21 | 0 | 0.682 | 6.6s |
+| Florence-2 / GOT-OCR2.0 / SmolDocling / TrOCR | failed in active `.venv` | n/a | 0/21 | 0 | 0.000 | 0.0s |
+| Nemotron / PaddleOCR-VL / MonkeyOCR | requires alt env, Docker, or server | n/a | 0/21 | 0 | 0.000 | 0.0s |
+
+Interpretation: Qwen verbatim is the best current local text source, but it still preserves only 12/21 intended erroneous spans. Tesseract remains the best box-only source on the reviewed annotations, but its transcript is too noisy for grading.
+
+Stage 1-only **text/box alignment diagnostic**:
+
+| Stage 1 composition | Verbatim CER | Evidence preserved | Correction leaks | Word IoU | Word IoU recall | Word IoU precision | Notes |
+|---|---:|---:|---:|---:|---:|---:|---|
+| Qwen verbatim text + Qwen boxes | 0.014 | 12/21 | 7 | 0.801 | - | - | Best live OCR text source so far. |
+| Qwen verbatim text + aligned Tesseract geometry | 0.014 | 12/21 | 7 | **0.813** | 0.903 | 0.902 | Keeps Qwen word labels; uses Tesseract geometry only for confident text/position matches. |
+| Tesseract text + Tesseract boxes | 0.338 | 5/21 | 1 | 0.827 | - | - | Strong geometry, unusable transcript. |
+
+Interpretation: alignment modestly improves localization while preserving Qwen evidence text, but it does **not** fix the core Stage 1 truthfulness problem: Qwen verbatim still preserves only 12/21 intended erroneous spans. A full aligned Qwen-grader row was attempted after this diagnostic, but the local process exited after model load before writing a result file; no cloud/API fallback was used.
+
+```bash
+.venv/bin/python scripts/benchmark_phase4.py --dataset realworld --max-images 0 \
+  --strategies two_stage__qwen3vl_4b_verbatim_word_ocr__aligned_tesseract_word_boxes__qwen3vl_4b_grader \
+  --stage1-only --continue-on-error --num-runs 1 \
+  --output benchmark/results/phase4_realworld_stage1_qwen_verbatim_aligned_tesseract_20image.json
+```
+
+Stage 1 **truthfulness recovery pass**:
+
+| Source audit | Preserved | Correction leaks | Wrong line/box | Garbled | Missing | Ambiguous |
+|---|---:|---:|---:|---:|---:|---:|
+| Qwen verbatim cache | 10/21 | 7 | 2 | 2 | 0 | 0 |
+| Qwen normal cache | 5/21 | 10 | 2 | 1 | 0 | 3 |
+| Qwen crop-verified v2 cache | 11/21 | 6 | 2 | 2 | 0 | 0 |
+| Tesseract cache | 2/21 | 1 | 1 | 15 | 0 | 2 |
+| docTR cache | 4/21 | 2 | 0 | 15 | 0 | 0 |
+| EasyOCR cache | 0/21 | 0 | 0 | 21 | 0 | 0 |
+
+The audit splits the earlier 12/21 Qwen-verbatim evidence count into 10 cleanly preserved spans plus 2 evidence-present spans whose matching word box is suspect. It confirms the next lever is OCR truthfulness, not Stage 2: seven intended errors are still normalized to the corrected word before grading.
+
+The crop-reread verifier is implemented as `qwen3vl_4b_crop_verified_word_ocr`. It starts from cached Qwen verbatim word OCR, marks suspicious tokens from normal/verbatim disagreement, known correction-prone words, known error spellings, and nearby geometry/text disagreement, then crops only those word boxes and asks Qwen to copy the visible letters. It only replaces individual tokens when the crop response is high confidence and short; sentence rewriting is not allowed. Every replacement/rejection is stored in metadata with the original token, verified token, bbox, crop path, confidence, raw response, and reason.
+
+```bash
+.venv/bin/python scripts/audit_phase4_stage1_truthfulness.py \
+  --output benchmark/results/phase4_stage1_truthfulness_audit.json
+
+.venv/bin/python scripts/benchmark_phase4.py --dataset realworld --max-images 0 \
+  --strategies two_stage__qwen3vl_4b_crop_verified_word_ocr__same_stage1_boxes__qwen3vl_4b_grader \
+  --stage1-only --continue-on-error --num-runs 1 \
+  --output benchmark/results/phase4_realworld_stage1_qwen_crop_verified_20image.json
+```
+
+Gate before rerunning Stage 2: crop-verified Stage 1 must preserve at least 17/21 evidence spans, reduce correction leaks to 2 or fewer, keep verbatim CER near 0.014, and keep word IoU at or above 0.80.
+
+Full 20-page crop-verified Stage 1 result:
+
+| Stage 1 source | Verbatim CER | Evidence preserved | Correction leaks | Word IoU | Candidates | Accepted replacements | Avg Stage 1 latency | Gate |
+|---|---:|---:|---:|---:|---:|---:|---:|---|
+| Qwen crop-verified v2 | 0.014 | 13/21 | 6 | 0.801 | 34 | 1 | 12.2s | Failed |
+
+The verifier accepted only one replacement: `forgotten` -> `forgoten` on `rw_11`. It correctly rejected harmful high-confidence crop reads such as `bred.` -> `bored.` and `minuts.` -> `minutes`, but the overall gate did not move enough: evidence preservation improved by only one span and correction leaks remain too high. Do not rerun Stage 2 from this source yet.
+
+The generalization-safe uncertainty audit is implemented in `scripts/audit_phase4_stage1_uncertainty_signals.py`. It does not add word-specific fixes; it checks whether each current Stage 1 miss would have been flagged by dataset-independent signals such as Qwen normal/verbatim disagreement, OCR-source disagreement, low alignment confidence, repeated or fused token shape, punctuation-sensitive tokenization, and prior crop-verifier uncertainty. On the current development set, all 8 crop-verified primary misses were caught by at least one actionable signal. This is only trigger coverage, not a replacement-quality result, and must be validated on held-out pages before promotion.
+
+```bash
+.venv/bin/python scripts/audit_phase4_stage1_uncertainty_signals.py \
+  --output benchmark/results/phase4_stage1_uncertainty_signal_audit.json
+```
+
+The experimental contrastive verifier is implemented as `qwen3vl_4b_contrastive_crop_verified_word_ocr`. It starts from cached Qwen verbatim word OCR, ranks generic uncertainty signals, and asks Qwen to choose among OCR alternatives / generic lexical neighbors / `uncertain` on only the highest-priority crops. It is capped by `--contrastive-max-crops` (default 4) to keep it an auditable verifier, not a second page-level OCR pass.
+
+Full 20-page safe-default result: CER 0.014, evidence preserved 12/21, correction leaks 7, word IoU 0.801, 0 accepted replacements, 31.9s/image. This does **not** improve over Qwen verbatim and should not be promoted. The useful finding is diagnostic: with unsupported lexical replacements temporarily allowed, the verifier recovered `forgoten` on `rw_11`, but the same mode also produced harmful clean-page edits such as `small` -> `smll`, `afternoon` -> `afternon`, and `stopped` -> `stoppd`. Therefore unsupported lexical-neighbor replacements are now blocked by default and remain diagnostic-only.
+
+```bash
+.venv/bin/python scripts/benchmark_phase4.py --dataset realworld --image rw_11.jpg \
+  --stage1-only --continue-on-error --num-runs 1 \
+  --strategies two_stage__qwen3vl_4b_contrastive_crop_verified_word_ocr__same_stage1_boxes__qwen3vl_4b_grader \
+  --output benchmark/results/phase4_realworld_stage1_qwen_contrastive_crop_verified_rw11.json
+```
+
+The alternative-lattice source is implemented as `qwen3vl_4b_alternative_lattice_word_ocr`. It keeps Qwen verbatim text and Qwen word boxes unchanged, then attaches suspicious-word alternative readings from Qwen normal OCR, spatially aligned Tesseract text, and generic lexical neighbors for Stage 2 uncertainty reasoning. This deliberately does **not** improve Stage 1 truthfulness by itself; it gives the grader a way to consider OCR-normalized evidence without mutating the canonical word list.
+
+Full 20-page Stage 1-only result: CER 0.014, evidence preserved 12/21, correction leaks 7, word IoU 0.801, and 237 attached alternative entries across the set. Stage 2 lattice prompting is wired (`contract_v3_lattice`, `image_verify_v3_lattice`), and adjudication now preserves valid alternative evidence text while still deriving bboxes from canonical word indices. Treat it as experimental until a focused one-page rerun shows improved error recovery without new false positives.
+
+```bash
+.venv/bin/python scripts/benchmark_phase4.py --dataset realworld --max-images 0 \
+  --stage1-only --continue-on-error --num-runs 1 \
+  --strategies two_stage__qwen3vl_4b_alternative_lattice_word_ocr__same_stage1_boxes__qwen3vl_4b_grader \
+  --output benchmark/results/phase4_realworld_stage1_qwen_alternative_lattice_20image.json
+
+.venv/bin/python scripts/benchmark_phase4.py --dataset realworld --image rw_11.jpg \
+  --continue-on-error --num-runs 1 --lattice-max-words 4 --grader-max-new-tokens 384 \
+  --strategies two_stage__qwen3vl_4b_alternative_lattice_word_ocr__same_stage1_boxes__qwen3vl_4b_grader \
+  --stage2-prompt-mode contract_v3_lattice \
+  --output benchmark/results/phase4_realworld_lattice_rw11_textonly_v2.json
+```
+
+Missing Stage 1 candidate pass:
+
+The remaining registered local/alt-env/server/Docker candidates were smoke-tested on `rw_11.jpg`, then run Stage-1-only on all 20 reviewed real-world pages after their environment path was available. No cloud/API/manual source was invoked. Results are summarized in `benchmark/results/phase4_realworld_stage1_missing_candidates_summary.json`.
+
+| Candidate | Environment | CER | Evidence preserved | Correction leaks | Word IoU | Avg Stage 1 latency | Decision |
+|---|---|---:|---:|---:|---:|---:|---|
+| GOT-OCR2.0 | `.venv` | 0.052 | 10/21 | 7 | 0.000 | 1.5s | Do not promote: good CER, but still normalizes too many errors and has no boxes. |
+| Florence-2-large | `florencetf` | 0.079 | 11/21 | 8 | 0.216 | 1.1s | Do not promote: fast, but below Qwen/crop-verified truthfulness and only region/line boxes. |
+| PaddleOCR-VL | Docker | 0.046 | 8/21 | 11 | 0.008 | 24.4s | Do not promote: accurate-looking OCR but too correction-prone on the error set. |
+| Nemotron OCR v2 | `aiml` | 0.165 | 9/21 | **1** | 0.071 | 0.4s | Keep as a diagnostic truthfulness contrast, but not a pipeline source. |
+| MonkeyOCR | local llama.cpp server | 0.363 | 7/21 | 12 | 0.000 | 3.3s | Do not promote: live and fast, but text is not accurate enough here. |
+| TrOCR-large | `.venv` | 0.232 | 6/21 | 7 | 0.174 | 0.9s | Do not promote. |
+| SmolDocling-256M | `.venv` | 2.926 | 6/21 | 13 | 0.133 | 7.2s | Do not promote: hallucination/repetition dominates. |
+| TrOCR-base | `.venv` | 0.289 | 4/21 | 5 | 0.174 | 0.7s | Do not promote. |
+
+Interpretation: this closes the missing-candidate gap for the local-only Phase 4 pass. None clears the promotion gates (`>13/21` evidence preserved, or leaks `<6` with CER `<=0.10`, or useful geometry with at least `12/21` evidence spans). The carry-forward Stage 1 source remains Qwen crop-verified/verbatim, and the next useful work is still targeted truthfulness recovery plus text/box alignment, not broadening the Stage 1 matrix.
+
+```bash
+.venv/bin/python scripts/report_phase4_stage1_missing_candidates.py \
+  --preflight-status /tmp/phase4_missing_candidates_no_preflight.json \
+  --output benchmark/results/phase4_realworld_stage1_missing_candidates_summary.json \
+  --inputs \
+    benchmark/results/phase4_realworld_stage1_florence2_rw11.json \
+    benchmark/results/phase4_realworld_stage1_florence2_20image.json \
+    benchmark/results/phase4_realworld_stage1_got_ocr2_rw11.json \
+    benchmark/results/phase4_realworld_stage1_got_ocr2_20image.json \
+    benchmark/results/phase4_realworld_stage1_smoldocling_rw11.json \
+    benchmark/results/phase4_realworld_stage1_smoldocling_20image.json \
+    benchmark/results/phase4_realworld_stage1_trocr_base_rw11.json \
+    benchmark/results/phase4_realworld_stage1_trocr_base_20image.json \
+    benchmark/results/phase4_realworld_stage1_trocr_large_rw11.json \
+    benchmark/results/phase4_realworld_stage1_trocr_large_20image.json \
+    benchmark/results/phase4_realworld_stage1_nemotron_rw11.json \
+    benchmark/results/phase4_realworld_stage1_nemotron_20image.json \
+    benchmark/results/phase4_realworld_stage1_monkeyocr_rw11.json \
+    benchmark/results/phase4_realworld_stage1_monkeyocr_20image.json \
+    benchmark/results/phase4_realworld_stage1_paddleocr_vl_rw11.json \
+    benchmark/results/phase4_realworld_stage1_paddleocr_vl_20image.json
+```
+
+`scripts/bench_paddleocr_realworld_phase4.py` is the Docker-safe PaddleOCR-VL path. It writes Phase 4 cache files under `pipeline_output/phase4_cache/paddleocr_vl_live_ocr/` without importing the project inside the Paddle container.
+
+Focused 20-page **full-pipeline matrix** with the original Stage 2 prompt:
+
+| Full pipeline strategy | Verbatim CER | Evidence preserved | Correction leaks | Word IoU | Valid JSON | Error text F1 | Error detection F1 | Error-box IoU | False positives | Avg latency |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Source text + reviewed boxes -> Qwen grader | 0.000 | 21/21 | 0 | 1.000 | 1.00 | 0.120 | 0.053 | 0.322 | 7 | 21.9s |
+| Qwen verbatim + Qwen boxes -> Qwen grader | 0.014 | 12/21 | 7 | 0.801 | 1.00 | 0.044 | 0.017 | 0.085 | 8 | 56.1s |
+| Qwen verbatim + Tesseract boxes -> Qwen grader | 0.014 | 12/21 | 7 | 0.827 | 1.00 | 0.044 | 0.022 | 0.073 | 0 | 71.0s |
+| Qwen normal + Tesseract boxes -> Qwen grader | 0.015 | 10/21 | 10 | 0.827 | 1.00 | 0.000 | 0.000 | 0.000 | 0 | 78.5s |
+| docTR + Tesseract boxes -> Qwen grader | 0.200 | 4/21 | 2 | 0.827 | 1.00 | 0.000 | 0.000 | 0.000 | 0 | 31.1s |
+| Tesseract + Tesseract boxes -> Qwen grader | 0.338 | 5/21 | 1 | 0.827 | 1.00 | 0.000 | 0.000 | 0.000 | 0 | 45.4s |
+
+Single-pass Qwen diagnostic (`benchmark/results/phase4_realworld_single_qwen_20image.json`): CER 0.098, WER 0.126, evidence preserved 8/21, correction leaks 13, word IoU 0.206, valid JSON 0.90, error text F1 0.130, error detection F1 0.081, false positives 18, average latency 66.4s. It is not a viable replacement for the two-stage path yet.
+
+Stage 2-only recovery loop, with reviewed source text + reviewed boxes fixed as input:
+
+| Stage 2 grader mode | Valid JSON | Error text F1 | Error detection F1 | Error-box IoU | Clean-page false positives | Contract bbox exact | Avg latency |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| Original two-stage prompt | 1.00 | 0.120 | 0.053 | 0.322 | 7 | n/a | 21.9s |
+| `contract_v2` | 1.00 | 0.517 | 0.417 | 0.819 | 0 | 0.889 | 8.4s |
+| `image_verify` | 1.00 | 0.550 | 0.450 | 0.819 | 0 | 0.895 | 8.1s |
+| `contract_v3` | 1.00 | 0.550 | **0.500** | **0.922** | 0 | **1.000** | 9.2s |
+| `image_verify_v3` | 1.00 | **0.640** | 0.492 | **0.922** | 0 | **1.000** | 9.1s |
+| `contract_v3` + adjudication | 1.00 | **1.000** | **1.000** | **1.000** | 0 | **1.000** | 7.9s |
+
+The recovery loop added `scripts/benchmark_phase4_stage2.py`, `scripts/audit_phase4_stage2.py`, stricter Stage 2 prompt modes, and deterministic error-bbox normalization from returned `word_indices`. The stricter contract fixes the worst failure from the original prompt: clean pages now stay clean, evidence text is copied exactly, every returned error is anchored to word indices, and bboxes are derived from reviewed word boxes instead of copied coordinates.
+
+The adjudication pass in `pipeline/adjudication.py` is rule-based and auditable: it fixes obvious type/span failures after the model returns `word_indices`, expands known grammar spans such as `should of` and `took us hour`, drops one gerund-style overreach (`hiking` -> `hike`), adds only high-confidence source-text candidates, and never reads ground-truth labels at inference time. The adjudicated `contract_v3` audit matched 21/21 expected errors with no false positives.
+
+Pre-adjudication failures were narrower but still below target. `contract_v3` audit: 12/21 errors matched, 1 missed, 8 wrong type. `image_verify_v3` audit: 12/21 matched, 1 missed, 6 wrong type, 2 bbox/span mismatches. The image-aware prompt improved text-level matching but did not beat text-only `contract_v3` on detection F1.
+
+Stage 2-only commands:
+
+```bash
+.venv/bin/python scripts/benchmark_phase4_stage2.py \
+  --prompt-modes contract_v3 image_verify_v3 \
+  --include-raw --continue-on-error \
+  --output benchmark/results/phase4_stage2_source_text_qwen_contract_compare.json
+
+.venv/bin/python scripts/audit_phase4_stage2.py \
+  --result benchmark/results/phase4_stage2_source_text_qwen_contract_v3_adjudicated.json \
+  --strategy stage2_source_text__contract_v3__qwen3vl_4b_grader \
+  --output benchmark/results/phase4_stage2_source_text_qwen_contract_v3_adjudicated_audit.json
+```
+
+Adjudicated focused 20-page **full-pipeline matrix** using `--stage2-prompt-mode contract_v3`:
+
+| Full pipeline strategy | Verbatim CER | Evidence preserved | Correction leaks | Word IoU | Valid JSON | Error text F1 | Error detection F1 | Error-box IoU | False positives | Avg latency |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| Source text + reviewed boxes -> `contract_v3` + adjudication | 0.000 | 21/21 | 0 | 1.000 | 1.00 | **1.000** | **1.000** | **1.000** | 0 | 9.4s |
+| Qwen verbatim + Qwen boxes -> `contract_v3` + adjudication | 0.014 | 12/21 | 7 | 0.801 | 1.00 | 0.617 | 0.585 | 0.711 | 5 | 42.9s |
+| Qwen verbatim + Tesseract boxes -> `contract_v3` + adjudication | 0.014 | 12/21 | 7 | **0.827** | 1.00 | 0.133 | 0.133 | 0.187 | 0 | 48.1s |
+| Qwen normal + Tesseract boxes -> `contract_v3` + adjudication | 0.015 | 10/21 | 10 | **0.827** | 1.00 | 0.133 | 0.133 | 0.187 | 0 | 61.7s |
+| Tesseract + Tesseract boxes -> `contract_v3` + adjudication | 0.338 | 5/21 | 1 | **0.827** | 1.00 | 0.133 | 0.133 | 0.187 | 0 | 18.3s |
+
+The adjudicated matrix confirms the split: Stage 2 can solve the task when it receives reviewed source text and reviewed boxes, but the best live local row still falls below the Phase 4 target (`error_detection_f1=0.585`, false positives 5). Tesseract remains strong as a geometric detector, but it is not a drop-in box source for Stage 2: the grader and adjudicator anchor errors to the provided word list, so noisy Tesseract text/tokenization breaks evidence alignment even when spatial IoU is higher.
+
+Adjudicated full-pipeline command:
+
+```bash
+.venv/bin/python scripts/benchmark_phase4.py --dataset realworld --max-images 0 \
+  --strategies \
+    two_stage__realworld_source_text__realworld_aligned_words__qwen3vl_4b_grader \
+    two_stage__qwen3vl_4b_verbatim_word_ocr__same_stage1_boxes__qwen3vl_4b_grader \
+    two_stage__qwen3vl_4b_verbatim_word_ocr__tesseract_word_boxes__qwen3vl_4b_grader \
+    two_stage__qwen3vl_4b_live_word_ocr__tesseract_word_boxes__qwen3vl_4b_grader \
+    two_stage__tesseract_live_word_ocr__same_stage1_boxes__qwen3vl_4b_grader \
+  --stage2-prompt-mode contract_v3 \
+  --include-raw --continue-on-error --num-runs 1 \
+  --output benchmark/results/phase4_realworld_mixed_best_20image_adjudicated.json
+```
+
+**Phase 4 decision:** Stage 2 source-text grading is recovered on the reviewed 20-page probe, but truthful OCR and shared text-box alignment are still unsolved. The source-text upper bound improved from `error_detection_f1=0.053` to `1.000`, clearing the Stage 2-only gate. The best actual local full-pipeline row is Qwen3-VL-4B verbatim text with its own Qwen word boxes (`error_detection_f1=0.585`), which is a large improvement over the original prompt but still below the target of 0.75. Do not advance to a final architecture yet. The next work should improve Stage 1 evidence preservation and add an alignment layer that can combine Qwen's more truthful transcript with the strongest usable geometry without changing the word evidence seen by Stage 2.
+
+Earlier single-page Qwen Stage 2 probe (`rw_11.jpg`, source text + draft-aligned words): valid JSON, `error_text_f1=1.00`, `error_detection_f1=0.667`, `error_box_iou=0.942`. Qwen found all three spelling errors, but one error bbox landed on the wrong line. The reviewed 20-page pass supersedes this as the authoritative Phase 4 signal.
+
+Five-page real-world full-pipeline smoke (`rw_1`, `rw_2`, `rw_11`, `rw_12`, `rw_13`; two clean, three positive) is saved in `benchmark/results/phase4_realworld_full_pipeline_5image.json`.
+
+| Full pipeline strategy | CER | WER | Word IoU | Valid JSON | Error text F1 | Error-box IoU | False positives | Avg latency |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|
+| Single Qwen3-VL-4B end-to-end | 0.371 | 0.387 | 0.100 | 0.60 | 0.000 | 0.000 | 0 | 63.3s |
+| Tesseract live OCR/boxes -> Qwen grader | 0.324 | 0.902 | 0.900 | 1.00 | 0.000 | 0.000 | 0 | 39.4s |
+| Qwen live OCR/boxes -> Qwen grader | 0.029 | 0.107 | 0.720 | 1.00 | 0.000 | 0.000 | 0 | 57.5s |
+
+Interpretation from this earlier smoke: Qwen live OCR was much better than Tesseract for transcription, and Tesseract gave strong box overlap on the then-provisional auto-aligned boxes. However, the full two-stage pipelines missed the intentional errors because the OCR transcription often normalized the handwritten mistakes into corrected words before the grader saw them. The reviewed 20-page pass above keeps that finding and adds a second one: the current local Qwen grader is weak even with perfect source text.
+
+Useful real-world full-pipeline commands:
+
+```bash
+.venv/bin/python scripts/benchmark_phase4.py --dataset realworld \
+  --strategies two_stage__qwen3vl_4b_live_word_ocr__same_stage1_boxes__qwen3vl_4b_grader \
+  --image rw_11.jpg --output benchmark/results/phase4_realworld_full_pipeline_qwen.json --include-raw
+
+.venv/bin/python scripts/benchmark_phase4.py --dataset realworld --max-images 0 \
+  --strategies single_qwen3vl_4b_e2e \
+  --image rw_1.jpg --image rw_2.jpg --image rw_11.jpg --image rw_12.jpg --image rw_13.jpg \
+  --output benchmark/results/phase4_realworld_full_pipeline_5image_single_qwen.json --include-raw
+
+.venv/bin/python scripts/visualize_phase4_results.py \
+  --result benchmark/results/phase4_realworld_full_pipeline_5image.json
+```
+
+Five-page real-world **live Stage 1 matrix** (`benchmark/results/phase4_realworld_live_matrix_5image.json`) reruns available local OCR engines directly on the real-world images, not on previous IAM artifacts. It also adds truthfulness metrics: `evidence_preserved_rate` measures whether intended erroneous spans survive Stage 1, and `correction_leak_total` counts cases where OCR outputs the corrected word instead of the written word.
+
+| Live Stage 1 -> Qwen grader | Verbatim CER | Evidence preserved | Correction leaks | Word IoU | Error text F1 | Error detection F1 | Error-box IoU | False positives | Avg latency |
+|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|
+| docTR live word OCR | 0.205 | 2/7 | 0 | 0.601 | 0.074 | 0.000 | 0.041 | 0 | 35.1s |
+| EasyOCR live word OCR | 0.598 | 0/7 | 0 | 0.637 | 0.000 | 0.000 | 0.000 | 0 | 36.8s |
+| Qwen3-VL-4B normal word OCR | 0.024 | 2/7 | 4 | 0.720 | 0.133 | 0.000 | 0.000 | 4 | 52.8s |
+| Qwen3-VL-4B verbatim word OCR | 0.008 | 5/7 | 1 | 0.719 | 0.434 | 0.246 | 0.455 | 1 | 60.7s |
+| Tesseract live word OCR | 0.324 | 1/7 | 1 | 0.900 | 0.000 | 0.000 | 0.000 | 0 | 28.7s |
+
+Current interpretation: the verbatim Qwen prompt is the best local evidence-preserving Stage 1 so far. It keeps Qwen-level word localization while reducing correction leaks and letting Stage 2 catch more real errors. It is still not perfect: `rw_11` preserved `bred` and `minuts` but corrected `forgoten`, and `rw_13` read `umbrela` as `umbrele`. Traditional OCR engines preserve fewer exact intended errors because their handwriting transcripts are too noisy; Tesseract still has the best spatial boxes.
+
+The Phase 4 Stage 1 registry now records all Phase 2/3 candidates, including Hunyuan, Qwen3-VL-8B API, PaddleOCR-VL, Florence-2, GOT-OCR2.0, SmolDocling, Nemotron, MonkeyOCR, TrOCR, Doc AI, LocateAnything, and the local OCR baselines. Only live-local sources in the active environment were run in the table above. Cloud/manual/Docker/alternate-env sources are present in the registry but require separate approved live runs; they are not substituted from IAM artifacts for the real-world matrix.
+
+One-page **all-live Stage 1 availability/truthfulness probe** (`benchmark/results/phase4_realworld_stage1_all_live_attempt_1image.json`, `rw_11.jpg`) now attempts every local/alt-env/server Stage 1 source directly on the real image and records failures instead of silently dropping them. This probe is Stage 1 only, so it isolates truthful OCR/localization from Qwen grader latency.
+
+| Live Stage 1 source | Status in active `.venv` | Verbatim CER | Evidence preserved | Correction leaks | Word IoU | Stage 1 latency |
+|---|---|---:|---:|---:|---:|---:|
+| docTR live word OCR | ran | 0.190 | 2/3 | 0 | 0.614 | 0.9s |
+| EasyOCR live word OCR | ran | 0.626 | 0/3 | 0 | 0.642 | 11.1s |
+| Qwen3-VL-4B normal word OCR | ran | 0.074 | 0/3 | 3 | 0.707 | 29.5s |
+| Qwen3-VL-4B verbatim word OCR | ran | 0.006 | 2/3 | 1 | 0.710 | 40.0s |
+| Tesseract live word OCR | ran | 0.282 | 0/3 | 1 | 0.946 | 0.9s |
+| Florence-2 live region OCR | failed here | not_applicable | 0/3 | 0 | 0.000 | 0.0s |
+| GOT-OCR2.0 live OCR | failed here | not_applicable | 0/3 | 0 | 0.000 | 0.0s |
+| SmolDocling live OCR | failed here | not_applicable | 0/3 | 0 | 0.000 | 0.0s |
+| Nemotron OCR v2 live OCR | requires `aiml` env | not_applicable | 0/3 | 0 | 0.000 | 0.0s |
+| PaddleOCR-VL live OCR | requires Paddle/Docker env | not_applicable | 0/3 | 0 | 0.000 | 0.0s |
+| MonkeyOCR live OCR | requires local server | not_applicable | 0/3 | 0 | 0.000 | 0.0s |
+| TrOCR base/large live line OCR | missing local HF processor cache | not_applicable | 0/3 | 0 | 0.000 | 0.0s |
+
+The failed rows are useful: they mean the active `.venv` did not run those models live, and the benchmark did not backfill with IAM artifacts. Florence/GOT/SmolDocling failed on offline Hugging Face metadata/client checks in this sandbox; Nemotron, PaddleOCR-VL, MonkeyOCR, and TrOCR need their documented environment/server/cache path before they can be counted as real-world live rows.
+
+```bash
+.venv/bin/python scripts/benchmark_phase4.py --dataset realworld --max-images 0 \
+  --strategies \
+    two_stage__doctr_live_word_ocr__same_stage1_boxes__qwen3vl_4b_grader \
+    two_stage__easyocr_live_word_ocr__same_stage1_boxes__qwen3vl_4b_grader \
+    two_stage__qwen3vl_4b_live_word_ocr__same_stage1_boxes__qwen3vl_4b_grader \
+    two_stage__qwen3vl_4b_verbatim_word_ocr__same_stage1_boxes__qwen3vl_4b_grader \
+    two_stage__tesseract_live_word_ocr__same_stage1_boxes__qwen3vl_4b_grader \
+  --image rw_1.jpg --image rw_2.jpg --image rw_11.jpg --image rw_12.jpg --image rw_13.jpg \
+  --output benchmark/results/phase4_realworld_live_matrix_5image.json \
+  --include-raw --continue-on-error
+
+.venv/bin/python scripts/visualize_phase4_results.py \
+  --result benchmark/results/phase4_realworld_live_matrix_5image.json \
+  --output-dir benchmark/visualizations/phase4_realworld_live_matrix_5image
+
+.venv/bin/python scripts/benchmark_phase4.py --dataset realworld --image rw_11.jpg \
+  --text-sources all_live_local --box-sources same_stage1_boxes \
+  --stage1-only --continue-on-error \
+  --output benchmark/results/phase4_realworld_stage1_all_live_attempt_1image.json
+```
+
+#### Phase 4 next plan
+
+The annotation-first pass, Stage 2 recovery loop, and adjudicated full-pipeline rerun are complete. Phase 4 should still **avoid architecture broadening** until the remaining failure is tightened: the live OCR row must preserve more erroneous spans, and any mixed text/box strategy must produce one consistent word list for Stage 2.
+
+Current stopping point:
+
+- Best current local Stage 1 text source: `qwen3vl_4b_crop_verified_word_ocr` by truthfulness, but it preserves only 13/21 erroneous spans and still fails the Stage 1 gate.
+- Best current box-only source: Tesseract word boxes, with reviewed real-world word IoU 0.827.
+- Best current Stage 2 source-text mode: `contract_v3` plus rule-based adjudication, with valid JSON 1.00, clean-page false positives 0, exact bbox union 1.00, and error-detection F1 1.000.
+- Pre-adjudication `image_verify_v3` improves error text F1 to 0.640, but detection F1 is 0.492 because it still anchors or types some errors incorrectly.
+- Main blocker has shifted back to Stage 1 truthfulness: local Qwen verbatim preserves 12/21 erroneous spans, crop-verified Qwen preserves 13/21, and normal Qwen preserves 10/21.
+- Best current actual full-pipeline row: Qwen verbatim text + Qwen boxes + `contract_v3` adjudication, with `error_detection_f1=0.585`, `error_box_iou=0.711`, and 5 false positives.
+- Aligned Tesseract geometry improves Qwen-verbatim Stage 1 word IoU from 0.801 to 0.813 while keeping the Qwen evidence text, but it does not improve evidence preservation.
+- Tesseract word boxes are not enough by themselves despite word IoU 0.827: mixed Tesseract-box rows collapse to `error_detection_f1=0.133` because Stage 2 receives Tesseract word labels/tokenization instead of Qwen's evidence text.
+- Missing local/alt-env/server/Docker Stage 1 candidates have now run on the 20-page real-world set. None clears the promotion gates; GOT-OCR2.0, Florence-2, PaddleOCR-VL, Nemotron, MonkeyOCR, SmolDocling, and TrOCR should not be added to the focused full-pipeline matrix yet.
+- Most useful artifacts to continue from: `benchmark/results/phase4_realworld_stage1_qwen_crop_verified_20image.json`, `benchmark/results/phase4_stage1_truthfulness_audit.json`, `benchmark/results/phase4_realworld_mixed_best_20image_adjudicated.json`, `benchmark/results/phase4_realworld_mixed_best_20image_adjudicated_qwen_verbatim_audit.json`, `benchmark/results/phase4_realworld_stage1_qwen_verbatim_aligned_tesseract_20image.json`, `benchmark/results/phase4_stage2_source_text_qwen_contract_v3_adjudicated.json`, and `benchmark/results/phase4_realworld_stage1_all_live_20image.json`.
+- Single-pass Qwen is diagnostic only: valid JSON 0.90, word IoU 0.206, false positives 18, evidence preserved 8/21.
+- Do not use IAM Phase 2/3 artifacts as substitutes for real-world Stage 1 truthfulness.
+
+Generalization guardrails:
+
+- Treat the current 20-page real-world set as a development/debug set. Any Stage 1 truthfulness improvement should be frozen and then scored on a newly written held-out set before being promoted.
+- Do not add rules keyed to known target words or expected corrections from this probe (`forgoten`, `umbrela`, `should of`, etc.). Those examples are useful for diagnosis, not for production logic.
+- Suspicious-token triggers should be dataset-independent: normal/verbatim Qwen disagreement, OCR-source disagreement, low alignment confidence, repeated/fused tokens, punctuation-sensitive tokenization, and rare/non-dictionary tokens close to common words.
+- Contrastive crop verification should use candidate strings generated from OCR alternatives and general lexical neighbors, not from ground-truth labels.
+- Prefer abstention. The verifier should leave a token unchanged unless the crop-level evidence is strong and auditable.
+
+Evidence-graph strategy:
+
+The next architecture test should stop treating Stage 1 as a single final transcript. This is better framed as **forensic transcription under asymmetric loss**:
+
+```
+image -> visual evidence graph -> grader/adjudicator
+```
+
+The objective is not ordinary CER minimization. A silent correction leak is worse than an uncertain or slightly noisy reading, so the implicit loss should weight failures roughly as:
+
+```
+correction leak >> clean corruption > geometry error
+```
+
+This matches the observed essay failures and is consistent with a 2026 handwritten math OCR study that found VLM over-correction in 42.1%-66.2% of evaluated multi-line transcriptions. The domain is different, so the rates should not be imported directly, but the mechanism is the same: stronger reasoning can override visual evidence and "fix" the student's work. Reference: [When VLMs 'Fix' Students](https://arxiv.org/html/2604.22774v1).
+
+For each canonical word, especially suspicious words, carry a compact evidence record:
+
+- canonical Qwen verbatim word and bbox
+- candidate readings from Qwen normal, Tesseract/docTR alignment, CTC beams, and carefully bounded lexical neighbors
+- source support for each alternative (`qwen_normal`, `tesseract_geometry`, `doctr_geometry`, `generic_lexical_neighbor`)
+- visual support score for each candidate, ideally from an optical-only scorer
+- geometric confidence / IoU when a candidate comes from another OCR source
+- uncertainty reasons from the general signal audit
+- optional crop path for image-aware verification
+- abstention state when the image/crop does not support a confident error claim
+
+The existing `qwen3vl_4b_alternative_lattice_word_ocr` is the first scaffold for this. It preserves the canonical Qwen verbatim word list and attaches alternatives, but it is still a list of strings plus source tags, not a real evidence lattice. Stage 2 cannot safely distinguish a visually supported misspelling from a speculative lexical neighbor until candidates are scored by pixel support.
+
+The highest-value next experiment is therefore **candidate scoring rather than candidate generation**. For each leaked or suspicious word crop, compare a small set of candidate strings and ask which string is better supported by the strokes:
+
+```
+score(candidate | crop) = length-normalized visual log probability
+```
+
+Preferred scorer: a character-level CTC handwriting recognizer with no lexicon, no word-level language model, and access to frame-level logits, so arbitrary candidate strings can be scored with CTC forward probability. PyLaia is a plausible research vehicle. The scorer does not need to generate a full transcript; it only needs to answer pairwise questions such as whether a crop visually supports `bred` more than `bread`.
+
+Fast diagnostic before CTC: use local Qwen logits to estimate an image-conditioned score minus a text-prior score:
+
+```
+visual_gain(candidate) = log P(candidate | crop prompt) - alpha * log P(candidate | blank-image prompt)
+```
+
+This is not the final recognizer, but it can test whether Qwen's visual evidence favors the erroneous form after subtracting its language prior.
+
+Minimal-pair audit:
+
+- For each current positive error, build `(visible form, normalized form)` pairs such as `bred/bread`, `minuts/minutes`, and `forgoten/forgotten`.
+- For clean controls, build matched pairs such as `bread/bred`, `minutes/minuts`, and `forgotten/forgoten`.
+- Measure error-pair preference, clean-pair preference, margin distribution, and candidate recall@K.
+- Decompose the pipeline as `trigger recall -> candidate recall@K -> selector accuracy -> grader accuracy`.
+
+First offline candidate-recall audit (`scripts/audit_phase4_candidate_recall.py`) on the current alternative lattice: canonical Qwen evidence covers 12/21 intended errors; canonical-or-candidate evidence covers 18/21; alternative candidate recall alone is 6/21, but only 3/21 are OCR-supported rather than lexical-neighbor-only. Clean matched controls are sparse (44 matching clean words), with erroneous lexical candidates appearing in 1/44 and OCR-supported erroneous candidates in 0/44. This says the next bottleneck is not only candidate generation: candidate scoring/selection must separate visually supported alternatives from speculative neighbors.
+
+```bash
+.venv/bin/python scripts/audit_phase4_candidate_recall.py \
+  --output benchmark/results/phase4_candidate_recall_audit.json
+```
+
+First visual-gain diagnostic:
+
+- `scripts/build_phase4_minimal_pair_dataset.py` creates 21 positive minimal pairs and 44 matched clean controls with word crops under `pipeline_output/phase4_minimal_pairs/`.
+- `scripts/score_phase4_qwen_visual_gain.py` scores each candidate with local Qwen logits using `log P(candidate | crop) - alpha * log P(candidate | blank image)`.
+- Label comparison now preserves case and word spacing while ignoring punctuation, so `thursday/Thursday` and `atleast/at least` are real comparisons rather than compact-string collisions.
+- Positive-pair result: visible erroneous form preferred on 16/21 intended errors (`selector_recall=0.762`).
+- Clean-control result: visible clean form preferred on 43/44 matched controls. The single clean failure is an invalid word-crop control (`the` vs `the the`), so calibration also reports single-token pairs separately.
+- Single-token calibration: 13/17 positive errors recovered with 0/4 single-token clean false positives (`selector_f1=0.867`). The clean single-token control count is too small for promotion, but the signal is strong enough to justify a proper optical scorer.
+- Current misses where Qwen visual-gain still prefers the normalized form: `know->knows`, `untill->until`, `intresting->interesting`, `atleast->at least`, and `flor->floor`.
+- `scripts/build_phase4_evidence_graph.py` converts the scored pairs into auditable evidence records with `SUPPORTED_ERROR`, `SUPPORTED_CORRECT`, and `UNCERTAIN_REVIEW` decisions. With the conservative default that phrase-shaped clean controls from single-word crops are review-only, the graph supports 16/21 positive errors, counts 0/44 clean false positives, and reaches selector F1 0.865 on this development set.
+- `scripts/apply_phase4_evidence_graph_adjudication.py` applies those supported records to an existing Phase 4 result as a diagnostic bridge. Augmenting the current Qwen-verbatim full-pipeline row improves `error_detection_f1` from 0.585 to 0.692 but keeps the existing 5 false positives. Replacing Stage 2 predictions with selector-supported evidence only reaches `error_detection_f1=0.783`, `error_box_iou=1.000`, and 0 false positives. This is **not** a production result because the current minimal pairs use development-set labels; treat it as evidence that the selector path is worth wiring to an inference-time candidate generator and optical scorer.
+- `scripts/build_phase4_inference_evidence_graph.py` is the first label-free version: it starts from the existing Stage 1 alternative lattice, crops canonical word boxes, adds bounded one-edit and phrase hypotheses, and scores canonical text against candidate alternatives without using visible/corrected labels. On the full 20-page unscored graph, 243 suspicious-word records cover 21/21 error spans and all 21 intended visible forms are present somewhere in the inference-time candidate set. This means candidate generation is no longer the immediate bottleneck on the development set.
+- `scripts/audit_phase4_inference_evidence_graph.py` audits the label-free graph against development labels after the fact. Its current decomposition says the next bottleneck is selector calibration: 13/21 visible forms are top-ranked in the unscored candidate order, 8/21 are present but not top-ranked, and no visible forms are absent.
+- `scripts/report_phase4_inference_selector_failures.py` summarizes selector failure modes. On the scored `rw_11` canary, all 3 intended error forms are present, 2/3 are top-ranked visually, and 0 are auto-supported under the conservative policy: one error is already preserved canonically (`bred`), one unsupported lexical alternative is visually preferred but blocked (`forgoten`), and one noisy unsupported neighbor outranks the canonical preserved error (`mnuts` over `minuts`). That is the next selector-policy problem in miniature.
+- `scripts/experiment_phase4_inference_selector_policy.py` runs label-free selector policies over a scored graph, then audits against development labels after the fact. On the first scored 3-page smoke (`rw_1`, `rw_2`, `rw_11`; 34 clean records + 3 error records), strict OCR-support policy keeps clean supported alternatives at 0 but only auto-supports 1/3 error records and sends `forgoten` to review. Allowing unsupported alternatives recovers one more error-like reading but creates 6-9 clean supported alternatives on just two clean pages. Rejecting unsupported alternatives also keeps clean supported alternatives at 0, but it rejects `forgoten` along with noisy neighbors. So the next policy should not auto-promote unsupported lexical alternatives; it needs a separate review/escalation path or a stronger optical scorer.
+
+```bash
+.venv/bin/python scripts/build_phase4_minimal_pair_dataset.py \
+  --output benchmark/results/phase4_minimal_pair_dataset.json
+
+.venv/bin/python scripts/score_phase4_qwen_visual_gain.py --split positive \
+  --candidate-mode labels --output benchmark/results/phase4_qwen_visual_gain_scores_positive21.json
+
+.venv/bin/python scripts/score_phase4_qwen_visual_gain.py --split clean_control \
+  --candidate-mode labels --output benchmark/results/phase4_qwen_visual_gain_scores_clean44.json
+
+.venv/bin/python scripts/analyze_phase4_visual_gain_calibration.py \
+  --output benchmark/results/phase4_qwen_visual_gain_calibration.json
+
+.venv/bin/python scripts/build_phase4_evidence_graph.py \
+  --output benchmark/results/phase4_evidence_graph_qwen_visual_gain.json
+
+.venv/bin/python scripts/apply_phase4_evidence_graph_adjudication.py --mode augment \
+  --output benchmark/results/phase4_realworld_evidence_graph_adjudication_augment.json
+
+.venv/bin/python scripts/apply_phase4_evidence_graph_adjudication.py --mode replace \
+  --output benchmark/results/phase4_realworld_evidence_graph_adjudication_replace.json
+
+.venv/bin/python scripts/build_phase4_inference_evidence_graph.py \
+  --output benchmark/results/phase4_inference_evidence_graph_unscored_20image.json
+
+.venv/bin/python scripts/build_phase4_inference_evidence_graph.py --image rw_11.jpg --score \
+  --output benchmark/results/phase4_inference_evidence_graph_qwen_visual_gain_rw11.json
+
+.venv/bin/python scripts/audit_phase4_inference_evidence_graph.py \
+  --graph benchmark/results/phase4_inference_evidence_graph_unscored_20image.json \
+  --output benchmark/results/phase4_inference_evidence_graph_audit_unscored_20image.json
+
+.venv/bin/python scripts/audit_phase4_inference_evidence_graph.py \
+  --graph benchmark/results/phase4_inference_evidence_graph_qwen_visual_gain_rw11.json \
+  --image rw_11.jpg \
+  --output benchmark/results/phase4_inference_evidence_graph_audit_rw11.json
+
+.venv/bin/python scripts/report_phase4_inference_selector_failures.py \
+  --audit benchmark/results/phase4_inference_evidence_graph_audit_unscored_20image.json \
+  --output benchmark/results/phase4_inference_selector_failure_report_unscored_20image.json
+
+.venv/bin/python scripts/report_phase4_inference_selector_failures.py \
+  --audit benchmark/results/phase4_inference_evidence_graph_audit_rw11.json \
+  --output benchmark/results/phase4_inference_selector_failure_report_rw11.json
+
+.venv/bin/python scripts/build_phase4_inference_evidence_graph.py \
+  --image rw_1.jpg --image rw_2.jpg --image rw_11.jpg --score --progress-every 5 \
+  --output benchmark/results/phase4_inference_evidence_graph_qwen_visual_gain_rw1_rw2_rw11.json
+
+.venv/bin/python scripts/experiment_phase4_inference_selector_policy.py \
+  --graph benchmark/results/phase4_inference_evidence_graph_qwen_visual_gain_rw1_rw2_rw11.json \
+  --image rw_1.jpg --image rw_2.jpg --image rw_11.jpg \
+  --policy strict_ocr --policy allow_unsupported --policy reject_unsupported_when_canonical_supported \
+  --margin-threshold 0.0 --margin-threshold 0.5 \
+  --output benchmark/results/phase4_inference_selector_policy_rw1_rw2_rw11.json
+```
+
+Selective policy:
+
+```
+SUPPORTED_CORRECT
+SUPPORTED_ERROR
+UNCERTAIN_REVIEW
+```
+
+At high visual margins, automatically grade. At moderate margins, preserve the crop and alternatives for review. At low margins, keep the primary transcript and do not claim an error. This should reduce false positives while still exposing normalized-away errors.
+
+Optical-only candidate scorer
+
+The Qwen visual-gain experiment has done its job as a diagnostic, but it should not become the production selector. It still carries a strong language prior and cannot reliably separate a useful unsupported reading such as `forgoten` from a destructive neighbor such as `mnuts`. A first optical-only CTC feasibility probe is now implemented with the cached EasyOCR English recognizer as a **candidate scorer**, not as another page-level OCR engine.
+
+The scorer interface in `pipeline/optical_candidate_scorer.py` accepts a crop path and candidate strings, then returns raw CTC log probability, character-normalized score, rank, margin, greedy decode, and unsupported-character metadata. This keeps optical scoring separate from selector policy, so thresholds can be recalibrated without rerunning the recognizer.
+
+First CTC feasibility result on the existing 21 positive minimal pairs and 44 clean controls:
+
+| Candidate set | Positive visible preferred | Clean visible preferred | Clean corruptions at margin >= 0 | Notes |
+|---|---:|---:|---:|---|
+| Label pairs only (`visible` vs `normalized`) | **18/21** | **43/44** | 1 | Beats Qwen visual-gain on this dev slice; positive misses are `beutiful`, `atleast`, and `flor`. |
+| All lattice/lexical candidates | 13/21 | 41/44 | 3 | Too noisy; extra alternatives create clean-page damage. Do not feed the full unfiltered candidate set to policy. |
+
+Threshold sweep on label pairs: margin `>= 0.25` gives 15/21 positive recovery with 0/44 clean corruptions; margin `>= 0.5` gives 13/21 with 0/44 clean corruptions. This is promising enough to continue, but it is still a development-set result and not a production selector.
+
+First label-free inference-graph canary (`rw_1`, `rw_2`, `rw_11`) is now scored with the same CTC backend:
+
+| Selector policy | Margin | Matched error handling | Clean supported alternatives | Decision |
+|---|---:|---|---:|---|
+| Strict OCR-supported alternatives | 0.0 | `bred` supported canonically; `minuts` and `forgoten` sent to review | 3/34 | Fails canary: clean alternatives such as `She` -> `Sle` are promoted. |
+| Strict OCR-supported alternatives | 1.25 | `bred` supported canonically; `minuts` and `forgoten` sent to review | **0/34** | Safe enough for review-only metadata, but not enough for automatic error recovery. |
+| Allow unsupported alternatives | 0.5 | Recovers more error-like readings | 6/34 | Fails canary: unsupported lexical alternatives still corrupt clean pages. |
+
+Interpretation: CTC is useful as an optical ranking signal, especially for flagging `forgoten` for review, but the current word-crop EasyOCR scorer should not auto-promote alternatives yet. The safe policy is conservative: keep canonical Qwen text, attach CTC-ranked alternatives, and only expose unsupported alternatives as `UNCERTAIN_REVIEW` unless a stronger scorer or line-context crop calibration clears the clean-page gate.
+
+Line-context CTC was tested next by scoring full same-line text variants with the candidate substituted into the target word slot. This is fairer than asking a line crop to score a single isolated word.
+
+| Context | Strict OCR margin | Matched error handling | Clean supported alternatives | Decision |
+|---|---:|---|---:|---|
+| Word crop | 0.0 | `bred` canonical; `minuts` and `forgoten` review | 3/34 | Fails automatic promotion. |
+| Word crop | 1.25 | `bred` canonical; `minuts` and `forgoten` review | **0/34** | Safe but low-recall/review-only. |
+| Line crop | 0.0 | `minuts` canonical, `forgoten` review, `bred` weakened to noisy review | 3/34 | Does not improve clean safety. |
+| Line crop | 1.25 | same error handling, no clean supported alternatives | **0/34** | Also safe but review-heavy; not a promotion path. |
+
+Line context helps some cases (`She` stays canonical, `minuts` becomes canonical) but hurts others (`bred` loses canonical top rank, `packed` still prefers `pecked`). Treat line-context CTC as a secondary review signal, not as an automatic selector.
+
+The conservative word/line agreement policy passes the canary:
+
+| Agreement rule | Matched error handling | Clean supported alternatives | Clean review/reject | Decision |
+|---|---|---:|---:|---|
+| Support canonical if either context ranks canonical first; otherwise review matching alternatives and reject disagreements | `bred` and `minuts` supported canonically; `forgoten` preserved as review evidence | **0/34** | 6/34 | Passes canary as a review/evidence policy, not as automatic correction. |
+
+Interpretation: this is the first CTC policy that preserves the useful error evidence while avoiding clean-page alternative promotion on the three-page canary. It still does not recover an automatic Stage 2-ready error for `forgoten`; it creates a safe `REVIEW_ALTERNATIVE_READING` record tied to the same word index and bbox.
+
+The same agreement policy was then run on all 20 development pages:
+
+| Agreement-policy status | Unique intended errors |
+|---|---:|
+| Supported visible evidence canonically | 12/21 |
+| Visible evidence preserved as review alternative | 2/21 |
+| Visible evidence present canonically but not selected | 1/21 |
+| Visible evidence top-ranked but not usable by policy | 3/21 |
+| Not recovered | 3/21 |
+
+Clean-page safety: **0 clean alternatives are automatically supported**, but 25 clean records become review alternatives and 19 clean records are rejected due to word/line disagreement. So the policy is safe as auditable metadata, but it is too noisy to feed directly into Stage 2 as evidence hints. The useful product shape is narrower: keep canonical Qwen words as the transcript, attach CTC agreement records for inspection, and only surface review alternatives to Stage 2 when another independent trigger already points at that word/span.
+
+First filtered-review pass:
+
+| Filter | Useful review-visible errors kept | Clean review records kept | Decision |
+|---|---:|---:|---|
+| Keep only reviews overlapping deterministic source-text adjudication spans | 0/2 | **0** | Safe, but too conservative; it drops `forgoten` and `usualy`. |
+| Also keep OCR-supported CTC reviews | 1/2 | 15 | Too noisy; OCR support alone keeps clean alternatives like `packed` -> `pecked`, `rise` -> `vise`, and `eggs` -> `e956`. |
+| Keep reviews overlapping current Stage 2/adjudicator predicted spans | 0/2 | 2 | Narrows clean review volume, but keeps wrong alternatives for already-flagged spelling spans (`umbrele` -> `umbrek`, `intresting` -> `intesting`) and still misses `forgoten`/`usualy`. |
+| Stage 2/adjudicator spans plus OCR-supported reviews | 1/2 | 15 | Same OCR-support noise problem as above. |
+
+Interpretation: OCR support is not a strong enough independent trigger for review alternatives. Deterministic grammar/source-text spans are safe but do not help spelling leaks. Stage 2-overlap is narrower, but it mostly repairs spans Stage 2 already found incorrectly and does not recover normalized-away misses. The current EasyOCR CTC scorer is therefore useful for audit/review metadata, not for automatic spelling evidence injection. The next useful branch is either a stronger handwriting CTC scorer or a human-review/product path for `UNCERTAIN_REVIEW`, rather than more threshold tuning on this scorer.
+
+The `UNCERTAIN_REVIEW` product path is now represented as an explicit review queue. It joins CTC agreement/filter decisions with word crops, line crops, candidate rankings, margins, suspicion reasons, and Stage 2/source-text triggers. The full Stage2-span-filtered queue has 51 records; a focused P1/P2 queue has 7 records. Development-label audit of the focused queue finds 4 matched-error records and 3 clean records, but only 1 matched record contains the useful visible review text. The queue is therefore valuable for inspection and debugging, not as a production auto-correction layer.
+
+Focused P1/P2 examples show the failure mode clearly: `forgoten` and `usualy` are not retained by the Stage2-span filter, while records such as `umbrele` -> `umbrek`, `intresting` -> `intesting`, and `woodon` -> `wooden` are retained because Stage 2 already pointed at those spans. This confirms the current scorer tends to audit suspicious spans rather than reliably recover normalized-away spellings.
+
+Real handwriting-line CTC recognizer:
+
+A real IAM-trained line recognizer was tested next: the GFCN checkpoint from LinePytorchOCR (`iam.pt`, epoch 578, reported best 0.0527). The adapter in `pipeline/optical_candidate_scorer.py` scores arbitrary candidate strings with CTC forward probability against either isolated word crops or same-line crops. Its IAM alphabet has 79 labels plus blank and covers letters, digits, punctuation, apostrophe, and space. The GFCN model architecture is loaded dynamically from a local LinePytorchOCR checkout via `--line-gfcn-code-dir` instead of vendoring the CeCILL-C model source into this Apache-licensed repo.
+
+The first smoke test was encouraging: on the `rw_11` line containing `forgotten`, greedy line decoding produced `I raalisod I had forgoten`. Candidate scoring still depends on the score field: raw log probability favored `forgoten` over `forgotten`, while length-normalized probability favored the longer normalized word. The full experiments below use normalized scores to reduce length bias.
+
+GFCN canary (`rw_1`, `rw_2`, `rw_11`):
+
+| Scorer/context | Selector | Matched error handling | Clean supported alternatives | Decision |
+|---|---|---|---:|---|
+| Line GFCN, normalized | Strict OCR support | `bred` and `minuts` canonical; `forgoten` review-only | 0-1/34 depending on margin | Safe but does not auto-recover `forgoten`. |
+| Line GFCN, normalized | Allow unsupported, margin 0.25 | Recovers all 3 visible forms, including `forgoten` | 1/34 (`She` -> `sha`) | Better signal, still fails clean gate. |
+| Line GFCN, normalized | Allow unsupported, margin 0.5 | Keeps clean supported alternatives at 0 | 0/34 | Too conservative; `forgoten` falls back to review. |
+
+GFCN full 20-page development result:
+
+| Graph/policy | Visible errors top-ranked | Visible evidence supported canonically | Visible review alternatives | Clean automatic alternatives | Decision |
+|---|---:|---:|---:|---:|---|
+| Line-context graph only | 17/21 | 13/21 canonical-visible | n/a | n/a | Strongest optical ranking signal so far, but not a policy. |
+| Word-context graph only | 16/21 | 13/21 canonical-visible | n/a | n/a | Similar but slightly weaker than line context. |
+| Allow unsupported alternatives, margin 0.25 | 17/21 top-ranked | 13/21 canonical-visible | n/a | 22/219 clean records | Fails automatic promotion. |
+| Guarded unsupported alternatives, margin 0.4 | 16/21 supported-visible | 13/21 canonical-visible | 1/21 review-visible | **0** | Best selector result so far; dev-set only. |
+| Word/line agreement policy | 17/21 recovered or reviewed | 13/21 | 4/21 before filtering | **0** | Safe as metadata/review path. |
+| Agreement + Stage 2-span filter | 15/21 supported-or-kept | 13/21 | 2/21 kept | 3 clean review records | Small queue, still review-only. |
+| Agreement + Stage 2-span + OCR-supported reviews | 16/21 supported-or-kept | 13/21 | 3/21 kept | 6 clean review records | More recall, too much review noise. |
+
+Interpretation: this is genuine progress over EasyOCR CTC. The handwriting-line GFCN scorer sees more of the visible erroneous forms (`17/21` top-ranked versus the earlier `13/21` label-free ordering), and it recovers the important `forgoten` canary as a top optical alternative. Permissive unsupported alternatives are unsafe (`My` -> `Mly`, `the` -> `tho`, `inside` -> `nside`, `She` -> `sha`), but a label-free guarded policy now clears the clean automatic-alternative gate on the 20-page development set. The guarded policy blocks short/capitalized/phrase-shaped canonicals, generic one-edit variants, large edit-distance OCR alternatives, non-alphanumeric alternative starts, and first-character deletions; at margin `0.4`, it auto-supports only `forgoten`, `usualy`, and `Thursday` while keeping clean automatic alternatives at 0/219. This is promising enough for a held-out test, but it is still development-set calibration and should not be claimed as production-safe.
+
+The GFCN filtered Stage2-span queue is smaller than the EasyOCR queue: 6 P1 records, with 3 matched-error records and 3 clean records; 2 matched records contain the useful visible review text. This is now useful enough for manual inspection, but not for automatic Stage 2 evidence injection. Representative kept reviews: `thursdav` -> `Thursday` for evidence `thursday`, `floor.` -> `flor` for evidence `flor`, and clean distractors such as `close` -> `chose`.
+
+Planned work:
+
+1. Improve candidate-set policy before wiring CTC into Stage 2.
+   - Keep label-pair and high-confidence OCR-supported alternatives separate from speculative lexical neighbors.
+   - Treat wide candidate sets as a risk surface, not as free recall.
+   - Use the `--candidate-mode all` result as the current negative control.
+
+2. Reduce review volume before Stage 2.
+   - Preserve canonical Qwen verbatim words and boxes; attach CTC scores as metadata only.
+   - Treat `rw_1`/`rw_2` clean alternatives (`rise` -> `vise`, `She` -> `Sle`, `packed` -> `pecked`) as blocker cases for automatic promotion.
+   - Do not use OCR support alone as a pass-through rule; the all-20 filter shows it keeps too many clean alternatives.
+   - Do not assume Stage 2-overlap fixes spelling evidence; the all-20 filter shows it misses the useful normalized-away cases.
+
+3. Improve the optical scorer before Stage 2.
+   - Test agreement features on the GFCN scorer: canonical wins in either context, alternative wins in both contexts, OCR-supported alternative wins with high margin, unsupported alternative only to review.
+   - Add label-free guards for short capitalized words and one-character deletions, because many clean GFCN corruptions have that shape.
+   - Compare GFCN raw versus normalized score fields on a frozen rule set before adding new candidate generators.
+   - Freeze the guarded `margin=0.4` policy before any held-out run; do not keep tuning against these 20 pages.
+   - Keep all alternatives as metadata until clean-page corruption is zero at a useful recall level.
+
+4. Keep CTC evidence graph integration metadata-only for now.
+   - Preserve Qwen verbatim as the canonical transcript and preserve all canonical word indices and boxes.
+   - Attach CTC scores to existing alternatives; do not replace canonical text during Stage 1.
+   - Do not allow unsupported lexical alternatives to become automatic error evidence from CTC alone.
+   - A low or mixed score must never silently rewrite the transcript.
+
+5. Decide whether the current scorer is audit-only or replace it.
+   - The current EasyOCR CTC scorer should stay metadata-only unless a new filter recovers `forgoten`/`usualy` without clean review noise.
+   - The GFCN handwriting-line scorer replaces EasyOCR as the main optical-scoring branch, but remains metadata/review-only until clean corruption is controlled.
+   - If that branch is unavailable, formalize `UNCERTAIN_REVIEW` as the product path instead of trying to turn speculative spelling alternatives into automatic error evidence.
+   - The first review-queue artifact is now in place; use it for inspection, not grading.
+
+6. Wire the optical scorer into Stage 2 only after the selector gate passes.
+   - Stage 2 receives canonical words plus optically supported alternatives tied to the same `word_indices`.
+   - Review-only alternatives remain auditable metadata and are not automatic error claims.
+   - Rerun the focused full-pipeline matrix only after evidence recovery reaches at least 17/21 or the selector demonstrates a plausible path to `error_detection_f1 >= 0.75`.
+
+Current/planned artifacts:
+
+- `pipeline/optical_candidate_scorer.py`
+- `scripts/score_phase4_ctc_candidates.py`
+- `scripts/score_phase4_ctc_inference_graph.py`
+- `scripts/experiment_phase4_ctc_agreement_policy.py`
+- `scripts/analyze_phase4_ctc_calibration.py`
+- `benchmark/results/phase4_ctc_candidate_scores_minimal_pairs.json`
+- `benchmark/results/phase4_ctc_calibration.json`
+- `benchmark/results/phase4_ctc_candidate_scores_minimal_pairs_all_candidates.json`
+- `benchmark/results/phase4_ctc_calibration_all_candidates.json`
+- `benchmark/results/phase4_inference_evidence_graph_ctc_rw1_rw2_rw11.json`
+- `benchmark/results/phase4_inference_evidence_graph_audit_ctc_rw1_rw2_rw11.json`
+- `benchmark/results/phase4_inference_selector_policy_ctc_rw1_rw2_rw11.json`
+- `benchmark/results/phase4_inference_evidence_graph_ctc_line_rw1_rw2_rw11.json`
+- `benchmark/results/phase4_inference_evidence_graph_audit_ctc_line_rw1_rw2_rw11.json`
+- `benchmark/results/phase4_inference_selector_policy_ctc_line_rw1_rw2_rw11.json`
+- `benchmark/results/phase4_inference_selector_policy_ctc_agreement_rw1_rw2_rw11.json`
+- `benchmark/results/phase4_inference_evidence_graph_ctc_20image.json`
+- `benchmark/results/phase4_inference_evidence_graph_ctc_line_20image.json`
+- `benchmark/results/phase4_inference_selector_policy_ctc_agreement_20image.json`
+- `benchmark/results/phase4_inference_selector_policy_ctc_filtered_20image.json`
+- `benchmark/results/phase4_inference_selector_policy_ctc_filtered_ocr_supported_20image.json`
+- `benchmark/results/phase4_inference_selector_policy_ctc_filtered_stage2_spans_20image.json`
+- `benchmark/results/phase4_inference_selector_policy_ctc_filtered_stage2_ocr_supported_20image.json`
+- `benchmark/results/phase4_uncertain_review_queue_ctc_stage2_spans_20image.json`
+- `benchmark/results/phase4_uncertain_review_queue_ctc_stage2_spans_20image.md`
+- `benchmark/results/phase4_uncertain_review_queue_ctc_stage2_spans_p1_p2_20image.json`
+- `benchmark/results/phase4_uncertain_review_queue_ctc_stage2_spans_p1_p2_20image.md`
+- `benchmark/results/phase4_inference_evidence_graph_line_gfcn_normalized_20image.json`
+- `benchmark/results/phase4_inference_evidence_graph_line_gfcn_word_normalized_20image.json`
+- `benchmark/results/phase4_inference_evidence_graph_audit_line_gfcn_normalized_20image.json`
+- `benchmark/results/phase4_inference_selector_policy_line_gfcn_normalized_20image.json`
+- `benchmark/results/phase4_inference_selector_policy_line_gfcn_agreement_20image.json`
+- `benchmark/results/phase4_inference_selector_policy_line_gfcn_agreement_filtered_stage2_20image.json`
+- `benchmark/results/phase4_inference_selector_policy_line_gfcn_agreement_filtered_stage2_ocr_20image.json`
+- `benchmark/results/phase4_inference_selector_policy_line_gfcn_guarded_threshold_probe_20image.json`
+- `benchmark/results/phase4_uncertain_review_queue_line_gfcn_stage2_p1_p2_20image.json`
+- `benchmark/results/phase4_uncertain_review_queue_line_gfcn_stage2_p1_p2_20image.md`
+
+```bash
+.venv/bin/python scripts/score_phase4_ctc_candidates.py \
+  --candidate-mode labels \
+  --output benchmark/results/phase4_ctc_candidate_scores_minimal_pairs.json
+
+.venv/bin/python scripts/analyze_phase4_ctc_calibration.py \
+  --scores benchmark/results/phase4_ctc_candidate_scores_minimal_pairs.json \
+  --output benchmark/results/phase4_ctc_calibration.json
+
+.venv/bin/python scripts/score_phase4_ctc_candidates.py \
+  --candidate-mode all \
+  --output benchmark/results/phase4_ctc_candidate_scores_minimal_pairs_all_candidates.json
+
+.venv/bin/python scripts/analyze_phase4_ctc_calibration.py \
+  --scores benchmark/results/phase4_ctc_candidate_scores_minimal_pairs_all_candidates.json \
+  --output benchmark/results/phase4_ctc_calibration_all_candidates.json
+
+.venv/bin/python scripts/score_phase4_ctc_inference_graph.py \
+  --graph benchmark/results/phase4_inference_evidence_graph_unscored_20image.json \
+  --image rw_1.jpg --image rw_2.jpg --image rw_11.jpg \
+  --output benchmark/results/phase4_inference_evidence_graph_ctc_rw1_rw2_rw11.json
+
+.venv/bin/python scripts/experiment_phase4_inference_selector_policy.py \
+  --graph benchmark/results/phase4_inference_evidence_graph_ctc_rw1_rw2_rw11.json \
+  --image rw_1.jpg --image rw_2.jpg --image rw_11.jpg \
+  --policy strict_ocr --policy allow_unsupported --policy reject_unsupported_when_canonical_supported \
+  --margin-threshold 0.0 --margin-threshold 0.25 --margin-threshold 0.5 --margin-threshold 1.25 \
+  --output benchmark/results/phase4_inference_selector_policy_ctc_rw1_rw2_rw11.json
+
+.venv/bin/python scripts/audit_phase4_inference_evidence_graph.py \
+  --graph benchmark/results/phase4_inference_evidence_graph_ctc_rw1_rw2_rw11.json \
+  --image rw_1.jpg --image rw_2.jpg --image rw_11.jpg \
+  --output benchmark/results/phase4_inference_evidence_graph_audit_ctc_rw1_rw2_rw11.json
+
+.venv/bin/python scripts/score_phase4_ctc_inference_graph.py \
+  --graph benchmark/results/phase4_inference_evidence_graph_unscored_20image.json \
+  --context line \
+  --image rw_1.jpg --image rw_2.jpg --image rw_11.jpg \
+  --output benchmark/results/phase4_inference_evidence_graph_ctc_line_rw1_rw2_rw11.json
+
+.venv/bin/python scripts/experiment_phase4_inference_selector_policy.py \
+  --graph benchmark/results/phase4_inference_evidence_graph_ctc_line_rw1_rw2_rw11.json \
+  --image rw_1.jpg --image rw_2.jpg --image rw_11.jpg \
+  --policy strict_ocr --policy allow_unsupported --policy reject_unsupported_when_canonical_supported \
+  --margin-threshold 0.0 --margin-threshold 0.25 --margin-threshold 0.5 --margin-threshold 1.25 \
+  --output benchmark/results/phase4_inference_selector_policy_ctc_line_rw1_rw2_rw11.json
+
+.venv/bin/python scripts/audit_phase4_inference_evidence_graph.py \
+  --graph benchmark/results/phase4_inference_evidence_graph_ctc_line_rw1_rw2_rw11.json \
+  --image rw_1.jpg --image rw_2.jpg --image rw_11.jpg \
+  --output benchmark/results/phase4_inference_evidence_graph_audit_ctc_line_rw1_rw2_rw11.json
+
+.venv/bin/python scripts/experiment_phase4_ctc_agreement_policy.py \
+  --word-graph benchmark/results/phase4_inference_evidence_graph_ctc_rw1_rw2_rw11.json \
+  --line-graph benchmark/results/phase4_inference_evidence_graph_ctc_line_rw1_rw2_rw11.json \
+  --image rw_1.jpg --image rw_2.jpg --image rw_11.jpg \
+  --output benchmark/results/phase4_inference_selector_policy_ctc_agreement_rw1_rw2_rw11.json
+
+.venv/bin/python scripts/score_phase4_ctc_inference_graph.py \
+  --graph benchmark/results/phase4_inference_evidence_graph_unscored_20image.json \
+  --context word \
+  --output benchmark/results/phase4_inference_evidence_graph_ctc_20image.json \
+  --progress-every 25
+
+.venv/bin/python scripts/score_phase4_ctc_inference_graph.py \
+  --graph benchmark/results/phase4_inference_evidence_graph_unscored_20image.json \
+  --context line \
+  --output benchmark/results/phase4_inference_evidence_graph_ctc_line_20image.json \
+  --progress-every 25
+
+.venv/bin/python scripts/experiment_phase4_ctc_agreement_policy.py \
+  --word-graph benchmark/results/phase4_inference_evidence_graph_ctc_20image.json \
+  --line-graph benchmark/results/phase4_inference_evidence_graph_ctc_line_20image.json \
+  --output benchmark/results/phase4_inference_selector_policy_ctc_agreement_20image.json
+
+.venv/bin/python scripts/filter_phase4_ctc_review_metadata.py \
+  --output benchmark/results/phase4_inference_selector_policy_ctc_filtered_20image.json
+
+.venv/bin/python scripts/filter_phase4_ctc_review_metadata.py \
+  --keep-ocr-supported \
+  --output benchmark/results/phase4_inference_selector_policy_ctc_filtered_ocr_supported_20image.json
+
+.venv/bin/python scripts/filter_phase4_ctc_review_metadata.py \
+  --keep-stage2-spans \
+  --output benchmark/results/phase4_inference_selector_policy_ctc_filtered_stage2_spans_20image.json
+
+.venv/bin/python scripts/filter_phase4_ctc_review_metadata.py \
+  --keep-stage2-spans --keep-ocr-supported \
+  --output benchmark/results/phase4_inference_selector_policy_ctc_filtered_stage2_ocr_supported_20image.json
+
+.venv/bin/python scripts/build_phase4_uncertain_review_queue.py \
+  --include-markdown \
+  --output benchmark/results/phase4_uncertain_review_queue_ctc_stage2_spans_20image.json \
+  --markdown benchmark/results/phase4_uncertain_review_queue_ctc_stage2_spans_20image.md
+
+.venv/bin/python scripts/build_phase4_uncertain_review_queue.py \
+  --priority P1 --priority P2 --include-markdown \
+  --output benchmark/results/phase4_uncertain_review_queue_ctc_stage2_spans_p1_p2_20image.json \
+  --markdown benchmark/results/phase4_uncertain_review_queue_ctc_stage2_spans_p1_p2_20image.md
+
+.venv/bin/python scripts/score_phase4_ctc_inference_graph.py \
+  --backend line_gfcn --context line --score-field normalized \
+  --line-gfcn-code-dir /tmp/LinePytorchOCR \
+  --line-gfcn-checkpoint /tmp/linepytorchocr_weights/model_weights/iam.pt \
+  --line-crop-dir pipeline_output/phase4_inference_evidence_graph/line_crops_line_gfcn_norm_20 \
+  --output benchmark/results/phase4_inference_evidence_graph_line_gfcn_normalized_20image.json \
+  --progress-every 25
+
+.venv/bin/python scripts/score_phase4_ctc_inference_graph.py \
+  --backend line_gfcn --context word --score-field normalized \
+  --line-gfcn-code-dir /tmp/LinePytorchOCR \
+  --line-gfcn-checkpoint /tmp/linepytorchocr_weights/model_weights/iam.pt \
+  --output benchmark/results/phase4_inference_evidence_graph_line_gfcn_word_normalized_20image.json \
+  --progress-every 25
+
+.venv/bin/python scripts/experiment_phase4_ctc_agreement_policy.py \
+  --word-graph benchmark/results/phase4_inference_evidence_graph_line_gfcn_word_normalized_20image.json \
+  --line-graph benchmark/results/phase4_inference_evidence_graph_line_gfcn_normalized_20image.json \
+  --output benchmark/results/phase4_inference_selector_policy_line_gfcn_agreement_20image.json
+
+.venv/bin/python scripts/experiment_phase4_inference_selector_policy.py \
+  --graph benchmark/results/phase4_inference_evidence_graph_line_gfcn_normalized_20image.json \
+  --policy allow_unsupported_guarded \
+  --margin-threshold 0.35 --margin-threshold 0.4 --margin-threshold 0.45 \
+  --output benchmark/results/phase4_inference_selector_policy_line_gfcn_guarded_threshold_probe_20image.json
+
+.venv/bin/python scripts/filter_phase4_ctc_review_metadata.py \
+  --agreement benchmark/results/phase4_inference_selector_policy_line_gfcn_agreement_20image.json \
+  --keep-stage2-spans \
+  --output benchmark/results/phase4_inference_selector_policy_line_gfcn_agreement_filtered_stage2_20image.json
+
+.venv/bin/python scripts/build_phase4_uncertain_review_queue.py \
+  --decisions benchmark/results/phase4_inference_selector_policy_line_gfcn_agreement_filtered_stage2_20image.json \
+  --word-graph benchmark/results/phase4_inference_evidence_graph_line_gfcn_word_normalized_20image.json \
+  --line-graph benchmark/results/phase4_inference_evidence_graph_line_gfcn_normalized_20image.json \
+  --priority P1 --priority P2 --include-markdown \
+  --output benchmark/results/phase4_uncertain_review_queue_line_gfcn_stage2_p1_p2_20image.json \
+  --markdown benchmark/results/phase4_uncertain_review_queue_line_gfcn_stage2_p1_p2_20image.md
+```
+
+Stop conditions:
+
+- Stop the CTC branch if the checkpoint cannot score arbitrary candidate strings with a known alphabet.
+- Stop if it does not beat Qwen visual-gain on clean/error separation under the same records.
+- Stop if any threshold that recovers unsupported error forms also promotes more than 2 clean alternatives on the 20-page development set.
+- If CTC fails, keep the current conservative policy and formalize `UNCERTAIN_REVIEW` as the product path instead of adding more lexical candidate generation.
+
+Promotion gate for the evidence-graph path:
+
+- On the current 20-page development set, recover at least 17/21 intended evidence spans or reach full-pipeline `error_detection_f1 >= 0.75`.
+- Keep clean-page false positives <= 2.
+- Keep error-box IoU >= 0.60.
+- Preserve canonical word IoU >= 0.80.
+- Record whether each recovered error came from canonical text, OCR-supported alternative text, optical-score-supported alternative text, image-verified alternative text, or deterministic source-text adjudication.
+- Before claiming generalization, freeze the rules and score a newly written held-out set.
+
+Recommended order:
+
+1. Freeze current geometry and the primary Qwen verbatim transcript.
+   - Geometry is already above the Phase 4 target (`error_box_iou=0.711` in the best live row).
+   - Treat further word-IoU work as secondary until evidence recovery improves.
+
+2. Label the remaining correction leaks by candidate availability.
+   - For each missed intended error, record whether the true visible form appears in Qwen verbatim, Qwen normal, Tesseract/docTR-aligned text, contrastive candidates, or lexical-neighbor candidates.
+   - This separates candidate generation failures from candidate selection failures.
+
+3. Run candidate recall@K on the existing lattice.
+   - Report recall for OCR-supported candidates separately from unsupported lexical-neighbor candidates.
+   - Do not promote lexical neighbors merely because they exist at edit distance one.
+
+4. Build the minimal-pair word/crop audit.
+   - Include all 21 current positive errors plus matched clean controls.
+   - Split any expanded dataset by writer, not by crop.
+   - Track isolated word crops and line-context crops separately.
+
+5. Test candidate scoring before adding more generation.
+   - First diagnostic: Qwen image-conditioned-minus-text-prior scoring.
+   - Main path: optical-only CTC scorer with no language model.
+   - Calibrate a conservative visual margin using clean controls.
+
+6. Promote the alternative lattice into a scored evidence graph.
+   - Keep Qwen verbatim as the canonical word list.
+   - Attach alternatives, uncertainty reasons, source support, and visual scores without replacing canonical text.
+   - Keep unsupported lexical neighbors as hypotheses to score or abstain on, not as direct Stage 2 evidence.
+   - Current label-free graph candidate recall is 21/21 on the development set, so stop widening candidate generation for now and calibrate the selector/scorer policy before a full Stage 2 rerun.
+
+7. Build a lattice-aware Stage 2/adjudicator probe.
+   - Stage 2 may report `evidence_text` from the canonical word or from a visually supported alternative for the same `word_indices`.
+   - Post-processing must preserve valid alternative evidence text and derive bboxes from canonical word indices.
+   - Drop no-op errors where evidence and correction are identical.
+   - Start with `rw_11` and one or two clean pages after the selector can distinguish canonical-preserved errors, unsupported-but-useful alternatives, and noisy unsupported neighbors.
+   - Current 3-page selector smoke says unsupported lexical alternatives are too risky to pass as automatic evidence hints; keep them as `UNCERTAIN_REVIEW` until an optical-only scorer or stronger calibration separates `forgoten` from `mnuts`.
+
+8. Do not rerun Stage 2 from crop-verified Qwen yet.
+   - The Stage 1 gate failed: 13/21 evidence preserved, 6 correction leaks, word IoU 0.801.
+   - The verifier recovered only `forgoten`; it rejected 33 crop reads, including several harmful high-confidence normalizations.
+   - Treat this as evidence that Qwen crop rereading still normalizes or misreads small handwriting crops.
+
+9. Audit the remaining Stage 1 misses at the image/crop level.
+   - Remaining failures include `umbrela`, `know`, `the the`, `beutiful`, `should of`, `took us hour`, `usualy`, `atleast`, `thursday`, and `flor`.
+   - Separate true OCR normalization from benchmark-span issues where the corrected word appears elsewhere on the page.
+   - For each miss, record which general uncertainty signal would have flagged it; do not record a word-specific fix as the remedy.
+   - Use `scripts/audit_phase4_stage1_uncertainty_signals.py` as the starting report; treat broad signals like OCR-source disagreement as context, not sufficient replacement triggers.
+   - Inspect the crop images under `pipeline_output/phase4_cache/crop_verified_words/` before changing the verifier again.
+
+10. Keep contrastive crop verification as a diagnostic branch, not the main architecture.
+   - Provide the crop plus candidate strings from OCR alternatives and general lexical neighbors, such as Qwen verbatim, Qwen normal, spatially aligned Tesseract/docTR, and one `uncertain` option.
+   - Force the model to choose A/B/uncertain instead of free-form rewriting.
+   - Keep the same rule: only replace individual tokens, never sentences.
+   - Current experimental implementation is capped to the highest-priority flagged crops. The full 20-page safe-default run did not improve Stage 1; unsupported lexical replacements can recover some errors but also create clean-page damage, so keep them diagnostic-only.
+
+11. Tighten the transcript-to-box alignment layer only if evidence recovery improves.
+   - Initial `aligned_tesseract_word_boxes` result: word IoU 0.813, evidence preservation 12/21.
+   - Alignment should remain a geometry improvement layer, not a substitute for truthful OCR.
+   - A future full-pipeline aligned row should be rerun after the local Qwen runtime issue is cleared.
+
+12. Rerun the focused full-pipeline matrix only after evidence recovery improves.
+   - Primary rows: source text + reviewed boxes, Qwen verbatim + Qwen boxes, Qwen alternative lattice/evidence graph + Qwen boxes, Qwen verbatim + aligned boxes, and Qwen normal as a correction-leak control.
+   - Advance a two-stage architecture only if the live Qwen-verbatim row reaches `error_detection_f1 >= 0.75`, clean-page false positives <= 2, and error-box IoU >= 0.60.
+
+13. Retest single-VLM end-to-end only as a diagnostic.
+   - Current single Qwen has valid JSON 0.90, word IoU 0.206, 18 false positives, and only 8/21 evidence spans preserved.
+   - It should not advance unless it becomes valid, faster, evidence-preserving, and comparable on localization.
+
+14. Keep missing Stage 1 candidates out of the next full-pipeline pass unless their Stage 1 contract changes.
+   - The local-only missing-candidate pass is complete and no candidate was promoted.
+   - Nemotron is the most interesting diagnostic contrast because it has only one correction leak, but its CER and geometry are not strong enough for Stage 2.
+   - PaddleOCR-VL and GOT-OCR2.0 have strong-looking CER but leak too many corrections, so they are poor truthfulness sources for this task.
+   - Cloud/manual/API sources stay gated: estimate cost and get explicit approval before live Doc AI, Gemini, Qwen3-VL-8B API, or Hunyuan runs.
+
+Do **not** do next:
+
+- Do not broaden the Stage 1 model matrix until the Qwen-verbatim failure audit is resolved.
+- Do not run cloud/API graders without an explicit cost estimate and approval.
+- Do not treat single-pass Qwen as an architecture candidate until its JSON validity and localization recover.
+- Do not optimize latency until the full-pipeline error-detection path reaches the accuracy gate.
+- Do not optimize geometry beyond current target-passing quality until evidence recovery improves.
+- Do not generate unrestricted lexical neighbors or feed unscored neighbors into Stage 2.
+- Do not judge candidate recovery only through end-to-end F1; report trigger recall, candidate recall@K, selector accuracy, and grader accuracy separately.
+- Do not treat source-text success as end-to-end success; OCR evidence preservation still has to survive.
+

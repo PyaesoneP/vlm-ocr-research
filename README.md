@@ -4,7 +4,7 @@
 [![Hardware: RTX 5070 Ti](https://img.shields.io/badge/hardware-RTX%205070%20Ti%20(12GB)-green)](.)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache%202.0-orange)](./LICENSE)
 
-Empirical evaluation of open-source OCR and vision-language models for a handwritten English essay feedback pipeline. The system must (1) transcribe difficult handwriting, (2) localize writing errors with bounding boxes, (3) recover reading order on unruled paper, and (4) generate natural-language feedback, matching or beating a commercial cloud pipeline (Google Document AI + Gemini) on accuracy while running fully local at lower latency and zero marginal cost. Every number below is measured locally on an RTX 5070 Ti (12 GB). Nothing is theoretical.
+Empirical evaluation of open-source OCR and vision-language models for a handwritten English essay feedback pipeline. The system must (1) transcribe difficult handwriting exactly as written, (2) localize writing errors with bounding boxes, (3) recover reading order on unruled paper, and (4) generate natural-language feedback. The research target is to match or beat a commercial cloud pipeline (Google Document AI + Gemini) while running locally where possible at lower latency and zero marginal cost. Results are marked local/API/cloud/manual where relevant; nothing below is a hypothetical model-card claim.
 
 ---
 
@@ -17,32 +17,34 @@ Empirical evaluation of open-source OCR and vision-language models for a handwri
   - [Word-level bounding boxes](#word-level-bounding-boxes)
   - [Qualitative comparison](#qualitative-comparison)
 - [Architecture](#architecture)
+  - [Phase 4 pipeline assembly](#phase-4-pipeline-assembly)
 - [Reproducibility](#reproducibility)
-  - [Environments](#environments)
-  - [PaddleOCR-VL on Blackwell (Docker)](#paddleocr-vl-on-blackwell-docker)
-  - [MonkeyOCR GPU setup](#monkeyocr-gpu-setup)
-  - [LocateAnything-3B setup](#locateanything-3b-setup)
-  - [Cloud baseline](#cloud-baseline)
 - [How the metrics are computed](#how-the-metrics-are-computed)
 - [Roadmap](#roadmap)
 - [Open issues & decisions](#open-issues--decisions)
 - [Project structure](#project-structure)
 - [License](#license)
 
+### Deep dives
+
+- [Phase 4 experiment log](docs/phase4.md) - every result matrix, verifier, and the next-steps plan
+- [Reproducibility & environment setup](docs/reproducibility.md) - environments, Docker/Blackwell failure modes, per-model setup
+- [Metrics definitions](docs/metrics.md) - CER/WER/IoU/tau definitions, worked example, WER/CER diagnostic
+
 ---
 
 ## TL;DR
 
-**14/14 candidates evaluated. The cloud baseline is beaten on every metric.** The authoritative metric is handwriting CER on XML-cropped images (see [the confound](#the-confound-read-before-any-number) for why full-form numbers don't count).
+**14/14 Stage 1 OCR/localization candidates evaluated.** On clean IAM handwriting crops, the best OCR/VLMs beat the Google Document AI baseline on transcription and word localization. The full feedback pipeline is not solved yet: the real-world error set shows that fluent OCR can "helpfully" correct student mistakes before the grader sees them.
 
 | Verdict | Model | CER | Notes |
 |---|---|---|---|
 | **Best automatable** | Qwen3-VL-8B | **0.035** (word) | Word IoU 0.722, via API. 4B runs locally: CER 0.022 line / 0.049 word, IoU 0.718. |
 | **Best speed/accuracy** | Florence-2-large | 0.061 | 1.05s, 2.0 GB VRAM, but **line-level bboxes only**. |
-| **Highest CER overall** | Hunyuan VL | 0.015 | Manual-only (lmarena, 5 images). No API/HF access, no bbox. Not automatable. |
-| **Cloud baseline** | Google Doc AI | 0.108 (word) | Beaten on both CER (→0.035) and word IoU (0.611 → 0.722). |
+| **Lowest observed CER** | Hunyuan VL | 0.015 | Manual-only (lmarena, 5 images). No API/HF access, no bbox. Not automatable. |
+| **Cloud OCR baseline** | Google Doc AI | 0.108 (word) | Beaten on Stage 1 CER (→0.035) and word IoU (0.611 → 0.722). |
 
-**The bottleneck has moved.** Stage 1 (OCR) is solved. The open problem is now Stage 2, Gemini error detection at 12.4s, which is 74% of the cloud pipeline's 16.7s.
+**Current bottleneck:** clean OCR/localization is strong, and the reviewed source-text Stage 2 gate is now recovered with `contract_v3` plus adjudication. The remaining blocker is Stage 1 truthfulness and text/box alignment: OCR still must preserve what the student actually wrote (`bred`, `minuts`, `forgoten`) and provide boxes anchored to the same word list the grader sees.
 
 ---
 
@@ -143,7 +145,7 @@ NEMOTRON (CER 0.214)                            — readable but reading order s
   Morcow, Mr. khrushchov said he hopect his weekend talks ...
 ```
 
-The pattern is diagnostic: fluent models (Florence-2, GOT) miss specific content words (`Khrushchov`, `Austria`), while broken models (SmolDocling, Nemotron on handwriting) garble structure. See [WER vs CER as a diagnostic](#wer-vs-cer-as-a-diagnostic).
+The pattern is diagnostic: fluent models (Florence-2, GOT) miss specific content words (`Khrushchov`, `Austria`), while broken models (SmolDocling, Nemotron on handwriting) garble structure. See [WER vs CER as a diagnostic](docs/metrics.md#wer-vs-cer-as-a-diagnostic).
 
 ---
 
@@ -163,166 +165,38 @@ Stage 2 — Error detection + feedback (LLM/VLM)
 - **Stage 2 candidates:** Qwen3-VL-4B/8B, granite-docling-258M, Hunyuan VL, Gemini 3.5 Flash (cloud comparison).
 - **Open question:** can one VLM (e.g. Qwen3-VL) handle both stages end-to-end?
 
+### Phase 4 pipeline assembly
+
+Phase 4 is a **pipeline assembly benchmark**: can the Stage 1 components preserve real student mistakes well enough for a grader to catch them? The full experiment log - all result matrices, verifiers, the evidence-graph/CTC work, and the next-steps plan - is in [docs/phase4.md](docs/phase4.md).
+
+**Current state** (reviewed 20-page real-world set, local-only runs):
+
+- **Stage 2 is solved on reviewed source text.** `contract_v3` + rule-based adjudication: valid JSON 1.00, error-detection F1 1.000, error-box IoU 1.000, 0 clean-page false positives - the task's source-text upper bound.
+- **Best live local full pipeline:** Qwen3-VL-4B verbatim text + Qwen word boxes + `contract_v3` + adjudication -> error-detection F1 0.585, error-box IoU 0.711, 5 false positives. Below the 0.75 target, so the two-stage architecture does not advance yet.
+- **Blocker: Stage 1 truthfulness.** Qwen verbatim preserves 12/21 intended error spans, crop-verified 13/21, normal 10/21; the promotion gate is 17/21 with <=2 correction leaks. Tesseract is the best box source (word IoU 0.827) but its transcript is too noisy for Stage 2.
+- **Optical CTC scoring stays metadata-only.** The GFCN line-context scorer top-ranks 17/21 visible error forms; a guarded margin-0.4 policy auto-supports only `forgoten`, `usualy`, and `Thursday` with 0 clean-page corruptions. Development-set calibration, not a production selector.
+- **No missing Stage 1 candidate was promoted** (GOT-OCR2.0, Florence-2, PaddleOCR-VL, Nemotron, MonkeyOCR, SmolDocling, TrOCR all fail the gates).
+- **Next:** freeze the rules, reach >=17/21 evidence recovery (or a plausible path to F1 >= 0.75), then rerun the focused full-pipeline matrix.
+
 ---
 
 ## Reproducibility
 
-### Environments
-
-Five Python environments are required because of conflicting CUDA / transformers / PaddlePaddle versions.
-
-| Env | Type | PyTorch / CUDA | Used for |
-|---|---|---|---|
-| `.venv` | venv | 2.11.0+cu130 / 13.0 | SmolDocling, GOT-OCR2.0, MonkeyOCR, DocLayoutYOLO, Qwen3-VL, TrOCR, baselines |
-| `aiml` | conda | 2.12.0+cu130 / 13.0 | Nemotron OCR v2 (CUDA toolkit must match PyTorch for the C++ extension build) |
-| `florencetf` | conda | 2.11.0+cu130 / 13.0 | Florence-2 (needs transformers 4.40.0, incompatible with 5.x) |
-| `.venv_paddleocr` | venv | PaddlePaddle 3.4.0+ / 12.9 | PaddleOCR-VL (bundles its own NCCL/cuBLAS, conflicts with PyTorch's CUDA 13.0) |
-| `.venv_locateanything` | venv | CUDA-matched PyTorch / transformers 4.57.1 | LocateAnything-3B / NVLabs Eagle Embodied text localization |
+Five Python environments are required (conflicting CUDA / transformers / PaddlePaddle versions); Blackwell sm_120 needs PyTorch 2.11.0+cu130, and PaddleOCR-VL runs reliably only via Docker on this machine. Full setup details, the Docker failure-mode table, and per-model commands are in [docs/reproducibility.md](docs/reproducibility.md).
 
 ```bash
-source .venv/bin/activate          # most models
-conda activate aiml                # Nemotron OCR v2
-conda activate florencetf          # Florence-2
-source .venv_paddleocr/bin/activate # PaddleOCR-VL (native path — broken on Blackwell, see below)
+source .venv/bin/activate                # most models
+conda activate aiml                      # Nemotron OCR v2
+conda activate florencetf                # Florence-2
+source .venv_paddleocr/bin/activate      # PaddleOCR-VL (native broken on Blackwell; use Docker)
 source .venv_locateanything/bin/activate # LocateAnything-3B
 ```
-
-Blackwell (sm_120) is unsupported by stable PyTorch; this project uses 2.11.0+cu130. transformers is pinned at 5.8.1 (needed for SmolDocling's `AutoModelForMultimodalLM`).
-
-### PaddleOCR-VL on Blackwell (Docker)
-
-PaddleOCR-VL uses the **PaddlePaddle native engine**, not HuggingFace transformers (`from paddleocr import PaddleOCRVL`). PyPI `paddlepaddle-gpu` lacks sm_120 support. **Docker is the only reliable path on WSL2 + Blackwell**, the native `.venv_paddleocr` (PaddlePaddle 3.3.1) hangs at `paddle.to_tensor()`.
-
-Five distinct failure modes; the last line printed before a freeze identifies which:
-
-| Last line printed | Cause | Fix |
-|---|---|---|
-| `Checking connectivity to the model hosters...` | pings HF/BOS/ModelScope, stalls on bad routes | `-e PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK=True` |
-| `Fetching N files...` | ~2 GB BOS download stalls outside China; `--rm` re-downloads | named volume `-v paddlex_models:/home/paddleocr/.paddlex` |
-| after `generation_config.json`, before `Latency:` | JIT kernel compile or `/dev/shm` exhaustion (Docker default 64 MB) | `--shm-size=8g` + persistent container |
-| worked before, now hangs immediately | stuck GPU / zombie VRAM (WSL2 leaks between `--rm` runs) | `wsl --shutdown`; set NVIDIA Control Panel → CUDA Sysmem Fallback → *Prefer No Sysmem Fallback* |
-| prints `Latency:` and results, never exits | known Paddle teardown hang | `import os; os._exit(0)` at script end |
-
-**WSL2 gotchas:** VRAM is not freed between `docker run --rm` containers (WDDM leak), so subsequent runs spill weights into shared memory over PCIe, a ~100× slowdown that looks like a freeze. `wsl --shutdown` between runs clears it; the sysmem-fallback policy converts the silent slowdown into a fast, visible OOM. **Never `docker kill`** during active CUDA work (SIGKILL leaks VRAM via dxgkrnl), always `docker stop`.
-
-> Import conflict (2026-06-12): importing the project's `candidates` package before `PaddleOCRVL.predict()` triggers sysmem fallback even on a clean GPU. Use a standalone script with **zero project imports** and **data-only mounts**.
-
-```bash
-# Pull once (Chinese registry, be patient):
-docker pull ccr-2vdh3abv-pub.cnc.bj.baidubce.com/paddlepaddle/paddleocr-vl:latest-nvidia-gpu-sm120-offline
-
-# Benchmark (standalone script, data-only mounts):
-docker run --rm --gpus all --network host --shm-size=8g \
-  -e PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK=True -e PYTHONUNBUFFERED=1 \
-  -v paddlex_models:/home/paddleocr/.paddlex \
-  -v $PWD/benchmark/test_dataset:/data:ro \
-  -v $PWD/benchmark/results:/results \
-  -v $PWD/scripts/bench_paddleocr_handwritten.py:/scripts/bench.py:ro \
-  ccr-2vdh3abv-pub.cnc.bj.baidubce.com/paddlepaddle/paddleocr-vl:latest-nvidia-gpu-sm120-offline \
-  python3 -u /scripts/bench.py
-```
-
-For rapid iteration, run a persistent container (`-d ... sleep infinity`) and `docker exec` into it to keep the JIT cache warm; `docker stop` to tear down.
-
-Reference: [PaddleOCR-VL NVIDIA Blackwell tutorial](https://www.paddleocr.ai/latest/en/version3.x/pipeline_usage/PaddleOCR-VL-NVIDIA-Blackwell.html).
-
-### MonkeyOCR GPU setup
-
-Pre-built llama.cpp binaries are CPU-only (54s/image). Building from source with CUDA gives 4.27s/image (10×).
-
-```bash
-git clone https://github.com/ggerganov/llama.cpp.git /tmp/llama.cpp && cd /tmp/llama.cpp
-cmake -B build -DGGML_CUDA=ON -DCMAKE_BUILD_TYPE=Release
-cmake --build build -j$(nproc) --target llama-server
-
-cd build/bin && LD_LIBRARY_PATH=. ./llama-server \
-  -hf dinhquangson/MonkeyOCR-pro-1.2B-Vision-GGUF \
-  --host 0.0.0.0 --port 8080 -ngl 99 -c 8192 \
-  --mmproj-offload --image-min-tokens 1024
-curl -s http://localhost:8080/health   # → {"status":"ok"}
-```
-
-`-ngl 99` offloads all layers; `--mmproj-offload` puts the vision projector on GPU (critical for encoding speed). At `-c 4096` the image tokens don't fit and output truncates.
-
-### LocateAnything-3B setup
-
-LocateAnything-3B (NVLabs Eagle Embodied) is evaluated as a **Stage 1 text-localization candidate**, not as a direct handwriting transcription replacement. The public task is scene text detection / grounding, so CER/WER are reported only if the model emits actual text labels in `<ref>...</ref>` spans. Primary metrics are word IoU, recall/precision, reading-order τ, latency, and VRAM.
-
-It needs an isolated environment because the released stack requires `transformers==4.57.1`, `numpy==1.25.0`, and `Pillow==11.1.0`.
-
-```bash
-# Python 3.11 is required for the pinned numpy==1.25.0 wheel.
-/home/pyaes/.pyenv/versions/3.11.14/bin/python -m venv .venv_locateanything
-source .venv_locateanything/bin/activate
-pip install --upgrade pip
-
-# Install CUDA-matched PyTorch first. On this Blackwell setup, use the
-# same torch/CUDA family as the other working environments.
-pip install torch==2.11.0 torchvision==0.26.0
-
-# Then install the LocateAnything stack:
-pip install -r requirements-locateanything.txt
-
-# Smoke test one cropped handwriting image:
-python candidates/locateanything/eval.py benchmark/test_dataset/handwritten/a04-039.png
-
-# CPU fallback is intentionally disabled for benchmarks. For a slow parser-only
-# smoke test on CPU, opt in explicitly:
-LOCATEANYTHING_ALLOW_CPU=1 python candidates/locateanything/eval.py benchmark/test_dataset/handwritten/a04-039.png
-
-# Full word-level localization benchmark:
-LOCATEANYTHING_MAX_IMAGE_SIDE=1024 LOCATEANYTHING_MAX_NEW_TOKENS=2048 \
-  python scripts/eval_wordlevel_iou.py locateanything
-```
-
-Outputs:
-
-- `benchmark/results/locateanything_wordlevel_handwritten.json`
-- `benchmark/visualizations/locateanything_wordlevel/`
-
-The model is under NVIDIA's non-commercial research license. Do not add it to the CER leaderboard unless the benchmark confirms transcription-quality labels; otherwise compare it only in the word-level localization table.
-
-On 12 GB VRAM, full-resolution pages OOM in the vision encoder unless optimized attention is available. The candidate resizes inference images to `LOCATEANYTHING_MAX_IMAGE_SIDE` (default 1024) and maps predicted boxes back to original image coordinates before scoring. It also uses an explicit word-level prompt, then retries the broader scene-text prompt when the first pass emits fewer than `LOCATEANYTHING_MIN_WORD_BOXES` boxes (default 20). Current measured result: word IoU 0.592, CER 0.722, τ 0.176, 12.6s/image, 11.9 GB peak VRAM.
-
-### Cloud baseline
-
-**16.7s end-to-end** (Doc AI 2.8s + Gemini 3.5 Flash 12.4s). `gemini-3.5-flash` is a preview model available only in the `global` region on Vertex AI (`asia-southeast1` returns 404). Document AI runs in `asia-southeast1` via a regional endpoint.
-
-```bash
-gcloud auth application-default login
-set -a && source .env && set +a   # GCP_PROJECT, DOCAI_PROCESSOR_ID, GEMINI_MODEL=gemini-3.5-flash
-.venv/bin/python -u benchmark/baseline.py
-```
-
-`baseline.py` prefers an API key, falls back to Vertex AI via ADC (production-tier quota; free-tier keys at 20 req/day are unusable for benchmarking).
 
 ---
 
 ## How the metrics are computed
 
-All bbox/reading-order metrics first run **greedy spatial matching**: each predicted block matches the best-IoU unmatched GT block; only matched pairs score.
-
-**CER**: Levenshtein character distance on whitespace-normalized text (newlines→spaces, collapsed, stripped), divided by GT length. Both empty = 0.0; GT empty + pred non-empty = 1.0. Per-image, then arithmetic mean across all 25 (no exclusions).
-
-**WER**: identical algorithm on `.split()` word tokens. WER ≥ CER always, since a wrong word costs ≥1 character error.
-
-*Worked example:* `Khrushchov` → `Khrushdov`: 1 substitution + 1 deletion = distance 2, CER = 2/10 = **0.20**; the whole word is wrong, so WER = **1.0**.
-
-**Bbox IoU**: standard intersection-over-union on `[x1,y1,x2,y2]`. Formats normalized first: `[x,y,w,h]` → `[x,y,x+w,y+h]`; 4-corner quad → `[min,min,max,max]`. Match threshold IoU ≥ 0.1; mean over matched pairs. Images with 0 matches are excluded.
-
-**Reading order: Kendall's τ-b.** Predicted order = sort blocks by (y, x); align to GT by IoU > 0.05; τ-b over the parallel rank lists (+1 perfect, 0 random, −1 reversed). Per-image mean, excluding images with <2 matches.
-
-> τ = 1.00 for line-level models is *expected*, not impressive: IAM forms are single-column, so any top-to-bottom sort matches `[0,1,2,...]`. Region-level detectors (DocLayoutYOLO τ = −0.17, PP-DocLayout-L τ = 0.92) drop below 1.0 because their blocks don't map 1:1 to line-level GT. Genuine reading-order difficulty (multi-column/unruled) is Phase 5.
-
-### WER vs CER as a diagnostic
-
-The ratio reveals the *type* of error:
-
-| WER/CER | Meaning | Example |
-|---|---|---|
-| ~2× | isolated character errors in mostly-correct words (best case) | PaddleOCR-VL |
-| ~3× | errors cluster in content words (names) | Florence-2 (`Khrushchov`→`Khrushdov`) |
-| ~1× | WER ≈ CER → **hallucination**, whole chunks fabricated | SmolDocling full-form |
+CER/WER are Levenshtein distance on whitespace-normalized text or word tokens; bbox and reading-order metrics use greedy IoU spatial matching, with reading order scored by Kendall's tau-b over parallel rank lists. Full definitions, edge cases, a worked example, and the WER/CER diagnostic are in [docs/metrics.md](docs/metrics.md).
 
 ---
 
@@ -333,7 +207,7 @@ The ratio reveals the *type* of error:
 | 1: Setup & baseline | Completed | Environments, IAM dataset (1,539 forms, 25 curated), 16.7s baseline, harness + metrics. 27/27 validation checks pass. |
 | 2: Tier-1 evaluation | 6/6 Completed| Surfaced the [printed-text confound](#the-confound-read-before-any-number); established cropped-handwriting as the authoritative protocol. |
 | 3: Tier-2 evaluation | 14/14 Completed | Full leaderboard above. Hunyuan #1 CER (manual); Qwen3-VL-8B best automatable. |
-| 4: Pipeline assembly | Pending | Best Stage 1 + Stage 2 combos. One end-to-end VLM vs. OCR + small LLM? Latency breakdown. |
+| 4: Pipeline assembly | In progress | Reviewed annotations, Stage 2 source-text recovery, adjudicated two-stage matrix, and single-pass diagnostic complete. Current focus: evidence-preserving OCR plus shared text/box alignment. |
 | 5: Reading-order deep-dive | Pending | The hard case: unruled/multi-column. Nemotron relational model, PP-StructureV3, heuristics, VLM prompting. τ vs. manual annotation. |
 | 6: Error-detection accuracy | Pending | Per error type (capitalization, spelling, grammar, punctuation, structural): P/R/F1 + error-box IoU. |
 | 7: Auditability | Pending | Per-word crops vs. annotated overlay vs. side-by-side JSON: storage, verifiability, complexity. |
@@ -379,10 +253,11 @@ vlm-ocr-research/
 ├── candidates/              # one dir per model (qwen3_vl, florence2, got_ocr, …)
 ├── scripts/
 │   ├── bench_paddleocr_handwritten.py  # standalone PaddleOCR-VL Docker benchmark
+│   ├── benchmark_phase4.py             # single-VLM vs two-stage architecture benchmark
 │   ├── crop_handwritten.py             # XML-guided crop to the handwritten region
 │   ├── eval_handwritten.py             # authoritative cropped-handwriting eval
 │   └── …
-└── pipeline/                # final two-stage pipeline
+└── pipeline/                # Phase 4 contracts, prompts, parsing, metrics, runners
 ```
 
 ---
